@@ -12,12 +12,16 @@
     "setup-vaults": "npx tsx scripts/setup-vaults.ts"
   },
   "dependencies": {
+    "@drift-labs/sdk": "^2.162.0-beta.0",
+    "@drift-labs/vaults-sdk": "^0.10.7",
+    "@kamino-finance/klend-sdk": "^7.3.21",
     "@solana/kit": "^2.3.0",
     "@solana/spl-token": "^0.4.14",
     "@solana/wallet-adapter-base": "^0.9.27",
     "@solana/wallet-adapter-react": "^0.15.39",
     "@solana/wallet-adapter-react-ui": "^0.9.39",
     "@solana/wallet-adapter-wallets": "^0.19.37",
+    "@solana/web3.js": "^1.98.0",
     "@supabase/supabase-js": "^2.100.1",
     "bs58": "^6.0.0",
     "class-variance-authority": "^0.7.1",

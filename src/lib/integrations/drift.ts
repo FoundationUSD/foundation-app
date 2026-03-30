@@ -1,43 +1,98 @@
 /**
- * Drift Protocol integration — reads RWA vault data.
+ * Drift Protocol integration — real vault reads via Data API + SDK deposits.
  *
- * Uses @drift-labs/vaults-sdk for vault state.
- * Vault program: vAuLTsyrvSfZRuRB3XgvkPwNGgYSs9YRYymVebLKoxR
- *
- * Target vaults:
- * - Gauntlet Levered RWA Vault (~16% APY)
- * - ACRED-USDC/USDT pools
+ * Program: dRiftyHA39MWEi3m9aunc5MzRF1JYuBsbn6VPcn33UH
+ * Vault Program: vAuLTsyrvSfZRuRB3XgvkPwNGgYSs9YRYymVebLKoxR
+ * Data API: https://data.api.drift.trade
  */
 
-import { Connection } from "@solana/web3.js";
+import { Connection, PublicKey } from "@solana/web3.js";
 import { SOLANA_RPC_URL } from "@/lib/constants";
 
-export interface DriftVaultData {
+const DRIFT_DATA_API = "https://data.api.drift.trade";
+
+export interface DriftVaultInfo {
   name: string;
+  address: string;
+  manager: string;
   apy: number;
   tvl: number;
-  vaultAddress: string;
-  url: string;
+  sharePrice: number;
+  maxDeposits: number;
+  currentDeposits: number;
+  protocol: string;
 }
 
-export async function getDriftRwaVaults(): Promise<DriftVaultData[]> {
+/**
+ * Fetch all Drift vaults from the Data API
+ */
+export async function getDriftVaults(): Promise<DriftVaultInfo[]> {
   try {
-    // For MVP: return curated list with known data.
-    // TODO: Integrate @drift-labs/vaults-sdk for live reads.
-    // The SDK has heavy Anchor + BN.js dependencies.
-    // Fallback: Drift's data API at https://data.api.drift.trade
+    const res = await fetch(`${DRIFT_DATA_API}/vaults`, {
+      next: { revalidate: 300 }, // Cache 5 min
+    });
 
-    return [
-      {
-        name: "Drift Gauntlet RWA",
-        apy: 16.0,
-        tvl: 0,
-        vaultAddress: "",
-        url: "https://app.drift.trade/vaults",
-      },
-    ];
+    if (!res.ok) throw new Error(`Drift API ${res.status}`);
+    const data = await res.json();
+
+    if (!Array.isArray(data)) return [];
+
+    return data.map((v: any) => ({
+      name: v.name || "Drift Vault",
+      address: v.pubkey || v.address || "",
+      manager: v.manager || "",
+      apy: Number(v.apy || v.allTimePnlPct || 0),
+      tvl: Number(v.tvl || v.netDeposits || 0),
+      sharePrice: Number(v.sharePrice || 1),
+      maxDeposits: Number(v.maxTokens || 0),
+      currentDeposits: Number(v.netDeposits || 0),
+      protocol: "drift",
+    }));
   } catch (error) {
     console.error("Failed to fetch Drift vaults:", error);
+    return [];
+  }
+}
+
+/**
+ * Fetch a specific vault's details
+ */
+export async function getDriftVault(vaultAddress: string): Promise<DriftVaultInfo | null> {
+  try {
+    const res = await fetch(`${DRIFT_DATA_API}/vaults/${vaultAddress}`);
+    if (!res.ok) return null;
+    const v = await res.json();
+
+    return {
+      name: v.name || "Drift Vault",
+      address: v.pubkey || vaultAddress,
+      manager: v.manager || "",
+      apy: Number(v.apy || 0),
+      tvl: Number(v.tvl || 0),
+      sharePrice: Number(v.sharePrice || 1),
+      maxDeposits: Number(v.maxTokens || 0),
+      currentDeposits: Number(v.netDeposits || 0),
+      protocol: "drift",
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Fetch vault performance history from Drift Data API
+ */
+export async function getDriftVaultHistory(
+  vaultAddress: string,
+): Promise<Array<{ timestamp: string; pnl: number; tvl: number }>> {
+  try {
+    const res = await fetch(
+      `${DRIFT_DATA_API}/vaults/${vaultAddress}/history?resolution=daily&limit=30`,
+    );
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  } catch {
     return [];
   }
 }

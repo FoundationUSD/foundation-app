@@ -1,56 +1,14 @@
 "use client";
 
 import { useVaults } from "@/hooks/useVaults";
+import { useExternalVaults } from "@/hooks/useExternalVaults";
 import { VaultCard } from "@/components/VaultCard";
 import { ExternalVaultCard } from "@/components/ExternalVaultCard";
 import { ProtocolStats } from "@/components/ProtocolStats";
-import type { ExternalVault } from "@/types";
-
-// Static external vault data for MVP — will be replaced with live SDK data
-const EXTERNAL_VAULTS: ExternalVault[] = [
-  {
-    id: "solomon-susdv",
-    type: "external",
-    protocol: "solomon",
-    name: "sUSDV",
-    description: "Staked USDV — yield-bearing stablecoin backed by basis trading strategies",
-    apy: 12.5,
-    tvlUsdc: 0,
-    vaultAddress: "pTA4St7D5WshfLUPBXoaxn5m8e3k2ort2DVt3gUTa17",
-    externalUrl: "https://app.solomonlabs.org",
-    metadata: {},
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: "kamino-rwa-acred",
-    type: "external",
-    protocol: "kamino",
-    name: "Kamino ACRED Earn",
-    description: "Apollo Diversified Credit RWA vault on Kamino Finance",
-    apy: 8.5,
-    tvlUsdc: 0,
-    vaultAddress: "",
-    externalUrl: "https://app.kamino.finance",
-    metadata: {},
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: "drift-rwa-vault",
-    type: "external",
-    protocol: "drift",
-    name: "Drift Gauntlet RWA",
-    description: "Leveraged RWA vault managed by Gauntlet on Drift Protocol",
-    apy: 16.0,
-    tvlUsdc: 0,
-    vaultAddress: "",
-    externalUrl: "https://app.drift.trade/vaults",
-    metadata: {},
-    updatedAt: new Date().toISOString(),
-  },
-];
 
 export default function HomePage() {
-  const { vaults, loading } = useVaults();
+  const { vaults, loading: vaultsLoading } = useVaults();
+  const { vaults: externalVaults, loading: externalLoading } = useExternalVaults();
 
   return (
     <div className="mx-auto max-w-7xl px-6 py-12">
@@ -76,7 +34,7 @@ export default function HomePage() {
       {/* Foundation Vaults */}
       <div className="mb-16">
         <h2 className="section-label mb-6">Foundation Vaults</h2>
-        {loading ? (
+        {vaultsLoading ? (
           <div className="grid gap-6 md:grid-cols-3">
             {[1, 2, 3].map((i) => (
               <div key={i} className="skeleton h-[260px] rounded-xl" />
@@ -91,24 +49,48 @@ export default function HomePage() {
         )}
       </div>
 
-      {/* External RWA Vaults */}
+      {/* External RWA Vaults — live data from Kamino, Drift, Solomon */}
       <div className="mb-16">
         <h2 className="section-label mb-2">Explore More RWA Yield</h2>
         <p className="mb-6 text-sm text-muted-foreground">
-          Third-party RWA vaults from leading Solana protocols
+          Live vault data from Kamino Finance, Drift Protocol, and Solomon Labs
         </p>
-        <div className="stagger-children grid gap-4 md:grid-cols-3">
-          {EXTERNAL_VAULTS.map((vault) => (
-            <ExternalVaultCard key={vault.id} vault={vault} />
-          ))}
-        </div>
+        {externalLoading ? (
+          <div className="grid gap-4 md:grid-cols-3">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="skeleton h-[220px] rounded-xl" />
+            ))}
+          </div>
+        ) : externalVaults.length === 0 ? (
+          <div className="glass rounded-xl p-8 text-center">
+            <p className="font-mono text-xs text-muted-foreground">
+              External vault data unavailable — check back soon
+            </p>
+          </div>
+        ) : (
+          <div className="stagger-children grid gap-4 md:grid-cols-3">
+            {externalVaults.map((vault) => (
+              <ExternalVaultCard key={vault.id} vault={vault} />
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Footer */}
       <footer className="border-t border-white/[0.06] pt-8 text-center">
-        <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-          Foundation Protocol — Solana Devnet
-        </p>
+        <div className="flex items-center justify-center gap-6">
+          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+            Foundation Protocol
+          </p>
+          <span className="text-white/[0.1]">|</span>
+          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+            Solana Devnet
+          </p>
+          <span className="text-white/[0.1]">|</span>
+          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+            Token-2022
+          </p>
+        </div>
       </footer>
     </div>
   );
