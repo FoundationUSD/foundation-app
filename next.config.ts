@@ -8,18 +8,29 @@ const nextConfig: NextConfig = {
   serverExternalPackages: [
     "@solana/web3.js",
     "@solana/spl-token",
-    "@kamino-finance/klend-sdk",
-    "@orca-so/whirlpools-core",
     "@drift-labs/sdk",
     "@drift-labs/vaults-sdk",
+    "@sqds/multisig",
+    "@coral-xyz/anchor",
     "bs58",
   ],
-  images: {
-    remotePatterns: [
-      { protocol: "https", hostname: "**.supabase.co" },
-      { protocol: "https", hostname: "raw.githubusercontent.com" },
-    ],
-  },
+  headers: async () => [
+    {
+      source: "/(.*)",
+      headers: [
+        { key: "X-Frame-Options", value: "DENY" },
+        { key: "X-Content-Type-Options", value: "nosniff" },
+        { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+        { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+      ],
+    },
+    {
+      source: "/api/(.*)",
+      headers: [
+        { key: "Cache-Control", value: "no-store, max-age=0" },
+      ],
+    },
+  ],
 };
 
 export default nextConfig;
