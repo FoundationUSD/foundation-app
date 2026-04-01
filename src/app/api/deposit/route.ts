@@ -1,23 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
-  Connection,
-  PublicKey,
-  Transaction,
-  sendAndConfirmRawTransaction,
-} from "@solana/web3.js";
-
-export const dynamic = "force-dynamic";
+  address,
+  createTransactionMessage,
+  setTransactionMessageFeePayerSigner,
+  setTransactionMessageLifetimeUsingBlockhash,
+  appendTransactionMessageInstructions,
+  getSignatureFromTransaction,
+  signTransactionMessageWithSigners,
+  type Instruction,
+} from "@solana/kit";
 import {
-  TOKEN_2022_PROGRAM_ID,
-  createMintToInstruction,
-  getAssociatedTokenAddressSync,
-  createAssociatedTokenAccountInstruction,
-  getAccount,
-} from "@solana/spl-token";
-import { getVaultAuthority, getConnection } from "@/lib/solana/vault-authority";
-import { supabaseAdmin } from "@/lib/supabase-server";
+  findAssociatedTokenPda,
+  fetchMaybeToken,
+  getCreateAssociatedTokenInstruction,
+  getMintToInstruction,
+  TOKEN_2022_PROGRAM_ADDRESS,
+} from "@solana-program/token-2022";
+import { getVaultAuthority, getRpc, getSendAndConfirmTransaction } from "@/lib/solana/vault-authority";
+import { isSupabaseConfigured, supabaseAdmin } from "@/lib/supabase-server";
 import { VAULT_CONFIGS, USDC_MINT, type VaultId } from "@/lib/constants";
 import type { DepositRequest } from "@/types";
+
+export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
   try {
@@ -36,23 +40,27 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const connection = getConnection();
-    const vaultAuthority = getVaultAuthority();
+    const rpc = getRpc();
+    const vaultAuthority = await getVaultAuthority();
+    const sendAndConfirm = getSendAndConfirmTransaction();
 
     // 1. Verify the USDC transfer actually happened
-    const tx = await connection.getTransaction(txSignature, {
-      commitment: "confirmed",
-      maxSupportedTransactionVersion: 0,
-    });
+    const txResult = await rpc
+      .getTransaction(txSignature as Parameters<typeof rpc.getTransaction>[0], {
+        commitment: "confirmed",
+        maxSupportedTransactionVersion: 0,
+        encoding: "jsonParsed",
+      })
+      .send();
 
-    if (!tx) {
+    if (!txResult) {
       return NextResponse.json(
         { success: false, error: "Transaction not found" },
         { status: 404 },
       );
     }
 
-    if (tx.meta?.err) {
+    if (txResult.meta?.err) {
       return NextResponse.json(
         { success: false, error: "Transaction failed on-chain" },
         { status: 400 },
@@ -60,15 +68,14 @@ export async function POST(req: NextRequest) {
     }
 
     // Verify USDC transfer amount by checking token balance changes
-    const preBalances = tx.meta?.preTokenBalances || [];
-    const postBalances = tx.meta?.postTokenBalances || [];
+    const preBalances = txResult.meta?.preTokenBalances || [];
+    const postBalances = txResult.meta?.postTokenBalances || [];
 
-    const vaultUsdcAta = getAssociatedTokenAddressSync(USDC_MINT, vaultAuthority.publicKey);
     const vaultPostBalance = postBalances.find(
-      (b) => b.owner === vaultAuthority.publicKey.toBase58() && b.mint === USDC_MINT.toBase58(),
+      (b) => b.owner === vaultAuthority.address && b.mint === USDC_MINT,
     );
     const vaultPreBalance = preBalances.find(
-      (b) => b.owner === vaultAuthority.publicKey.toBase58() && b.mint === USDC_MINT.toBase58(),
+      (b) => b.owner === vaultAuthority.address && b.mint === USDC_MINT,
     );
 
     const received =
@@ -83,76 +90,80 @@ export async function POST(req: NextRequest) {
     }
 
     // 2. Calculate shares (1:1 at deposit for interest-bearing tokens)
-    const sharesToMint = amount;
+    const sharesToMint = BigInt(amount);
 
     // 3. Get or create user's Token-2022 ATA
-    const userPubkey = new PublicKey(userWallet);
-    const mintPubkey = new PublicKey(vaultConfig.mint);
-    const userAta = getAssociatedTokenAddressSync(
-      mintPubkey,
-      userPubkey,
-      false,
-      TOKEN_2022_PROGRAM_ID,
-    );
+    const userAddress = address(userWallet);
+    const mintAddress = address(vaultConfig.mint);
+    const [userAtaPda] = await findAssociatedTokenPda({
+      owner: userAddress,
+      tokenProgram: TOKEN_2022_PROGRAM_ADDRESS,
+      mint: mintAddress,
+    });
 
-    const instructions = [];
+    const instructions: Instruction[] = [];
 
-    try {
-      await getAccount(connection, userAta, "confirmed", TOKEN_2022_PROGRAM_ID);
-    } catch {
+    // Check if ATA exists
+    const maybeAccount = await fetchMaybeToken(rpc, userAtaPda, {
+      commitment: "confirmed",
+    });
+
+    if (!maybeAccount.exists) {
       instructions.push(
-        createAssociatedTokenAccountInstruction(
-          vaultAuthority.publicKey,
-          userAta,
-          userPubkey,
-          mintPubkey,
-          TOKEN_2022_PROGRAM_ID,
-        ),
+        getCreateAssociatedTokenInstruction({
+          payer: vaultAuthority,
+          ata: userAtaPda,
+          owner: userAddress,
+          mint: mintAddress,
+          tokenProgram: TOKEN_2022_PROGRAM_ADDRESS,
+        }),
       );
     }
 
     // 4. Mint fdnTokens to user
     instructions.push(
-      createMintToInstruction(
-        mintPubkey,
-        userAta,
-        vaultAuthority.publicKey,
-        sharesToMint,
-        [],
-        TOKEN_2022_PROGRAM_ID,
-      ),
+      getMintToInstruction({
+        mint: mintAddress,
+        token: userAtaPda,
+        mintAuthority: vaultAuthority,
+        amount: sharesToMint,
+      }),
     );
 
-    const mintTx = new Transaction().add(...instructions);
-    mintTx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
-    mintTx.feePayer = vaultAuthority.publicKey;
-    mintTx.sign(vaultAuthority);
+    // Build, sign, and send transaction
+    const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
 
-    const mintSig = await sendAndConfirmRawTransaction(connection, mintTx.serialize(), {
-      commitment: "confirmed",
-    });
+    const msg0 = createTransactionMessage({ version: 0 });
+    const msg1 = setTransactionMessageFeePayerSigner(vaultAuthority, msg0);
+    const msg2 = setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, msg1);
+    const msg3 = appendTransactionMessageInstructions(instructions, msg2);
+
+    const signedTx = await signTransactionMessageWithSigners(msg3);
+    await sendAndConfirm(signedTx, { commitment: "confirmed" });
+    const mintSig = getSignatureFromTransaction(signedTx);
 
     // 5. Log to Supabase
-    await supabaseAdmin.from("sol_deposits").insert({
-      vault_id: vaultId,
-      wallet: userWallet,
-      usdc_amount: amount,
-      shares_minted: sharesToMint,
-      deposit_tx: txSignature,
-      mint_tx: mintSig,
-    });
+    if (isSupabaseConfigured()) {
+      await supabaseAdmin.from("sol_deposits").insert({
+        vault_id: vaultId,
+        wallet: userWallet,
+        usdc_amount: amount,
+        shares_minted: Number(sharesToMint),
+        deposit_tx: txSignature,
+        mint_tx: mintSig,
+      });
 
-    // Update vault TVL
-    await supabaseAdmin.rpc("increment_vault_tvl", {
-      p_vault_id: vaultId,
-      p_amount: amount,
-    });
+      await supabaseAdmin.rpc("increment_vault_tvl", {
+        p_vault_id: vaultId,
+        p_amount: amount,
+      });
+    }
 
     return NextResponse.json({
       success: true,
       data: {
         mintTx: mintSig,
-        sharesMinted: sharesToMint,
+        sharesMinted: Number(sharesToMint),
       },
     });
   } catch (error) {

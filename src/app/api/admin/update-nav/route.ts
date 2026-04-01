@@ -1,11 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
-import { PublicKey } from "@solana/web3.js";
+import {
+  address,
+  createTransactionMessage,
+  setTransactionMessageFeePayerSigner,
+  setTransactionMessageLifetimeUsingBlockhash,
+  appendTransactionMessageInstruction,
+  signTransactionMessageWithSigners,
+} from "@solana/kit";
+import { getUpdateRateInterestBearingMintInstruction } from "@solana-program/token-2022";
+import { getVaultAuthority, getRpc, getSendAndConfirmTransaction } from "@/lib/solana/vault-authority";
+import { isSupabaseConfigured, supabaseAdmin } from "@/lib/supabase-server";
+import { VAULT_CONFIGS, type VaultId } from "@/lib/constants";
 
 export const dynamic = "force-dynamic";
-import { TOKEN_2022_PROGRAM_ID, updateRateInterestBearingMint } from "@solana/spl-token";
-import { getVaultAuthority, getConnection } from "@/lib/solana/vault-authority";
-import { supabaseAdmin } from "@/lib/supabase-server";
-import { VAULT_CONFIGS, type VaultId } from "@/lib/constants";
 
 export async function POST(req: NextRequest) {
   try {
@@ -30,33 +37,40 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const connection = getConnection();
-    const vaultAuthority = getVaultAuthority();
-    const mintPubkey = new PublicKey(vaultConfig.mint);
+    const rpc = getRpc();
+    const vaultAuthority = await getVaultAuthority();
+    const sendAndConfirm = getSendAndConfirmTransaction();
+    const mintAddress = address(vaultConfig.mint);
 
-    await updateRateInterestBearingMint(
-      connection,
-      vaultAuthority,
-      mintPubkey,
-      vaultAuthority,
-      newRateBps,
-      [],
-      undefined,
-      TOKEN_2022_PROGRAM_ID,
-    );
-
-    // Log to Supabase
-    await supabaseAdmin.from("sol_nav_history").insert({
-      vault_id: vaultId,
-      rate_bps: newRateBps,
-      apy: newRateBps / 100,
+    const updateRateIx = getUpdateRateInterestBearingMintInstruction({
+      mint: mintAddress,
+      rateAuthority: vaultAuthority,
+      rate: newRateBps,
     });
 
-    // Update vault record
-    await supabaseAdmin
-      .from("sol_vaults")
-      .update({ rate_bps: newRateBps, apy: newRateBps / 100 })
-      .eq("id", vaultId);
+    const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
+
+    const msg0 = createTransactionMessage({ version: 0 });
+    const msg1 = setTransactionMessageFeePayerSigner(vaultAuthority, msg0);
+    const msg2 = setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, msg1);
+    const msg3 = appendTransactionMessageInstruction(updateRateIx, msg2);
+
+    const signedTx = await signTransactionMessageWithSigners(msg3);
+    await sendAndConfirm(signedTx, { commitment: "confirmed" });
+
+    // Log to Supabase
+    if (isSupabaseConfigured()) {
+      await supabaseAdmin.from("sol_nav_history").insert({
+        vault_id: vaultId,
+        rate_bps: newRateBps,
+        apy: newRateBps / 100,
+      });
+
+      await supabaseAdmin
+        .from("sol_vaults")
+        .update({ rate_bps: newRateBps, apy: newRateBps / 100 })
+        .eq("id", vaultId);
+    }
 
     return NextResponse.json({
       success: true,

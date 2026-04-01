@@ -5,22 +5,18 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const externalVaults = [];
 
-  // Fetch all in parallel — dynamic imports to avoid build-time WASM issues
   const results = await Promise.allSettled([
-    // Solomon — lightweight, on-chain reads only
     (async () => {
       const { getSolomonData } = await import("@/lib/integrations/solomon");
       return { type: "solomon" as const, data: await getSolomonData() };
     })(),
-    // Kamino — heavy SDK with WASM deps, may fail
     (async () => {
-      const { getKaminoVaultData } = await import("@/lib/integrations/kamino");
-      return { type: "kamino" as const, data: await getKaminoVaultData() };
+      const { getKaminoRWAMarkets } = await import("@/lib/integrations/kamino");
+      return { type: "kamino" as const, data: await getKaminoRWAMarkets() };
     })(),
-    // Drift — REST API, lightweight
     (async () => {
-      const { getDriftVaults } = await import("@/lib/integrations/drift");
-      return { type: "drift" as const, data: await getDriftVaults() };
+      const { getTopDriftVaults } = await import("@/lib/integrations/drift");
+      return { type: "drift" as const, data: await getTopDriftVaults(3) };
     })(),
   ]);
 
@@ -33,46 +29,44 @@ export async function GET() {
       externalVaults.push({
         id: "solomon-susdv",
         protocol: "solomon",
-        name: "sUSDV",
-        description: "Yield-bearing stablecoin — basis trading on BTC/ETH/SOL",
+        name: "sUSDV Staking",
+        description: `${sol.estimatedApy}% APY — basis trading on BTC/ETH/SOL. Direct on-chain staking.`,
         apy: sol.estimatedApy,
         tvl: sol.usdvSupply,
-        externalUrl: "https://app.solomonlabs.org",
-        depositEnabled: false,
+        slug: "solomon",
+        depositEnabled: true,
       });
     }
 
     if (type === "kamino") {
-      const k = data as Awaited<ReturnType<typeof import("@/lib/integrations/kamino")["getKaminoVaultData"]>>;
-      externalVaults.push({
-        id: "kamino-lending",
-        protocol: "kamino",
-        name: "Kamino Lending",
-        description: `USDC lending — ${k.reserves.length} reserves available`,
-        apy: k.apy,
-        tvl: k.tvl,
-        externalUrl: k.url,
-        depositEnabled: false, // TX builder uses @solana/kit types, needs migration
-      });
+      const markets = data as Awaited<ReturnType<typeof import("@/lib/integrations/kamino")["getKaminoRWAMarkets"]>>;
+      for (const m of markets.filter((m) => m.tvl > 100_000)) {
+        externalVaults.push({
+          id: `kamino-${m.market.id}`,
+          protocol: "kamino",
+          name: `Kamino ${m.market.name}`,
+          description: `${m.market.description} · ${m.topSupplyApy > 0 ? `${m.topSupplyApy.toFixed(2)}% APY` : "live rates"}`,
+          apy: m.topSupplyApy,
+          tvl: m.tvl,
+          slug: "kamino",
+          depositEnabled: true,
+        });
+      }
     }
 
     if (type === "drift") {
-      const vaults = data as Awaited<ReturnType<typeof import("@/lib/integrations/drift")["getDriftVaults"]>>;
-      const topVaults = vaults
-        .filter((v) => v.tvl > 0)
-        .sort((a, b) => b.tvl - a.tvl)
-        .slice(0, 3);
-
-      for (const v of topVaults) {
+      const vaults = data as Awaited<ReturnType<typeof import("@/lib/integrations/drift")["getTopDriftVaults"]>>;
+      if (vaults.length > 0) {
+        const best = vaults[0];
         externalVaults.push({
-          id: `drift-${v.address.slice(0, 8)}`,
+          id: `drift-vaults`,
           protocol: "drift",
-          name: v.name,
-          description: `Managed vault — ${v.manager ? v.manager.slice(0, 8) + "..." : "Drift"}`,
-          apy: v.apy,
-          tvl: v.tvl,
-          externalUrl: `https://app.drift.trade/vaults/${v.address}`,
-          depositEnabled: false,
+          name: "Drift Managed Vaults",
+          description: `${vaults.length}+ vaults — top: ${best.apy30d.toFixed(1)}% (30d). SDK deposit.`,
+          apy: best.apy30d,
+          tvl: 0,
+          slug: "drift",
+          depositEnabled: true,
         });
       }
     }

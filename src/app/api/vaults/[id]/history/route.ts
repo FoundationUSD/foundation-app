@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase-server";
+import { isSupabaseConfigured, supabaseAdmin } from "@/lib/supabase-server";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+
+  if (!isSupabaseConfigured()) {
+    return NextResponse.json({ success: true, data: [] });
+  }
+
   const { searchParams } = new URL(req.url);
   const days = parseInt(searchParams.get("days") || "30", 10);
 

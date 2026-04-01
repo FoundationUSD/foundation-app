@@ -1,12 +1,32 @@
 import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase-server";
+import { isSupabaseConfigured, supabaseAdmin } from "@/lib/supabase-server";
 import { VAULT_CONFIGS } from "@/lib/constants";
 
 export const dynamic = "force-dynamic";
 
+function getConfigFallback() {
+  return Object.values(VAULT_CONFIGS).map((v) => ({
+    id: v.id,
+    type: "native" as const,
+    name: v.name,
+    symbol: v.symbol,
+    underlying: v.underlying,
+    mintAddress: v.mint,
+    vaultAuthority: "",
+    rateBps: v.rateBps,
+    apy: v.apy,
+    tvlUsdc: 0,
+    totalDeposits: 0,
+    createdAt: new Date().toISOString(),
+  }));
+}
+
 export async function GET() {
+  if (!isSupabaseConfigured()) {
+    return NextResponse.json({ success: true, data: getConfigFallback() });
+  }
+
   try {
-    // Try Supabase first
     const { data: dbVaults } = await supabaseAdmin.from("sol_vaults").select("*");
 
     if (dbVaults && dbVaults.length > 0) {
@@ -29,41 +49,9 @@ export async function GET() {
       });
     }
 
-    // Fallback to config
-    const vaults = Object.values(VAULT_CONFIGS).map((v) => ({
-      id: v.id,
-      type: "native" as const,
-      name: v.name,
-      symbol: v.symbol,
-      underlying: v.underlying,
-      mintAddress: v.mint,
-      vaultAuthority: "",
-      rateBps: v.rateBps,
-      apy: v.apy,
-      tvlUsdc: 0,
-      totalDeposits: 0,
-      createdAt: new Date().toISOString(),
-    }));
-
-    return NextResponse.json({ success: true, data: vaults });
+    return NextResponse.json({ success: true, data: getConfigFallback() });
   } catch (error) {
     console.error("GET /api/vaults error:", error);
-    // Always return vault config as fallback
-    const vaults = Object.values(VAULT_CONFIGS).map((v) => ({
-      id: v.id,
-      type: "native" as const,
-      name: v.name,
-      symbol: v.symbol,
-      underlying: v.underlying,
-      mintAddress: v.mint,
-      vaultAuthority: "",
-      rateBps: v.rateBps,
-      apy: v.apy,
-      tvlUsdc: 0,
-      totalDeposits: 0,
-      createdAt: new Date().toISOString(),
-    }));
-
-    return NextResponse.json({ success: true, data: vaults });
+    return NextResponse.json({ success: true, data: getConfigFallback() });
   }
 }
