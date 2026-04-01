@@ -9,8 +9,9 @@ export interface ExternalVaultItem {
   description: string;
   apy: number;
   tvl: number;
-  externalUrl: string;
+  slug: string;
   depositEnabled: boolean;
+  externalUrl?: string;
   [key: string]: unknown;
 }
 

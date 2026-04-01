@@ -22,8 +22,8 @@ export default function VaultDetailPage({ params }: { params: Promise<{ id: stri
         <div className="skeleton mb-8 h-8 w-32 rounded" />
         <div className="skeleton mb-4 h-12 w-64 rounded" />
         <div className="grid gap-8 md:grid-cols-[1fr_380px]">
-          <div className="skeleton h-[400px] rounded-xl" />
-          <div className="skeleton h-[400px] rounded-xl" />
+          <div className="skeleton h-[400px] rounded-sm" />
+          <div className="skeleton h-[400px] rounded-sm" />
         </div>
       </div>
     );
@@ -71,7 +71,7 @@ export default function VaultDetailPage({ params }: { params: Promise<{ id: stri
       </div>
 
       {/* Stats bar */}
-      <div className="glass mb-8 grid grid-cols-4 gap-4 rounded-xl p-4">
+      <div className="glass mb-8 grid grid-cols-4 gap-4 rounded-sm p-4">
         <div className="text-center">
           <p className="text-gradient-gold font-mono text-2xl font-medium">
             {formatAPY(vault.apy)}
@@ -111,7 +111,7 @@ export default function VaultDetailPage({ params }: { params: Promise<{ id: stri
           <SharePriceChart vaultId={vault.id} />
 
           {/* Vault info */}
-          <div className="glass rounded-xl p-6">
+          <div className="glass rounded-sm p-6">
             <h4 className="section-label mb-4">About This Vault</h4>
             <div className="space-y-3 text-sm">
               <div className="flex justify-between">

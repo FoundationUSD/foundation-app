@@ -10,6 +10,8 @@ import {
 } from "@solana/spl-token";
 import { USDC_MINT } from "@/lib/constants";
 
+const USDC_MINT_PUBKEY = new PublicKey(USDC_MINT);
+
 interface DepositResult {
   depositTx: string;
   mintTx: string;
@@ -40,8 +42,8 @@ export function useDeposit(vaultId: string) {
       const vaultRes = await fetch(`/api/vaults/${vaultId}`).then((r) => r.json());
       const vaultWallet = new PublicKey(vaultRes.data.vaultAuthority);
 
-      const userUsdcAta = getAssociatedTokenAddressSync(USDC_MINT, wallet.publicKey);
-      const vaultUsdcAta = getAssociatedTokenAddressSync(USDC_MINT, vaultWallet);
+      const userUsdcAta = getAssociatedTokenAddressSync(USDC_MINT_PUBKEY, wallet.publicKey);
+      const vaultUsdcAta = getAssociatedTokenAddressSync(USDC_MINT_PUBKEY, vaultWallet);
 
       // Build USDC transfer: user -> vault
       const transferIx = createTransferInstruction(

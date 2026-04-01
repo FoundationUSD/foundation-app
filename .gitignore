@@ -47,3 +47,5 @@ vault-config.json
 # ide
 .vscode/
 .idea/
+
+temp

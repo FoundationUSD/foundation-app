@@ -2,23 +2,31 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 let _client: SupabaseClient | null = null;
 
-export function getSupabaseAdmin(): SupabaseClient {
+export function isSupabaseConfigured(): boolean {
+  return !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
+}
+
+export function getSupabaseAdmin(): SupabaseClient | null {
   if (_client) return _client;
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!url || !key) {
-    throw new Error("Supabase credentials not configured. Set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.");
+    return null;
   }
 
   _client = createClient(url, key, { auth: { persistSession: false } });
   return _client;
 }
 
-// Lazy proxy — only throws when actually used without env vars
+// Lazy proxy — returns null-safe: callers must check isSupabaseConfigured() first
 export const supabaseAdmin = new Proxy({} as SupabaseClient, {
   get(_, prop) {
-    return getSupabaseAdmin()[prop as keyof SupabaseClient];
+    const client = getSupabaseAdmin();
+    if (!client) {
+      throw new Error("Supabase not configured");
+    }
+    return client[prop as keyof SupabaseClient];
   },
 });

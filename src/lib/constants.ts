@@ -1,20 +1,20 @@
-import { PublicKey } from "@solana/web3.js";
+import { address, type Address } from "@solana/kit";
+import { TOKEN_2022_PROGRAM_ADDRESS } from "@solana-program/token-2022";
+import { TOKEN_PROGRAM_ADDRESS } from "@solana-program/token";
+
+// Re-export program addresses for convenience
+export { TOKEN_2022_PROGRAM_ADDRESS, TOKEN_PROGRAM_ADDRESS };
 
 // Network
-export const SOLANA_NETWORK = process.env.NEXT_PUBLIC_SOLANA_NETWORK || "devnet";
+export const SOLANA_NETWORK = process.env.NEXT_PUBLIC_SOLANA_NETWORK || "mainnet-beta";
 export const SOLANA_RPC_URL =
-  process.env.NEXT_PUBLIC_SOLANA_RPC_URL || "https://api.devnet.solana.com";
+  process.env.NEXT_PUBLIC_SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com";
 
 // USDC mints
-export const USDC_MINT_DEVNET = new PublicKey("4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU");
-export const USDC_MINT_MAINNET = new PublicKey("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
-export const USDC_MINT = SOLANA_NETWORK === "mainnet-beta" ? USDC_MINT_MAINNET : USDC_MINT_DEVNET;
+export const USDC_MINT_DEVNET = address("4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU");
+export const USDC_MINT_MAINNET = address("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+export const USDC_MINT: Address = SOLANA_NETWORK === "mainnet-beta" ? USDC_MINT_MAINNET : USDC_MINT_DEVNET;
 export const USDC_DECIMALS = 6;
-
-// Token-2022
-export const TOKEN_2022_PROGRAM_ID = new PublicKey(
-  "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
-);
 
 // Vault definitions
 export const VAULT_CONFIGS = {
@@ -50,8 +50,8 @@ export const VAULT_CONFIGS = {
 export type VaultId = keyof typeof VAULT_CONFIGS;
 
 // Solomon Labs
-export const SOLOMON_USDV_MINT = new PublicKey("Ex5DaKYMCN6QWFA4n67TmMwsH8MJV68RX6YXTmVM532C");
-export const SOLOMON_SUSDV_MINT = new PublicKey("pTA4St7D5WshfLUPBXoaxn5m8e3k2ort2DVt3gUTa17");
+export const SOLOMON_USDV_MINT = address("Ex5DaKYMCN6QWFA4n67TmMwsH8MJV68RX6YXTmVM532C");
+export const SOLOMON_SUSDV_MINT = address("pTA4St7D5WshfLUPBXoaxn5m8e3k2ort2DVt3gUTa17");
 
 // Explorer
 export const EXPLORER_URL =

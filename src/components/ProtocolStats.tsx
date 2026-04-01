@@ -33,7 +33,7 @@ export function ProtocolStats({ vaults }: ProtocolStatsProps) {
   return (
     <div className="grid grid-cols-3 gap-4">
       {stats.map((stat) => (
-        <div key={stat.label} className="glass rounded-xl p-4 text-center">
+        <div key={stat.label} className="glass rounded-sm p-4 text-center">
           <stat.icon className="mx-auto mb-2 h-4 w-4 text-gold-500" />
           <p className="font-mono text-xl font-medium text-foreground">{stat.value}</p>
           <p className="mt-1 font-mono text-[9px] uppercase tracking-[0.2em] text-muted-foreground">

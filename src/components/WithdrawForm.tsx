@@ -38,7 +38,7 @@ export function WithdrawForm({ vault, position, onSuccess }: WithdrawFormProps) 
 
   if (!wallet.connected) {
     return (
-      <div className="glass rounded-xl p-6 text-center">
+      <div className="glass rounded-sm p-6 text-center">
         <p className="mb-3 text-sm text-muted">Connect your wallet to withdraw</p>
       </div>
     );
@@ -46,7 +46,7 @@ export function WithdrawForm({ vault, position, onSuccess }: WithdrawFormProps) 
 
   if (result) {
     return (
-      <div className="glass rounded-xl p-6">
+      <div className="glass rounded-sm p-6">
         <div className="mb-4 flex items-center gap-2 text-success">
           <Check className="h-5 w-5" />
           <span className="font-mono text-sm">Withdrawal Successful</span>
@@ -73,11 +73,11 @@ export function WithdrawForm({ vault, position, onSuccess }: WithdrawFormProps) 
   }
 
   return (
-    <form onSubmit={handleSubmit} className="glass rounded-xl p-6">
+    <form onSubmit={handleSubmit} className="glass rounded-sm p-6">
       <h4 className="section-label mb-4">Withdraw</h4>
 
       <div className="mb-4">
-        <div className="flex items-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.03] px-4 py-3 transition-colors focus-within:border-gold-500/30">
+        <div className="flex items-center gap-2 rounded-sm border border-white/[0.08] bg-white/[0.03] px-4 py-3 transition-colors focus-within:border-gold-500/30">
           <input
             type="number"
             placeholder="0.00"

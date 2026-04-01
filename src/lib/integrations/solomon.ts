@@ -1,21 +1,20 @@
 /**
- * Solomon Labs integration — USDV/sUSDV on-chain reads.
+ * Solomon Labs integration — direct on-chain staking via Anchor.
  *
- * USDV: Ex5DaKYMCN6QWFA4n67TmMwsH8MJV68RX6YXTmVM532C
- * sUSDV: pTA4St7D5WshfLUPBXoaxn5m8e3k2ort2DVt3gUTa17
+ * Stake Program: HSnn7bDvkZSEwujZDPtUcdo9KL7Conycgmy8m6mBFD5
+ * USDv Mint: Ex5DaKYMCN6QWFA4n67TmMwsH8MJV68RX6YXTmVM532C
+ * sUSDV Mint: pTA4St7D5WshfLUPBXoaxn5m8e3k2ort2DVt3gUTa17
  *
- * No SDK available — we read token state directly on-chain.
- * sUSDV accrues yield via exchange rate (like Lido wstETH).
- * 7-day cooldown on unstake.
- * Yield source: basis trading (spot-long / perp-short on BTC/ETH/SOL).
- *
- * For staking/unstaking, we need the Solomon staking program IDL
- * which we'll request from the Solomon team.
+ * Both USDv and sUSDV are SPL tokens (9 decimals).
+ * Staking is permissionless. Unstaking has a 7-day cooldown.
  */
 
-import { Connection, PublicKey } from "@solana/web3.js";
-import { getMint, TOKEN_PROGRAM_ID } from "@solana/spl-token";
+import { createSolanaRpc } from "@solana/kit";
+import { fetchMaybeMint } from "@solana-program/token";
 import { SOLOMON_SUSDV_MINT, SOLOMON_USDV_MINT, SOLANA_RPC_URL } from "@/lib/constants";
+
+export const SOLOMON_STAKE_PROGRAM_ID = "HSnn7bDvkZSEwujZDPtUcdo9KL7Conycgmy8m6mBFD5";
+export const SOLOMON_VAULT_SALT = new Uint8Array([0, 0, 0, 0, 0, 0, 0, 0]);
 
 export interface SolomonProtocolData {
   usdvMint: string;
@@ -26,38 +25,90 @@ export interface SolomonProtocolData {
   estimatedApy: number;
 }
 
+export interface SolomonVaultState {
+  totalAssets: number;
+  vestingAmount: number;
+  lastDistributionTime: number;
+  vestingPeriod: number;
+  cooldown: number;
+  minShares: number;
+}
+
+/**
+ * Calculate unvested amount (still vesting, not yet distributed)
+ */
+export function getUnvestedAmount(
+  vestingAmount: number,
+  lastDistributionTime: number,
+  vestingPeriod: number,
+): number {
+  if (vestingAmount === 0) return 0;
+  const now = Date.now() / 1000;
+  const timePassed = now - lastDistributionTime;
+  if (timePassed >= vestingPeriod) return 0;
+  const remainingTime = vestingPeriod - timePassed;
+  return (remainingTime * vestingAmount) / vestingPeriod;
+}
+
+/**
+ * Convert USDv amount to sUSDV shares
+ */
+export function convertToShares(
+  assetAmount: number,
+  totalAssets: number,
+  unvestedAmount: number,
+  totalSupply: number,
+): number {
+  if (totalAssets === 0) return assetAmount;
+  const effectiveAssets = totalAssets - unvestedAmount;
+  return (assetAmount * totalSupply) / effectiveAssets;
+}
+
+/**
+ * Convert sUSDV shares to USDv amount
+ */
+export function convertToAssets(
+  sharesAmount: number,
+  totalAssets: number,
+  unvestedAmount: number,
+  totalSupply: number,
+): number {
+  if (totalSupply === 0) return sharesAmount;
+  const effectiveAssets = totalAssets - unvestedAmount;
+  return (sharesAmount * effectiveAssets) / totalSupply;
+}
+
 /**
  * Read live Solomon protocol data from on-chain token state
  */
 export async function getSolomonData(): Promise<SolomonProtocolData> {
   try {
-    const connection = new Connection(SOLANA_RPC_URL);
+    const rpc = createSolanaRpc(SOLANA_RPC_URL);
 
-    const [usdvMintInfo, susdvMintInfo] = await Promise.all([
-      getMint(connection, SOLOMON_USDV_MINT, "confirmed", TOKEN_PROGRAM_ID).catch(() => null),
-      getMint(connection, SOLOMON_SUSDV_MINT, "confirmed", TOKEN_PROGRAM_ID).catch(() => null),
+    const [usdvMintResult, susdvMintResult] = await Promise.all([
+      fetchMaybeMint(rpc, SOLOMON_USDV_MINT, { commitment: "confirmed" }).catch(() => null),
+      fetchMaybeMint(rpc, SOLOMON_SUSDV_MINT, { commitment: "confirmed" }).catch(() => null),
     ]);
 
-    const usdvSupply = usdvMintInfo ? Number(usdvMintInfo.supply) / 1e6 : 0;
-    const susdvSupply = susdvMintInfo ? Number(susdvMintInfo.supply) / 1e6 : 0;
+    const usdvSupply = usdvMintResult?.exists ? Number(usdvMintResult.data.supply) / 1e9 : 0;
+    const susdvSupply = susdvMintResult?.exists ? Number(susdvMintResult.data.supply) / 1e9 : 0;
 
-    // Exchange rate: total USDV backing / sUSDV supply
-    // Since sUSDV captures yield, exchange rate grows over time
+    // Exchange rate: total backing / supply
     const exchangeRate = susdvSupply > 0 && usdvSupply > 0 ? usdvSupply / susdvSupply : 1;
 
     return {
-      usdvMint: SOLOMON_USDV_MINT.toBase58(),
-      susdvMint: SOLOMON_SUSDV_MINT.toBase58(),
+      usdvMint: SOLOMON_USDV_MINT,
+      susdvMint: SOLOMON_SUSDV_MINT,
       usdvSupply,
       susdvSupply,
       exchangeRate,
-      estimatedApy: 12.5, // From Solomon docs — basis trading strategy
+      estimatedApy: 12.5,
     };
   } catch (error) {
     console.error("Failed to fetch Solomon data:", error);
     return {
-      usdvMint: SOLOMON_USDV_MINT.toBase58(),
-      susdvMint: SOLOMON_SUSDV_MINT.toBase58(),
+      usdvMint: SOLOMON_USDV_MINT,
+      susdvMint: SOLOMON_SUSDV_MINT,
       usdvSupply: 0,
       susdvSupply: 0,
       exchangeRate: 1,
@@ -67,35 +118,14 @@ export async function getSolomonData(): Promise<SolomonProtocolData> {
 }
 
 /**
- * Fetch Solomon protocol stats from their public stats page
+ * Derive PDA for the Solomon stake vault state
  */
-export async function getSolomonStats(): Promise<{
-  tvl: number;
-  apy: number;
-  holders: number;
-}> {
-  try {
-    // Try fetching from Solomon's stats API
-    const res = await fetch("https://app.solomonlabs.org/api/stats", {
-      next: { revalidate: 600 }, // Cache 10 min
-    });
-
-    if (res.ok) {
-      const data = await res.json();
-      return {
-        tvl: Number(data.tvl || 0),
-        apy: Number(data.apy || 12.5),
-        holders: Number(data.holders || 0),
-      };
-    }
-  } catch {
-    // Fallback to on-chain data
-  }
-
-  const onChainData = await getSolomonData();
-  return {
-    tvl: onChainData.usdvSupply,
-    apy: onChainData.estimatedApy,
-    holders: 0,
-  };
+export function getStakeVaultStatePDA(): { pda: string; seeds: Buffer[] } {
+  // PDA seeds: ["vault-state", salt]
+  // This is computed client-side using Anchor's findProgramAddressSync
+  const seeds = [
+    Buffer.from("vault-state"),
+    Buffer.from(SOLOMON_VAULT_SALT),
+  ];
+  return { pda: "", seeds };
 }

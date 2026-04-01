@@ -14,7 +14,7 @@ export function VaultCard({ vault }: VaultCardProps) {
     <Link href={`/vault/${vault.id}`}>
       <div className="glass-card group relative cursor-pointer overflow-hidden p-6">
         {/* Subtle gold corner glow on hover */}
-        <div className="absolute -top-20 -right-20 h-40 w-40 rounded-full bg-gold-500/0 transition-all duration-500 group-hover:bg-gold-500/5" />
+        <div className="absolute -top-20 -right-20 h-40 w-40 rounded-sm bg-gold-500/0 transition-all duration-500 group-hover:bg-gold-500/5" />
 
         {/* Header */}
         <div className="mb-6 flex items-start justify-between">

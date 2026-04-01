@@ -1,8 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { useWallet } from "@solana/wallet-adapter-react";
-import { useWalletModal } from "@solana/wallet-adapter-react-ui";
+import { WalletModal } from "@/components/WalletModal";
 import {
   Wallet,
   ArrowUpRight,
@@ -21,14 +22,14 @@ import type { NativeVault, UserPosition } from "@/types";
 function PositionRow({ vault }: { vault: NativeVault }) {
   const { position, loading } = useUserPosition(vault.id, vault.mintAddress);
 
-  if (loading) return <div className="skeleton h-16 w-full rounded-lg" />;
+  if (loading) return <div className="skeleton h-16 w-full rounded-sm" />;
   if (!position || position.shares === 0) return null;
 
   return (
     <Link href={`/vault/${vault.id}`}>
       <div className="glass-card group flex items-center justify-between p-4 transition-all hover:border-gold-500/20">
         <div className="flex items-center gap-4">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gold-500/10">
+          <div className="flex h-10 w-10 items-center justify-center rounded-sm bg-gold-500/10">
             <Coins className="h-5 w-5 text-gold-400" />
           </div>
           <div>
@@ -64,7 +65,7 @@ function TotalValue({ vaults }: { vaults: NativeVault[] }) {
   // This component aggregates all user positions for a total portfolio value
   // In a real app you'd compute this server-side, but for MVP we show it client-side
   return (
-    <div className="glass rounded-xl p-6">
+    <div className="glass rounded-sm p-6">
       <p className="section-label mb-2">Portfolio Value</p>
       <p className="font-serif text-4xl font-light text-foreground">--</p>
       <p className="mt-1 font-mono text-[10px] text-muted-foreground">
@@ -81,7 +82,7 @@ function TxHistorySection() {
     return (
       <div className="space-y-2">
         {[1, 2, 3].map((i) => (
-          <div key={i} className="skeleton h-12 rounded-lg" />
+          <div key={i} className="skeleton h-12 rounded-sm" />
         ))}
       </div>
     );
@@ -89,7 +90,7 @@ function TxHistorySection() {
 
   if (txs.length === 0) {
     return (
-      <div className="rounded-xl border border-white/[0.04] p-8 text-center">
+      <div className="rounded-sm border border-white/[0.04] p-8 text-center">
         <p className="font-mono text-xs text-muted-foreground">No transactions yet</p>
       </div>
     );
@@ -100,15 +101,15 @@ function TxHistorySection() {
       {txs.map((tx) => (
         <div
           key={`${tx.type}-${tx.id}`}
-          className="glass flex items-center justify-between rounded-lg p-3"
+          className="glass flex items-center justify-between rounded-sm p-3"
         >
           <div className="flex items-center gap-3">
             {tx.type === "deposit" ? (
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-success/10">
+              <div className="flex h-8 w-8 items-center justify-center rounded-sm bg-success/10">
                 <ArrowDownLeft className="h-4 w-4 text-success" />
               </div>
             ) : (
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gold-500/10">
+              <div className="flex h-8 w-8 items-center justify-center rounded-sm bg-gold-500/10">
                 <ArrowUpRight className="h-4 w-4 text-gold-400" />
               </div>
             )}
@@ -143,27 +144,30 @@ function TxHistorySection() {
 
 export default function PortfolioPage() {
   const wallet = useWallet();
-  const { setVisible } = useWalletModal();
+  const [walletModalOpen, setWalletModalOpen] = useState(false);
   const { vaults, loading } = useVaults();
 
   if (!wallet.connected) {
     return (
-      <div className="mx-auto flex max-w-5xl flex-col items-center justify-center px-6 py-24">
-        <div className="glass-card max-w-md p-10 text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gold-500/10">
-            <Wallet className="h-8 w-8 text-gold-400" />
+      <>
+        <div className="mx-auto flex max-w-5xl flex-col items-center justify-center px-6 py-24">
+          <div className="glass-card max-w-md p-10 text-center">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-sm bg-gold-500/10">
+              <Wallet className="h-8 w-8 text-gold-400" />
+            </div>
+            <h1 className="mb-2 font-serif text-2xl font-light text-foreground">
+              Connect Your Wallet
+            </h1>
+            <p className="mb-6 text-sm text-muted-foreground">
+              Connect your Solana wallet to view your vault positions and transaction history.
+            </p>
+            <button onClick={() => setWalletModalOpen(true)} className="btn-primary w-full">
+              Connect Wallet
+            </button>
           </div>
-          <h1 className="mb-2 font-serif text-2xl font-light text-foreground">
-            Connect Your Wallet
-          </h1>
-          <p className="mb-6 text-sm text-muted-foreground">
-            Connect your Solana wallet to view your vault positions and transaction history.
-          </p>
-          <button onClick={() => setVisible(true)} className="btn-primary w-full">
-            Connect Wallet
-          </button>
         </div>
-      </div>
+        <WalletModal open={walletModalOpen} onClose={() => setWalletModalOpen(false)} />
+      </>
     );
   }
 
@@ -181,7 +185,7 @@ export default function PortfolioPage() {
         {loading ? (
           <div className="space-y-3">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="skeleton h-16 rounded-xl" />
+              <div key={i} className="skeleton h-16 rounded-sm" />
             ))}
           </div>
         ) : vaults.length === 0 ? (

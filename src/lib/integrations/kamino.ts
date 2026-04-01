@@ -1,85 +1,100 @@
 /**
- * Kamino Finance integration — live SDK reads for reserve data.
+ * Kamino Finance integration — RWA lending markets via REST API.
  *
  * Program: KLend2g3cP87fffoy8q1mQqGKjrxjC8boSyAYavgmjD
- * SDK: @kamino-finance/klend-sdk
+ * API: https://api.kamino.finance
  *
- * Note: The Kamino SDK uses @solana/kit types internally. The read layer works
- * with legacy Connection (cast as any). The deposit/withdraw tx builders return
- * @solana/kit Instruction types, which aren't compatible with legacy Transaction.
- * For MVP, we expose reads only. Direct deposits will be added when we migrate
- * fully to @solana/kit.
+ * RWA Markets:
+ *   PRIME (Figure): CqAoLuqWtavaVE8deBjMKe8ZfSt9ghR6Vb8nfsyabyHA
+ *   Apollo sACRED: 3koBPZPPV4Ag4DPWCyTdAVGxzxABWw9vX8sjbbM2
+ *   Main Market:   7u3HeHxYDLhnCoErrtycNokbQYbWGzLs6JSDqGAv5PfF
  */
 
-import { Connection } from "@solana/web3.js";
-import { KaminoMarket } from "@kamino-finance/klend-sdk";
-import { SOLANA_RPC_URL } from "@/lib/constants";
+const KAMINO_API = "https://api.kamino.finance";
 
-// Kamino main market on mainnet
-const KAMINO_MAIN_MARKET = "7u3HeHxYDLhnCoErrtycNokbQYbWGzLs6JSDqGAv5PfF";
+export interface KaminoMarketConfig {
+  id: string;
+  name: string;
+  address: string;
+  description: string;
+  category: "rwa" | "defi";
+}
+
+export const KAMINO_MARKETS: KaminoMarketConfig[] = [
+  {
+    id: "prime",
+    name: "PRIME (Figure)",
+    address: "CqAoLuqWtavaVE8deBjMKe8ZfSt9ghR6Vb8nfsyabyHA",
+    description: "Supply USDC against PRIME collateral — $570M+ market, backed by Figure HELOCs",
+    category: "rwa",
+  },
+  {
+    id: "apollo",
+    name: "Apollo sACRED",
+    address: "3koBPZPPV4Ag4DPWCyTdAVGxzxABWw9vEZ9vX8sjbbM2",
+    description: "Supply stablecoins against tokenized Apollo Diversified Credit fund",
+    category: "rwa",
+  },
+  {
+    id: "main",
+    name: "Main Market",
+    address: "7u3HeHxYDLhnCoErrtycNokbQYbWGzLs6JSDqGAv5PfF",
+    description: "Kamino's primary lending market — SOL, USDC, and 20+ assets",
+    category: "defi",
+  },
+];
 
 export interface KaminoReserveData {
+  reserve: string;
   symbol: string;
   mintAddress: string;
   supplyApy: number;
   borrowApy: number;
   totalSupply: number;
+  totalSupplyUsd: number;
+  totalBorrow: number;
   availableLiquidity: number;
+  maxLtv: number;
 }
 
-export interface KaminoVaultData {
-  name: string;
-  apy: number;
-  tvl: number;
+export interface KaminoMarketData {
+  market: KaminoMarketConfig;
   reserves: KaminoReserveData[];
-  url: string;
-}
-
-let _market: KaminoMarket | null = null;
-
-async function getMarket(): Promise<KaminoMarket> {
-  if (_market) return _market;
-  const connection = new Connection(SOLANA_RPC_URL);
-  _market = await KaminoMarket.load(
-    connection as any,
-    KAMINO_MAIN_MARKET as any,
-    0,
-  );
-  if (!_market) throw new Error("Failed to load Kamino market");
-  return _market;
+  tvl: number;
+  topSupplyApy: number;
 }
 
 /**
- * Fetch live reserve data from Kamino — APYs, TVL, liquidity
+ * Fetch live reserve metrics for a specific Kamino market
  */
-export async function getKaminoReserves(): Promise<KaminoReserveData[]> {
+export async function getKaminoReserves(
+  marketAddress?: string,
+): Promise<KaminoReserveData[]> {
+  const market = marketAddress || KAMINO_MARKETS[0].address;
   try {
-    const market = await getMarket();
-    const connection = new Connection(SOLANA_RPC_URL);
-    const currentSlot = BigInt(await connection.getSlot());
-    const reserves: KaminoReserveData[] = [];
+    const isServer = typeof window === "undefined";
+    const res = await fetch(
+      `${KAMINO_API}/kamino-market/${market}/reserves/metrics`,
+      isServer ? { next: { revalidate: 300 } } : undefined,
+    );
 
-    for (const reserve of market.reserves.values()) {
-      try {
-        const supplyApy = Number(reserve.totalSupplyAPY(currentSlot)) || 0;
-        const borrowApy = Number(reserve.totalBorrowAPY(currentSlot)) || 0;
-        const totalSupply = Number(reserve.getTotalSupply() || 0);
-        const available = Number(reserve.getLiquidityAvailableAmount() || 0);
+    if (!res.ok) throw new Error(`Kamino API ${res.status}`);
+    const data = await res.json();
 
-        reserves.push({
-          symbol: reserve.getTokenSymbol() || "Unknown",
-          mintAddress: String(reserve.getLiquidityMint()),
-          supplyApy,
-          borrowApy,
-          totalSupply,
-          availableLiquidity: available,
-        });
-      } catch {
-        // Skip reserves that fail
-      }
-    }
+    if (!Array.isArray(data)) return [];
 
-    return reserves;
+    return data.map((r: Record<string, unknown>) => ({
+      reserve: String(r.reserve || ""),
+      symbol: String(r.liquidityToken || "Unknown"),
+      mintAddress: String(r.liquidityTokenMint || ""),
+      supplyApy: Number(r.supplyApy || 0),
+      borrowApy: Number(r.borrowApy || 0),
+      totalSupply: Number(r.totalSupply || 0),
+      totalSupplyUsd: Number(r.totalSupplyUsd || 0),
+      totalBorrow: Number(r.totalBorrow || 0),
+      availableLiquidity: Number(r.totalSupply || 0) - Number(r.totalBorrow || 0),
+      maxLtv: Number(r.maxLtv || 0),
+    }));
   } catch (error) {
     console.error("Failed to fetch Kamino reserves:", error);
     return [];
@@ -87,19 +102,131 @@ export async function getKaminoReserves(): Promise<KaminoReserveData[]> {
 }
 
 /**
- * Get aggregated vault data for display
+ * Fetch data for all RWA markets
  */
-export async function getKaminoVaultData(): Promise<KaminoVaultData> {
-  const reserves = await getKaminoReserves();
-  const usdcReserve = reserves.find(
-    (r) => r.symbol.toUpperCase() === "USDC",
+export async function getKaminoRWAMarkets(): Promise<KaminoMarketData[]> {
+  const rwaMarkets = KAMINO_MARKETS.filter((m) => m.category === "rwa");
+  const results = await Promise.allSettled(
+    rwaMarkets.map(async (market) => {
+      const reserves = await getKaminoReserves(market.address);
+      const tvl = reserves.reduce((sum, r) => sum + r.totalSupplyUsd, 0);
+      const stableReserves = reserves.filter((r) =>
+        ["USDC", "USDS", "PYUSD", "CASH"].includes(r.symbol.toUpperCase()),
+      );
+      const topSupplyApy = Math.max(
+        ...stableReserves.map((r) => r.supplyApy * 100),
+        0,
+      );
+      return { market, reserves, tvl, topSupplyApy };
+    }),
   );
 
+  return results
+    .filter((r): r is PromiseFulfilledResult<KaminoMarketData> => r.status === "fulfilled")
+    .map((r) => r.value);
+}
+
+/**
+ * Get aggregated data for the external vaults display
+ */
+export async function getKaminoVaultData() {
+  const markets = await getKaminoRWAMarkets();
+  const totalTvl = markets.reduce((sum, m) => sum + m.tvl, 0);
+  const bestApy = Math.max(...markets.map((m) => m.topSupplyApy), 0);
+
   return {
-    name: "Kamino Lending",
-    apy: usdcReserve ? usdcReserve.supplyApy * 100 : 0,
-    tvl: reserves.reduce((sum, r) => sum + r.totalSupply, 0),
-    reserves,
-    url: "https://app.kamino.finance",
+    name: "Kamino RWA Lending",
+    apy: bestApy,
+    tvl: totalTvl,
+    markets,
+    url: "https://kamino.com/assets/prime",
   };
+}
+
+/**
+ * Build a deposit transaction via Kamino's transaction API.
+ * Returns a base64-encoded unsigned transaction for the user to sign.
+ */
+export async function buildKaminoDepositTx(params: {
+  userWallet: string;
+  mintAddress: string;
+  amount: string;
+  market: string;
+}): Promise<{ transaction: string } | null> {
+  try {
+    const res = await fetch(`${KAMINO_API}/ktx/klend/deposit`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        owner: params.userWallet,
+        mint: params.mintAddress,
+        amount: params.amount,
+        market: params.market,
+      }),
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Kamino deposit tx API ${res.status}: ${text}`);
+    }
+
+    return await res.json();
+  } catch (error) {
+    console.error("Failed to build Kamino deposit tx:", error);
+    return null;
+  }
+}
+
+/**
+ * Build a withdraw transaction via Kamino's transaction API.
+ */
+export async function buildKaminoWithdrawTx(params: {
+  userWallet: string;
+  mintAddress: string;
+  amount: string;
+  market: string;
+}): Promise<{ transaction: string } | null> {
+  try {
+    const res = await fetch(`${KAMINO_API}/ktx/klend/withdraw`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        owner: params.userWallet,
+        mint: params.mintAddress,
+        amount: params.amount,
+        market: params.market,
+      }),
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Kamino withdraw tx API ${res.status}: ${text}`);
+    }
+
+    return await res.json();
+  } catch (error) {
+    console.error("Failed to build Kamino withdraw tx:", error);
+    return null;
+  }
+}
+
+/**
+ * Fetch user obligations (positions) in a specific market
+ */
+export async function getKaminoUserObligations(
+  userWallet: string,
+  marketAddress?: string,
+): Promise<unknown[]> {
+  const market = marketAddress || KAMINO_MARKETS[0].address;
+  try {
+    const res = await fetch(
+      `${KAMINO_API}/kamino-market/${market}/users/${userWallet}/obligations`,
+      { next: { revalidate: 60 } },
+    );
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
 }

@@ -37,7 +37,7 @@ export function SharePriceChart({ vaultId }: SharePriceChartProps) {
   }));
 
   return (
-    <div className="glass rounded-xl p-6">
+    <div className="glass rounded-sm p-6">
       {/* Header */}
       <div className="mb-6 flex items-center justify-between">
         <h4 className="section-label">Yield History</h4>
