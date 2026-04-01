@@ -10,10 +10,8 @@ import {
   getAssociatedTokenAddressSync,
   getAccount,
 } from "@solana/spl-token";
-import { Wallet, Coins, ArrowUpRight, ArrowDownLeft, ExternalLink } from "lucide-react";
+import { Wallet, Coins } from "lucide-react";
 import { WalletModal } from "@/components/WalletModal";
-import { getTxUrl } from "@/lib/constants";
-import { formatCurrency } from "@/lib/utils";
 
 export default function PortfolioPage() {
   const wallet = useWallet();

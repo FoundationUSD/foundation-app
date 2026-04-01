@@ -11,7 +11,6 @@ import {
   PublicKey,
   TransactionMessage,
   TransactionInstruction,
-  VersionedTransaction,
   sendAndConfirmTransaction,
   Transaction,
 } from "@solana/web3.js";
@@ -71,14 +70,8 @@ export async function executeVaultTransaction(
   );
   const transactionIndex = Number(multisigAccount.transactionIndex) + 1;
 
-  const [transactionPda] = multisig.getTransactionPda({
-    multisigPda,
-    index: BigInt(transactionIndex),
-  });
-  const [proposalPda] = multisig.getProposalPda({
-    multisigPda,
-    transactionIndex: BigInt(transactionIndex),
-  });
+  multisig.getTransactionPda({ multisigPda, index: BigInt(transactionIndex) });
+  multisig.getProposalPda({ multisigPda, transactionIndex: BigInt(transactionIndex) });
 
   // Build the vault transaction message
   const { blockhash } = await connection.getLatestBlockhash();

@@ -37,10 +37,10 @@ export async function GET() {
       .slice(0, 30);
 
     // Fetch vault names from on-chain
-    let nameMap: Record<string, string> = {};
+    const nameMap: Record<string, string> = {};
     try {
       const web3 = await import("@solana/web3.js");
-      const { decodeName, VAULT_PROGRAM_ID } = await import("@drift-labs/vaults-sdk");
+      const { decodeName } = await import("@drift-labs/vaults-sdk");
       const anchor = await import("@coral-xyz/anchor");
       const { IDL } = await import("@drift-labs/vaults-sdk");
 
@@ -56,7 +56,6 @@ export async function GET() {
       const accounts = await connection.getMultipleAccountsInfo(pubkeys);
 
       // Decode vault names from account data using Anchor coder
-      const provider = new anchor.AnchorProvider(connection as any, {} as any, {});
       const coder = new anchor.BorshAccountsCoder((IDL as any));
 
       for (let i = 0; i < accounts.length; i++) {

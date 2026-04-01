@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { PublicKey, Connection } from "@solana/web3.js";
 import {
-  TOKEN_2022_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
   createTransferInstruction,
   getAssociatedTokenAddressSync,
