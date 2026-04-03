@@ -21,7 +21,7 @@ import {
   SystemProgram,
   Transaction,
   sendAndConfirmTransaction,
-  TransactionInstruction,
+
 } from "@solana/web3.js";
 import {
   TOKEN_2022_PROGRAM_ID,
@@ -95,7 +95,7 @@ async function main() {
         },
       ],
       rentCollector: null,
-      treasury: vaultPda,
+      treasury: new PublicKey("5DH2e3cJmFpyi6mk65EGFediunm4ui6BiKNUNrhWtD1b"), // Squads program treasury (from on-chain config)
     });
 
     const tx = new Transaction().add(createIx);
@@ -184,21 +184,27 @@ async function main() {
     createdAt: new Date().toISOString(),
   };
 
-  const outPath = "./vault-config.json";
+  const outPath = "./.keys_vaults/vault-config.json";
   fs.writeFileSync(outPath, JSON.stringify(config, null, 2));
   console.log("\n✅ Config saved to", outPath);
   console.log(JSON.stringify(config, null, 2));
 
   // Save mint keypair (needed if you want to close it later)
-  const mintKeyPath = "./keys/fdnalpha-mint.json";
-  fs.mkdirSync("./keys", { recursive: true });
+  const mintKeyPath = "./.keys_vaults/fdnalpha-mint.json";
+  fs.mkdirSync("./.keys_vaults", { recursive: true });
   fs.writeFileSync(mintKeyPath, JSON.stringify(Array.from(mintKeypair.secretKey)));
+
+  // Also save the createKey (needed to derive multisig PDA again)
+  fs.writeFileSync("./.keys_vaults/multisig-create-key.json", JSON.stringify(Array.from(createKey.secretKey)));
+
   console.log("Mint keypair saved to", mintKeyPath);
 
-  console.log("\n--- Environment Variables to Add to .env.local ---");
+  console.log("\n--- Add these to .env.local ---");
   console.log(`VAULT_MULTISIG=${multisigPda.toBase58()}`);
   console.log(`VAULT_PDA=${vaultPda.toBase58()}`);
   console.log(`VAULT_USDC_ATA=${vaultUsdcAta.toBase58()}`);
+  console.log(`NEXT_PUBLIC_VAULT_PDA=${vaultPda.toBase58()}`);
+  console.log(`NEXT_PUBLIC_VAULT_USDC_ATA=${vaultUsdcAta.toBase58()}`);
   console.log(`NEXT_PUBLIC_FDN_ALPHA_MINT=${mintKeypair.publicKey.toBase58()}`);
 }
 
