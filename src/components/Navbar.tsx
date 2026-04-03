@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { WalletButton } from "@/components/WalletButton";
@@ -17,9 +18,13 @@ export function Navbar() {
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-3 transition-opacity hover:opacity-80">
-          <div className="flex h-8 w-8 items-center justify-center rounded-sm bg-gold-500">
-            <span className="font-mono text-xs font-bold text-navy-950">F</span>
-          </div>
+          <Image
+            src="/partners/rounded-nobg.png"
+            alt="Foundation"
+            width={28}
+            height={28}
+            className="opacity-80"
+          />
           <span className="font-serif text-lg font-light tracking-wide text-foreground">
             Foundation
           </span>

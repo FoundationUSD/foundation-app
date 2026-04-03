@@ -2,6 +2,7 @@
 
 import { useEffect, useCallback } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
+import Image from "next/image";
 import type { Adapter } from "@solana/wallet-adapter-base";
 import { X, Loader2 } from "lucide-react";
 
@@ -94,10 +95,10 @@ export function WalletModal({ open, onClose }: WalletModalProps) {
                     className="flex w-full items-center gap-3 rounded-sm px-4 py-3 transition-all hover:bg-white/[0.04] disabled:opacity-50"
                   >
                     {w.adapter.icon && (
-                      <img
+                      <Image unoptimized
                         src={w.adapter.icon}
                         alt={w.adapter.name}
-                        className="h-8 w-8 rounded-sm"
+                        className="h-8 w-8 rounded-sm" width={32} height={32}
                       />
                     )}
                     <div className="text-left">
@@ -125,10 +126,10 @@ export function WalletModal({ open, onClose }: WalletModalProps) {
                     className="flex w-full items-center gap-3 rounded-sm px-4 py-3 transition-all hover:bg-white/[0.04]"
                   >
                     {w.adapter.icon && (
-                      <img
+                      <Image unoptimized
                         src={w.adapter.icon}
                         alt={w.adapter.name}
-                        className="h-8 w-8 rounded-sm opacity-50"
+                        className="h-8 w-8 rounded-sm opacity-50" width={32} height={32}
                       />
                     )}
                     <div className="text-left">

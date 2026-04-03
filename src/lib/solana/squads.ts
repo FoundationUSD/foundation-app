@@ -2,7 +2,7 @@
  * Squads multisig helper — wraps vault operations (mint, transfer)
  * into propose → approve → execute flow.
  *
- * For a 1-of-1 multisig, this is fully automated from the backend.
+ * Supports multiple vaults: solomon, kamino, drift.
  */
 
 import {
@@ -37,31 +37,55 @@ function getConnection(): Connection {
   return _connection;
 }
 
-export function getMultisigPda(): PublicKey {
-  const addr = process.env.VAULT_MULTISIG;
-  if (!addr) throw new Error("VAULT_MULTISIG not set");
-  return new PublicKey(addr);
-}
+type VaultName = "solomon" | "kamino" | "drift" | "oro";
 
-export function getVaultPda(): PublicKey {
-  const addr = process.env.VAULT_PDA;
-  if (!addr) throw new Error("VAULT_PDA not set");
-  return new PublicKey(addr);
+/**
+ * Get vault addresses for a specific vault by name.
+ */
+export function getVaultAddresses(vault: VaultName) {
+  const prefix = vault.toUpperCase();
+  const multisigAddr = process.env[`VAULT_${prefix}_MULTISIG`];
+  const pdaAddr = process.env[`VAULT_${prefix}_PDA`] || process.env[`NEXT_PUBLIC_${prefix}_VAULT_PDA`];
+  const usdcAta = process.env[`VAULT_${prefix}_USDC_ATA`] || process.env[`NEXT_PUBLIC_${prefix}_USDC_ATA`];
+  const mint = process.env[`NEXT_PUBLIC_${prefix}_MINT`];
+
+  if (!multisigAddr || !pdaAddr) {
+    throw new Error(`Vault ${vault} not configured: missing VAULT_${prefix}_MULTISIG or PDA`);
+  }
+
+  return {
+    multisig: new PublicKey(multisigAddr),
+    vaultPda: new PublicKey(pdaAddr),
+    usdcAta: usdcAta ? new PublicKey(usdcAta) : null,
+    mint: mint ? new PublicKey(mint) : null,
+  };
 }
 
 /**
- * Execute instructions through the Squads multisig vault.
- *
- * Flow: create vault tx → create proposal → approve → execute
- * For 1-of-1 multisig, this completes immediately.
+ * Map a vault ID (fdn-solomon) to vault name (solomon).
+ */
+export function vaultIdToName(vaultId: string): VaultName {
+  const map: Record<string, VaultName> = {
+    "fdn-solomon": "solomon",
+    "fdn-kamino": "kamino",
+    "fdn-drift": "drift",
+    "fdn-oro": "oro",
+  };
+  const name = map[vaultId];
+  if (!name) throw new Error(`Unknown vault ID: ${vaultId}`);
+  return name;
+}
+
+/**
+ * Execute instructions through a specific Squads multisig vault.
  */
 export async function executeVaultTransaction(
+  vaultName: VaultName,
   instructions: TransactionInstruction[],
 ): Promise<string> {
   const connection = getConnection();
   const authority = getAuthority();
-  const multisigPda = getMultisigPda();
-  const vaultPda = getVaultPda();
+  const { multisig: multisigPda, vaultPda } = getVaultAddresses(vaultName);
 
   // Get current transaction index
   const multisigAccount = await multisig.accounts.Multisig.fromAccountAddress(
@@ -69,9 +93,6 @@ export async function executeVaultTransaction(
     multisigPda,
   );
   const transactionIndex = Number(multisigAccount.transactionIndex) + 1;
-
-  multisig.getTransactionPda({ multisigPda, index: BigInt(transactionIndex) });
-  multisig.getProposalPda({ multisigPda, transactionIndex: BigInt(transactionIndex) });
 
   // Build the vault transaction message
   const { blockhash } = await connection.getLatestBlockhash();
@@ -81,7 +102,7 @@ export async function executeVaultTransaction(
     instructions,
   });
 
-  // Step 1: Create vault transaction
+  // Create vault tx + proposal + approve in one transaction
   const createVaultTxIx = multisig.instructions.vaultTransactionCreate({
     multisigPda,
     transactionIndex: BigInt(transactionIndex),
@@ -91,27 +112,24 @@ export async function executeVaultTransaction(
     transactionMessage: txMessage,
   });
 
-  // Step 2: Create proposal
   const createProposalIx = multisig.instructions.proposalCreate({
     multisigPda,
     transactionIndex: BigInt(transactionIndex),
     creator: authority.publicKey,
   });
 
-  // Step 3: Approve
   const approveIx = multisig.instructions.proposalApprove({
     multisigPda,
     transactionIndex: BigInt(transactionIndex),
     member: authority.publicKey,
   });
 
-  // Send create + propose + approve in one tx
   const setupTx = new Transaction().add(createVaultTxIx, createProposalIx, approveIx);
   setupTx.recentBlockhash = blockhash;
   setupTx.feePayer = authority.publicKey;
   await sendAndConfirmTransaction(connection, setupTx, [authority]);
 
-  // Step 4: Execute the vault transaction
+  // Execute
   const executeIx = await multisig.instructions.vaultTransactionExecute({
     connection,
     multisigPda,
@@ -124,5 +142,22 @@ export async function executeVaultTransaction(
   executeTx.feePayer = authority.publicKey;
 
   const sig = await sendAndConfirmTransaction(connection, executeTx, [authority]);
+
+  // Reclaim rent from the executed transaction + proposal accounts
+  // This returns ~0.004 SOL back to the authority
+  try {
+    const closeIx = multisig.instructions.vaultTransactionAccountsClose({
+      multisigPda,
+      rentCollector: authority.publicKey,
+      transactionIndex: BigInt(transactionIndex),
+    });
+    const closeTx = new Transaction().add(closeIx);
+    closeTx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
+    closeTx.feePayer = authority.publicKey;
+    await sendAndConfirmTransaction(connection, closeTx, [authority]);
+  } catch {
+    // Non-critical — rent reclaim failed but mint succeeded
+  }
+
   return sig;
 }

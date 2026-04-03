@@ -34,7 +34,6 @@ async function fetchDriftApy(): Promise<number> {
     });
     if (!res.ok) return 0;
     const data = await res.json();
-    // Look for known Gauntlet RWA vaults
     const rwaAddresses = [
       "G3RT2wdEYCphzcvXEHb8u4Yc4ZRscsQ1KRYywdBjgUZp",
       "5otPTvEkpk9CQGqnSfgo7QSYXYPAyf76sUgzVzhvNSQk",
@@ -46,6 +45,19 @@ async function fetchDriftApy(): Promise<number> {
       }
     }
     return 0;
+  } catch {
+    return 0;
+  }
+}
+
+async function fetchGoldPrice(): Promise<number> {
+  try {
+    const res = await fetch("https://oro-tradebook-devnet.up.railway.app/api/trading/gold/price", {
+      next: { revalidate: 600 },
+    });
+    if (!res.ok) return 0;
+    const data = await res.json();
+    return Number(data.price || data.usdPrice || 0);
   } catch {
     return 0;
   }
@@ -65,7 +77,7 @@ export async function GET() {
           ? kaminoApy
           : v.protocol === "drift" && driftApy > 0
             ? driftApy
-            : v.apy,
+            : v.apy, // solomon (12.5%) and oro (3.5%) use static rates
     }));
 
     return NextResponse.json({ success: true, data: vaults });

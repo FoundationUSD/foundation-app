@@ -42,6 +42,7 @@ next-env.d.ts
 
 # vault keys — NEVER commit
 /keys/
+/.keys_vaults/
 vault-config.json
 
 # ide

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import Image from "next/image";
 import { useWallet, useConnection } from "@solana/wallet-adapter-react";
 import {
   Wallet,
@@ -133,10 +134,10 @@ export function WalletButton() {
         className="glass flex items-center gap-2 rounded-none border-white/[0.08] px-4 py-2 transition-all hover:border-white/[0.15]"
       >
         {wallet?.adapter.icon && (
-          <img
+          <Image unoptimized
             src={wallet.adapter.icon}
             alt={wallet.adapter.name}
-            className="h-4 w-4 rounded-sm"
+            className="h-4 w-4 rounded-sm" width={16} height={16}
           />
         )}
 
@@ -161,10 +162,10 @@ export function WalletButton() {
           <div className="border-b border-white/[0.06] p-4">
             <div className="mb-1 flex items-center gap-2">
               {wallet?.adapter.icon && (
-                <img
+                <Image unoptimized
                   src={wallet.adapter.icon}
                   alt={wallet.adapter.name}
-                  className="h-5 w-5 rounded-sm"
+                  className="h-5 w-5 rounded-sm" width={20} height={20}
                 />
               )}
               <span className="font-mono text-xs text-foreground">

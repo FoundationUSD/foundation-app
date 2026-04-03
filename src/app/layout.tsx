@@ -25,13 +25,25 @@ const dmMono = DM_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Foundation | RWA Yield on Solana",
+  title: "Foundation — Managed RWA Yield on Solana",
   description:
-    "Institutional-grade RWA yield vaults on Solana. Deposit USDC, earn yield from real-world credit funds.",
+    "Deposit USDC into managed RWA vaults. Earn yield from Solomon basis trades, Kamino PRIME lending, and Drift levered credit. All on Solana via Squads multisig.",
+  icons: {
+    icon: "/favicon.png",
+    apple: "/favicon.png",
+  },
   openGraph: {
-    title: "Foundation | RWA Yield on Solana",
-    description: "Institutional-grade RWA yield vaults on Solana.",
+    title: "Foundation — Managed RWA Yield on Solana",
+    description:
+      "Deposit USDC into managed RWA vaults. Solomon, Kamino, Drift strategies on Solana.",
     type: "website",
+    siteName: "Foundation",
+  },
+  twitter: {
+    card: "summary",
+    title: "Foundation — Managed RWA Yield on Solana",
+    description:
+      "Deposit USDC into managed RWA vaults. Solomon, Kamino, Drift strategies on Solana.",
   },
 };
 

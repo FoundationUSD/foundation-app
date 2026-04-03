@@ -9,7 +9,8 @@
     "lint": "eslint",
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\"",
-    "setup-vaults": "npx tsx scripts/setup-vaults.ts"
+    "setup-vaults": "npx tsx scripts/setup-vaults.ts",
+    "test:deployment": "npx tsx scripts/test-deployment.ts"
   },
   "dependencies": {
     "@drift-labs/sdk": "^2.162.0-beta.0",
