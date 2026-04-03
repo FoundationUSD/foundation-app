@@ -129,6 +129,9 @@ export async function executeVaultTransaction(
   setupTx.feePayer = authority.publicKey;
   await sendAndConfirmTransaction(connection, setupTx, [authority]);
 
+  // Wait for confirmation to propagate before executing
+  await new Promise((r) => setTimeout(r, 2000));
+
   // Execute
   const executeIx = await multisig.instructions.vaultTransactionExecute({
     connection,
