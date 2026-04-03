@@ -343,17 +343,17 @@ function DepositForm({ vault }: { vault: FoundationVault }) {
 
       <form onSubmit={handleDeposit}>
         <div className="mb-4">
-          <div className="flex items-center gap-2 border border-white/[0.08] bg-white/[0.03] px-4 py-3 focus-within:border-gold-500/30">
+          <div className="flex items-center gap-2 overflow-hidden border border-white/[0.08] bg-white/[0.03] px-4 py-3 focus-within:border-gold-500/30">
             <input
               type="number"
               placeholder="0.00"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              className="flex-1 bg-transparent font-mono text-lg text-foreground outline-none placeholder:text-muted-foreground/50"
+              className="min-w-0 flex-1 bg-transparent font-mono text-lg text-foreground outline-none placeholder:text-muted-foreground/50"
               step="0.01"
               min="0"
             />
-            <span className="font-mono text-xs text-muted-foreground">USDC</span>
+            <span className="shrink-0 font-mono text-[9px] text-muted-foreground/60">USDC</span>
           </div>
         </div>
 
@@ -573,24 +573,24 @@ function WithdrawForm({ vault }: { vault: FoundationVault }) {
 
       <form onSubmit={handleWithdraw}>
         <div className="mb-4">
-          <div className="flex items-center gap-2 border border-white/[0.08] bg-white/[0.03] px-4 py-3 focus-within:border-gold-500/30">
+          <div className="flex items-center gap-2 overflow-hidden border border-white/[0.08] bg-white/[0.03] px-4 py-3 focus-within:border-gold-500/30">
             <input
               type="number"
               placeholder="0.00"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              className="flex-1 bg-transparent font-mono text-lg text-foreground outline-none placeholder:text-muted-foreground/50"
+              className="min-w-0 flex-1 bg-transparent font-mono text-lg text-foreground outline-none placeholder:text-muted-foreground/50"
               step="0.01"
               min="0"
             />
             <button
               type="button"
               onClick={() => setAmount(balance.toString())}
-              className="font-mono text-[10px] uppercase text-gold-400 hover:text-gold-300"
+              className="shrink-0 font-mono text-[9px] uppercase text-gold-400 hover:text-gold-300"
             >
               MAX
             </button>
-            <span className="font-mono text-xs text-muted-foreground">{vault.receiptToken}</span>
+            <span className="shrink-0 font-mono text-[9px] text-muted-foreground/60">{vault.receiptToken}</span>
           </div>
         </div>
 

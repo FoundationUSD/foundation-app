@@ -55,12 +55,12 @@ export function WalletModal({ open, onClose }: WalletModalProps) {
   const notInstalled = sorted.filter((w) => w.readyState !== "Installed");
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center">
+    <div className="fixed inset-0 z-[9000] flex items-center justify-center">
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-md" onClick={onClose} />
 
       {/* Modal */}
-      <div className="glass-strong relative z-10 w-full max-w-sm overflow-hidden rounded-sm border border-white/[0.08]">
+      <div className="relative z-10 w-full max-w-sm overflow-hidden border border-white/[0.08] bg-[#0c1220] shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-white/[0.06] px-6 py-4">
           <h2 className="font-serif text-lg font-light text-foreground">Connect Wallet</h2>

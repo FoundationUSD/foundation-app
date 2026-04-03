@@ -14,38 +14,41 @@ export function Navbar() {
   ];
 
   return (
-    <nav className="glass fixed top-0 right-0 left-0 z-50 border-b border-white/[0.06]">
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
+    <nav className="fixed top-0 right-0 left-0 z-50 border-b border-white/[0.04] bg-[#060a12]/80 backdrop-blur-xl">
+      <div className="mx-auto flex h-14 max-w-[1080px] items-center justify-between px-6">
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-3 transition-opacity hover:opacity-80">
+        <Link href="/" className="flex items-center gap-2.5 transition-opacity hover:opacity-70">
           <Image
             src="/partners/rounded-nobg.png"
             alt="Foundation"
-            width={28}
-            height={28}
-            className="opacity-80"
+            width={22}
+            height={22}
+            className="opacity-70"
           />
-          <span className="font-serif text-lg font-light tracking-wide text-foreground">
+          <span className="font-serif text-[15px] font-light tracking-wide text-foreground">
             Foundation
           </span>
         </Link>
 
-        {/* Nav links + wallet */}
-        <div className="flex items-center gap-6">
+        {/* Right side */}
+        <div className="flex items-center gap-1">
           {links.map((link) => (
             <Link
               key={link.href}
               href={link.href}
-              className={`font-mono text-[11px] uppercase tracking-[0.12em] transition-colors ${
+              className={`px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.15em] transition-colors ${
                 pathname === link.href
-                  ? "text-gold-400"
-                  : "text-muted-foreground hover:text-foreground"
+                  ? "text-foreground"
+                  : "text-muted-foreground/60 hover:text-muted-foreground"
               }`}
             >
               {link.label}
             </Link>
           ))}
-          <WalletButton />
+          <div className="ml-3 h-4 w-px bg-white/[0.06]" />
+          <div className="ml-3">
+            <WalletButton />
+          </div>
         </div>
       </div>
     </nav>

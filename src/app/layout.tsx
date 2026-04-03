@@ -38,12 +38,14 @@ export const metadata: Metadata = {
       "Deposit USDC into managed RWA vaults. Solomon, Kamino, Drift strategies on Solana.",
     type: "website",
     siteName: "Foundation",
+    images: [{ url: "/banner.png", width: 1200, height: 630, alt: "Foundation — Managed RWA Yield on Solana" }],
   },
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
     title: "Foundation — Managed RWA Yield on Solana",
     description:
       "Deposit USDC into managed RWA vaults. Solomon, Kamino, Drift strategies on Solana.",
+    images: ["/banner.png"],
   },
 };
 
@@ -57,7 +59,7 @@ export default function RootLayout({
       <body className="min-h-screen bg-background text-foreground antialiased">
         <WalletProvider>
           <Navbar />
-          <main className="pt-16">{children}</main>
+          <main className="pt-14">{children}</main>
         </WalletProvider>
       </body>
     </html>
