@@ -34,10 +34,10 @@ const USDC_MINT = new PublicKey("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
 const SQUADS_TREASURY = new PublicKey("5DH2e3cJmFpyi6mk65EGFediunm4ui6BiKNUNrhWtD1b");
 
 const MINT_NAMES: Record<string, string> = {
-  solomon: "ArbUSD",
-  kamino: "fdnKAMINO",
-  drift: "fdnDRIFT",
-  oro: "fdnGOLD",
+  solomon: "soloUSD",
+  kamino: "kmnoUSD",
+  drift: "driftUSD",
+  oro: "oroUSD",
 };
 
 async function main() {

@@ -1,10 +1,10 @@
 /**
  * Foundation Managed Vaults — 4 Squads multisigs, 4 receipt tokens.
  *
- * Solomon:  LIVE — ArbUSD
- * Kamino:   LIVE — fdnKAMINO
- * Oro:      LIVE — fdnGOLD
- * Drift:    Coming Soon — fdnDRIFT
+ * Solomon:  LIVE — soloUSD
+ * Kamino:   LIVE — kmnoUSD
+ * Oro:      LIVE — oroUSD
+ * Drift:    Coming Soon — driftUSD
  */
 
 export interface FoundationVault {
@@ -37,14 +37,14 @@ export const FOUNDATION_VAULTS: FoundationVault[] = [
     underlying: "Solomon sUSDV (Basis Trading)",
     riskTier: "moderate",
     apy: 12.5,
-    receiptToken: "ArbUSD",
+    receiptToken: "soloUSD",
     features: ["~12.5% target APY", "Delta-neutral strategy", "Managed by Foundation", "7-day unstake cooldown"],
     howItWorks: [
       "You deposit USDC into Foundation's Squads multisig vault",
       "Foundation swaps USDC → USDv via Jupiter aggregator",
       "USDv is staked into Solomon's program → receives sUSDV",
       "Yield accrues from basis trading (spot-long / perp-short)",
-      "Your ArbUSD balance grows via Token-2022 interest-bearing extension",
+      "Your soloUSD balance grows via Token-2022 interest-bearing extension",
       "Withdraw anytime — Foundation unstakes and swaps back to USDC",
     ],
     status: "live",
@@ -63,13 +63,13 @@ export const FOUNDATION_VAULTS: FoundationVault[] = [
     underlying: "Kamino PRIME (Figure HELOCs)",
     riskTier: "conservative",
     apy: 0,
-    receiptToken: "fdnKAMINO",
+    receiptToken: "kmnoUSD",
     features: ["Institutional collateral", "$570M+ market", "No lockup", "Managed by Foundation"],
     howItWorks: [
       "You deposit USDC into Foundation's Squads multisig vault",
       "Foundation deposits USDC into Kamino's PRIME lending market",
       "USDC earns yield from PRIME borrowers (Figure home equity loans)",
-      "Your fdnKAMINO balance grows via Token-2022 interest-bearing extension",
+      "Your kmnoUSD balance grows via Token-2022 interest-bearing extension",
       "Withdraw anytime — Foundation withdraws from Kamino and sends USDC back",
     ],
     status: "live",
@@ -88,14 +88,14 @@ export const FOUNDATION_VAULTS: FoundationVault[] = [
     underlying: "Oro $GOLD (Physical Gold Leasing)",
     riskTier: "conservative",
     apy: 3.5,
-    receiptToken: "fdnGOLD",
+    receiptToken: "oroUSD",
     features: ["~3.5% gold-denominated APY", "Physical gold backed (Brinks)", "LBMA certified", "Managed by Foundation"],
     howItWorks: [
       "You deposit USDC into Foundation's Squads multisig vault",
       "Foundation purchases $GOLD (tokenized physical gold) via Oro's GRAIL API",
       "$GOLD is staked — yield comes from institutional gold leasing via Monetary Metals",
       "Jewelers and manufacturers pay lease fees denominated in gold",
-      "Your fdnGOLD balance grows via Token-2022 interest-bearing extension",
+      "Your oroUSD balance grows via Token-2022 interest-bearing extension",
       "Withdraw anytime — Foundation sells $GOLD and returns USDC",
     ],
     status: "live",
@@ -114,13 +114,13 @@ export const FOUNDATION_VAULTS: FoundationVault[] = [
     underlying: "Drift/Gauntlet sACRED (Apollo Credit)",
     riskTier: "growth",
     apy: 0,
-    receiptToken: "fdnDRIFT",
+    receiptToken: "driftUSD",
     features: ["Gauntlet managed", "Levered RWA strategy", "Redemption period", "Managed by Foundation"],
     howItWorks: [
       "You deposit USDC into Foundation's Squads multisig vault",
       "Foundation deposits USDC into Gauntlet's levered RWA vault on Drift",
       "Vault manager loops sACRED collateral to amplify yield",
-      "Your fdnDRIFT balance grows via Token-2022 interest-bearing extension",
+      "Your driftUSD balance grows via Token-2022 interest-bearing extension",
       "Withdraw anytime — Foundation requests Drift withdrawal (redemption period applies)",
     ],
     status: "coming_soon",

@@ -137,7 +137,7 @@ export default function HomePage() {
           <div className="grid gap-6 sm:gap-10 md:grid-cols-4">
             {[
               { n: "01", title: "Deposit USDC", desc: "Connect wallet and deposit into any Foundation vault." },
-              { n: "02", title: "Receive Token", desc: "Get ArbUSD, fdnKAMINO, or fdnGOLD. Balance grows with yield." },
+              { n: "02", title: "Receive Token", desc: "Get soloUSD, kmnoUSD, or oroUSD. Balance grows with yield." },
               { n: "03", title: "We Manage", desc: "Foundation deploys USDC into the strategy via Squads multisig." },
               { n: "04", title: "Withdraw", desc: "Burn vault tokens anytime to get USDC back with accrued yield." },
             ].map((item) => (
