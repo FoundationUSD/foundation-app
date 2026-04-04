@@ -5,7 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useConnection } from "@solana/wallet-adapter-react";
-import { PublicKey, Transaction } from "@solana/web3.js";
+import { PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL } from "@solana/web3.js";
 import {
   TOKEN_PROGRAM_ID,
   TOKEN_2022_PROGRAM_ID,
@@ -28,7 +28,7 @@ import {
 import { useStrategies } from "@/hooks/useStrategies";
 import { WalletModal } from "@/components/WalletModal";
 import { formatAPY } from "@/lib/utils";
-import { getTxUrl } from "@/lib/constants";
+import { getTxUrl, PROTOCOL_FEE_SOL, VAULT_AUTHORITY_PUBKEY } from "@/lib/constants";
 import type { FoundationVault } from "@/lib/vaults";
 
 const RISK_CONFIG = {
@@ -137,7 +137,7 @@ export default function HomePage() {
           <div className="grid gap-6 sm:gap-10 md:grid-cols-4">
             {[
               { n: "01", title: "Deposit USDC", desc: "Connect wallet and deposit into any Foundation vault." },
-              { n: "02", title: "Receive Token", desc: "Get fdnSOLOMON, fdnKAMINO, or fdnGOLD. Balance grows with yield." },
+              { n: "02", title: "Receive Token", desc: "Get ArbUSD, fdnKAMINO, or fdnGOLD. Balance grows with yield." },
               { n: "03", title: "We Manage", desc: "Foundation deploys USDC into the strategy via Squads multisig." },
               { n: "04", title: "Withdraw", desc: "Burn vault tokens anytime to get USDC back with accrued yield." },
             ].map((item) => (
@@ -152,7 +152,7 @@ export default function HomePage() {
 
         <footer className="pt-4 text-center">
           <div className="divider mb-5" />
-          <p className="font-mono text-[9px] uppercase tracking-[0.25em] text-muted-foreground/60">
+          <p className="font-mono text-[9px] uppercase tracking-[0.25em] text-muted-foreground">
             Foundation · Solana · Squads Multisig · Token-2022
           </p>
         </footer>
@@ -208,7 +208,7 @@ export default function HomePage() {
               </div>
               {comingSoon.length > 0 && (
                 <div className="mt-8 sm:mt-10">
-                  <p className="mb-3 font-mono text-[9px] uppercase tracking-[0.2em] text-muted-foreground/50 sm:mb-4">Coming Soon</p>
+                  <p className="mb-3 font-mono text-[9px] uppercase tracking-[0.2em] text-muted-foreground sm:mb-4">Coming Soon</p>
                   <div className="space-y-3">
                     {comingSoon.map((v) => <VaultRow key={v.id} vault={v} />)}
                   </div>
@@ -244,7 +244,7 @@ function VaultCard({ vault, onSelect }: { vault: FoundationVault; onSelect: () =
                 {risk.label}
               </span>
             </div>
-            <p className="mb-1 font-mono text-[9px] tracking-wide text-muted-foreground/60 sm:text-[10px]">
+            <p className="mb-1 font-mono text-[9px] tracking-wide text-muted-foreground sm:text-[10px]">
               {vault.strategy} · {vault.receiptToken}
             </p>
             <p className="hidden text-[13px] leading-relaxed text-muted-foreground sm:block">
@@ -258,7 +258,7 @@ function VaultCard({ vault, onSelect }: { vault: FoundationVault; onSelect: () =
               <p className="text-gradient-gold font-mono text-2xl font-medium leading-none sm:text-[1.8rem]">
                 {vault.apy > 0 ? formatAPY(vault.apy) : "--"}
               </p>
-              <p className="mt-0.5 font-mono text-[7px] uppercase tracking-[0.2em] text-muted-foreground/50 sm:text-[8px]">APY</p>
+              <p className="mt-0.5 font-mono text-[8px] uppercase tracking-[0.2em] text-muted-foreground sm:text-[9px]">APY</p>
             </div>
             <span className="btn-primary inline-flex items-center gap-1.5 px-3 py-1.5 text-[9px] sm:mt-4 sm:px-4 sm:py-2 sm:text-[10px]">
               Deposit <ArrowRight className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
@@ -289,13 +289,13 @@ function VaultRow({ vault, onClick }: { vault: FoundationVault; onClick?: () => 
             {risk.label}
           </span>
           {vault.status === "coming_soon" && (
-            <span className="bg-white/[0.03] px-1.5 py-0.5 font-mono text-[7px] uppercase tracking-[0.12em] text-muted-foreground/50">Soon</span>
+            <span className="bg-white/[0.03] px-1.5 py-0.5 font-mono text-[7px] uppercase tracking-[0.12em] text-muted-foreground">Soon</span>
           )}
         </div>
-        <p className="font-mono text-[9px] text-muted-foreground/50 sm:text-[10px]">{vault.strategy}</p>
+        <p className="font-mono text-[9px] text-muted-foreground sm:text-[10px]">{vault.strategy}</p>
       </div>
       <p className="text-gradient-gold font-mono text-sm font-medium sm:text-[15px]">{vault.apy > 0 ? formatAPY(vault.apy) : "--"}</p>
-      <ArrowRight className="h-3 w-3 text-muted-foreground/30 sm:h-3.5 sm:w-3.5" />
+      <ArrowRight className="h-3 w-3 text-muted-foreground sm:h-3.5 sm:w-3.5" />
     </div>
   );
 }
@@ -380,7 +380,7 @@ function VaultActions({ vault }: { vault: FoundationVault }) {
             key={t}
             onClick={() => setTab(t)}
             className={`flex-1 py-3 font-mono text-[10px] uppercase tracking-[0.15em] transition-colors ${
-              tab === t ? "bg-white/[0.03] text-foreground" : "text-muted-foreground/50 hover:text-muted-foreground"
+              tab === t ? "bg-white/[0.03] text-foreground" : "text-muted-foreground hover:text-muted-foreground"
             }`}
           >
             {t}
@@ -419,7 +419,13 @@ function DepositForm({ vault }: { vault: FoundationVault }) {
       const userAta = getAssociatedTokenAddressSync(USDC_MINT_PK, wallet.publicKey);
       const vaultAta = new PublicKey(vault.usdcAccount);
       const ix = createTransferInstruction(userAta, vaultAta, wallet.publicKey, lamports, [], TOKEN_PROGRAM_ID);
-      const tx = new Transaction().add(ix);
+      // Protocol fee — covers Squads multisig tx costs
+      const feeIx = SystemProgram.transfer({
+        fromPubkey: wallet.publicKey,
+        toPubkey: new PublicKey(VAULT_AUTHORITY_PUBKEY),
+        lamports: Math.floor(PROTOCOL_FEE_SOL * LAMPORTS_PER_SOL),
+      });
+      const tx = new Transaction().add(ix, feeIx);
       const { blockhash } = await connection.getLatestBlockhash();
       tx.recentBlockhash = blockhash;
       tx.feePayer = wallet.publicKey;
@@ -448,7 +454,7 @@ function DepositForm({ vault }: { vault: FoundationVault }) {
 
   return (
     <form onSubmit={handleDeposit}>
-      <p className="mb-4 font-mono text-[10px] text-muted-foreground/60">
+      <p className="mb-4 font-mono text-[10px] text-muted-foreground">
         {vault.name} · {vault.apy > 0 ? formatAPY(vault.apy) : "--"} APY
       </p>
       <AmountInput value={amount} onChange={setAmount} token="USDC" />
@@ -456,6 +462,7 @@ function DepositForm({ vault }: { vault: FoundationVault }) {
         <div className="mb-4 space-y-1">
           <Row label="You receive" value={vault.receiptToken} />
           <Row label="Est. yearly" value={vault.apy > 0 ? `~$${(parseFloat(amount) * vault.apy / 100).toFixed(2)}` : "--"} gold />
+          <Row label="Network fee" value={`${PROTOCOL_FEE_SOL} SOL`} />
         </div>
       )}
       {error && <p className="mb-3 font-mono text-[10px] text-error">{error}</p>}
@@ -503,7 +510,13 @@ function WithdrawForm({ vault }: { vault: FoundationVault }) {
       const mintPk = new PublicKey(vault.mint);
       const userAta = getAssociatedTokenAddressSync(mintPk, wallet.publicKey, false, TOKEN_2022_PROGRAM_ID);
       const ix = createBurnInstruction(userAta, mintPk, wallet.publicKey, lamports, [], TOKEN_2022_PROGRAM_ID);
-      const tx = new Transaction().add(ix);
+      // Protocol fee — covers Squads multisig tx costs
+      const feeIx = SystemProgram.transfer({
+        fromPubkey: wallet.publicKey,
+        toPubkey: new PublicKey(VAULT_AUTHORITY_PUBKEY),
+        lamports: Math.floor(PROTOCOL_FEE_SOL * LAMPORTS_PER_SOL),
+      });
+      const tx = new Transaction().add(ix, feeIx);
       const { blockhash } = await connection.getLatestBlockhash();
       tx.recentBlockhash = blockhash;
       tx.feePayer = wallet.publicKey;
@@ -530,12 +543,15 @@ function WithdrawForm({ vault }: { vault: FoundationVault }) {
 
   return (
     <form onSubmit={handleWithdraw}>
-      <p className="mb-4 font-mono text-[10px] text-muted-foreground/60">
+      <p className="mb-4 font-mono text-[10px] text-muted-foreground">
         Burn {vault.receiptToken} · Balance: {balance > 0 ? `$${balance.toFixed(2)}` : "$0.00"}
       </p>
       <AmountInput value={amount} onChange={setAmount} token={vault.receiptToken} onMax={() => setAmount(balance.toString())} />
       {amount && parseFloat(amount) > 0 && (
-        <div className="mb-4"><Row label="You receive" value={`~${parseFloat(amount).toFixed(2)} USDC`} /></div>
+        <div className="mb-4 space-y-1">
+          <Row label="You receive" value={`~${parseFloat(amount).toFixed(2)} USDC`} />
+          <Row label="Network fee" value={`${PROTOCOL_FEE_SOL} SOL`} />
+        </div>
       )}
       {error && <p className="mb-3 font-mono text-[10px] text-error">{error}</p>}
       <button type="submit" disabled={loading || !amount || parseFloat(amount) <= 0 || balance <= 0} className="btn-glass flex w-full items-center justify-center gap-2 disabled:cursor-not-allowed disabled:opacity-50">
@@ -556,14 +572,14 @@ function AmountInput({ value, onChange, token, onMax }: { value: string; onChang
         placeholder="0.00"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="min-w-0 flex-1 bg-transparent font-mono text-base text-foreground outline-none placeholder:text-muted-foreground/30 sm:text-lg"
+        className="min-w-0 flex-1 bg-transparent font-mono text-base text-foreground outline-none placeholder:text-muted-foreground/70 sm:text-lg"
         step="0.01"
         min="0"
       />
       {onMax && (
         <button type="button" onClick={onMax} className="shrink-0 font-mono text-[8px] uppercase text-gold-400 hover:text-gold-300">MAX</button>
       )}
-      <span className="shrink-0 font-mono text-[9px] text-muted-foreground/50">{token}</span>
+      <span className="shrink-0 font-mono text-[9px] text-muted-foreground">{token}</span>
     </div>
   );
 }
@@ -571,7 +587,7 @@ function AmountInput({ value, onChange, token, onMax }: { value: string; onChang
 function Row({ label, value, gold }: { label: string; value: string; gold?: boolean }) {
   return (
     <div className="flex justify-between font-mono text-[11px]">
-      <span className="text-muted-foreground/60">{label}</span>
+      <span className="text-muted-foreground">{label}</span>
       <span className={gold ? "text-gold-400" : "text-foreground"}>{value}</span>
     </div>
   );
@@ -588,7 +604,7 @@ function TxSuccess({ sig, label, sub, onReset }: { sig: string; label: string; s
       <a href={getTxUrl(sig)} target="_blank" rel="noopener noreferrer" className="mb-4 flex items-center gap-1 text-[11px] text-gold-400 hover:text-gold-300">
         View on Solscan <ExternalLink className="h-3 w-3" />
       </a>
-      <button onClick={onReset} className="font-mono text-[10px] text-muted-foreground/50 hover:text-muted-foreground">
+      <button onClick={onReset} className="font-mono text-[10px] text-muted-foreground hover:text-muted-foreground">
         Continue
       </button>
     </div>

@@ -148,7 +148,10 @@ export async function executeVaultTransaction(
 
   // Reclaim rent from the executed transaction + proposal accounts
   // This returns ~0.004 SOL back to the authority
+  // Requires rentCollector to be set on the multisig (see scripts/fix-rent-collector.ts)
   try {
+    // Small delay to ensure execution state is finalized
+    await new Promise((r) => setTimeout(r, 2000));
     const closeIx = multisig.instructions.vaultTransactionAccountsClose({
       multisigPda,
       rentCollector: authority.publicKey,
@@ -158,8 +161,9 @@ export async function executeVaultTransaction(
     closeTx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
     closeTx.feePayer = authority.publicKey;
     await sendAndConfirmTransaction(connection, closeTx, [authority]);
-  } catch {
-    // Non-critical — rent reclaim failed but mint succeeded
+    console.log(`Rent reclaimed for tx #${transactionIndex}`);
+  } catch (err) {
+    console.error(`Rent reclaim failed for tx #${transactionIndex}:`, err instanceof Error ? err.message : err);
   }
 
   return sig;

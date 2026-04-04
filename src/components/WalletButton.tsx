@@ -128,7 +128,7 @@ export function WalletButton() {
         <span className="font-mono text-[10px] text-foreground">
           {shortenAddress(publicKey.toBase58(), 4)}
         </span>
-        <ChevronDown className={`h-2.5 w-2.5 text-muted-foreground/60 transition-transform ${open ? "rotate-180" : ""}`} />
+        <ChevronDown className={`h-2.5 w-2.5 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
 
       {open && (
@@ -148,7 +148,7 @@ export function WalletButton() {
               </p>
               <button
                 onClick={copyAddress}
-                className="shrink-0 p-1 text-muted-foreground/50 transition-colors hover:text-foreground"
+                className="shrink-0 p-1 text-muted-foreground transition-colors hover:text-foreground"
                 title="Copy address"
               >
                 {copied ? <Check className="h-3 w-3 text-success" /> : <Copy className="h-3 w-3" />}
@@ -159,7 +159,7 @@ export function WalletButton() {
           {/* Balance */}
           <div className="border-b border-white/[0.06] px-4 py-3">
             <div className="flex items-center justify-between">
-              <span className="font-mono text-[9px] uppercase tracking-wider text-muted-foreground/50">Balance</span>
+              <span className="font-mono text-[9px] uppercase tracking-wider text-muted-foreground">Balance</span>
               <span className="font-mono text-[12px] text-foreground">
                 {solBalance !== null ? `${solBalance.toFixed(4)} SOL` : "..."}
               </span>

@@ -39,7 +39,7 @@ export function Navbar() {
               className={`px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.15em] transition-colors ${
                 pathname === link.href
                   ? "text-foreground"
-                  : "text-muted-foreground/60 hover:text-muted-foreground"
+                  : "text-muted-foreground hover:text-foreground"
               }`}
             >
               {link.label}

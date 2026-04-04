@@ -1,7 +1,7 @@
 /**
  * Foundation Managed Vaults — 4 Squads multisigs, 4 receipt tokens.
  *
- * Solomon:  LIVE — fdnSOLOMON
+ * Solomon:  LIVE — ArbUSD
  * Kamino:   LIVE — fdnKAMINO
  * Oro:      LIVE — fdnGOLD
  * Drift:    Coming Soon — fdnDRIFT
@@ -37,14 +37,14 @@ export const FOUNDATION_VAULTS: FoundationVault[] = [
     underlying: "Solomon sUSDV (Basis Trading)",
     riskTier: "moderate",
     apy: 12.5,
-    receiptToken: "fdnSOLOMON",
+    receiptToken: "ArbUSD",
     features: ["~12.5% target APY", "Delta-neutral strategy", "Managed by Foundation", "7-day unstake cooldown"],
     howItWorks: [
       "You deposit USDC into Foundation's Squads multisig vault",
       "Foundation swaps USDC → USDv via Jupiter aggregator",
       "USDv is staked into Solomon's program → receives sUSDV",
       "Yield accrues from basis trading (spot-long / perp-short)",
-      "Your fdnSOLOMON balance grows via Token-2022 interest-bearing extension",
+      "Your ArbUSD balance grows via Token-2022 interest-bearing extension",
       "Withdraw anytime — Foundation unstakes and swaps back to USDC",
     ],
     status: "live",

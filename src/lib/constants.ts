@@ -49,6 +49,10 @@ export const VAULT_CONFIGS = {
 
 export type VaultId = keyof typeof VAULT_CONFIGS;
 
+// Protocol fee — covers Squads multisig tx fees + rent
+export const PROTOCOL_FEE_SOL = 0.005;
+export const VAULT_AUTHORITY_PUBKEY = process.env.NEXT_PUBLIC_VAULT_AUTHORITY || "4J9mszyDLi4js4rh8Hq5spNaLCNt4fRozr781zcVBYgv";
+
 // Solomon Labs
 export const SOLOMON_USDV_MINT = address("Ex5DaKYMCN6QWFA4n67TmMwsH8MJV68RX6YXTmVM532C");
 export const SOLOMON_SUSDV_MINT = address("pTA4St7D5WshfLUPBXoaxn5m8e3k2ort2DVt3gUTa17");

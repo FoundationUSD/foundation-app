@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useConnection } from "@solana/wallet-adapter-react";
-import { PublicKey, Transaction } from "@solana/web3.js";
+import { PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL } from "@solana/web3.js";
 import {
   TOKEN_PROGRAM_ID,
   TOKEN_2022_PROGRAM_ID,
@@ -25,7 +25,7 @@ const PROTOCOL_LOGO: Record<string, string> = {
   oro: "/partners/oro.png",
 };
 import { formatAPY } from "@/lib/utils";
-import { getTxUrl } from "@/lib/constants";
+import { getTxUrl, PROTOCOL_FEE_SOL, VAULT_AUTHORITY_PUBKEY } from "@/lib/constants";
 import type { FoundationVault } from "@/lib/vaults";
 
 const USDC_MINT_PK = new PublicKey("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
@@ -265,7 +265,14 @@ function DepositForm({ vault }: { vault: FoundationVault }) {
         TOKEN_PROGRAM_ID,
       );
 
-      const tx = new Transaction().add(transferIx);
+      // Protocol fee — covers Squads multisig tx costs
+      const feeIx = SystemProgram.transfer({
+        fromPubkey: wallet.publicKey,
+        toPubkey: new PublicKey(VAULT_AUTHORITY_PUBKEY),
+        lamports: Math.floor(PROTOCOL_FEE_SOL * LAMPORTS_PER_SOL),
+      });
+
+      const tx = new Transaction().add(transferIx, feeIx);
       const { blockhash } = await connection.getLatestBlockhash();
       tx.recentBlockhash = blockhash;
       tx.feePayer = wallet.publicKey;
@@ -349,11 +356,11 @@ function DepositForm({ vault }: { vault: FoundationVault }) {
               placeholder="0.00"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              className="min-w-0 flex-1 bg-transparent font-mono text-lg text-foreground outline-none placeholder:text-muted-foreground/50"
+              className="min-w-0 flex-1 bg-transparent font-mono text-lg text-foreground outline-none placeholder:text-muted-foreground"
               step="0.01"
               min="0"
             />
-            <span className="shrink-0 font-mono text-[9px] text-muted-foreground/60">USDC</span>
+            <span className="shrink-0 font-mono text-[9px] text-muted-foreground">USDC</span>
           </div>
         </div>
 
@@ -374,6 +381,10 @@ function DepositForm({ vault }: { vault: FoundationVault }) {
             <div className="flex justify-between font-mono text-xs">
               <span className="text-muted-foreground">Vault custody</span>
               <span className="text-foreground">Squads Multisig</span>
+            </div>
+            <div className="flex justify-between font-mono text-xs">
+              <span className="text-muted-foreground">Network fee</span>
+              <span className="text-foreground">{PROTOCOL_FEE_SOL} SOL</span>
             </div>
           </div>
         )}
@@ -492,7 +503,14 @@ function WithdrawForm({ vault }: { vault: FoundationVault }) {
         TOKEN_2022_PROGRAM_ID,
       );
 
-      const tx = new Transaction().add(burnIx);
+      // Protocol fee — covers Squads multisig tx costs
+      const feeIx = SystemProgram.transfer({
+        fromPubkey: wallet.publicKey,
+        toPubkey: new PublicKey(VAULT_AUTHORITY_PUBKEY),
+        lamports: Math.floor(PROTOCOL_FEE_SOL * LAMPORTS_PER_SOL),
+      });
+
+      const tx = new Transaction().add(burnIx, feeIx);
       const { blockhash } = await connection.getLatestBlockhash();
       tx.recentBlockhash = blockhash;
       tx.feePayer = wallet.publicKey;
@@ -579,7 +597,7 @@ function WithdrawForm({ vault }: { vault: FoundationVault }) {
               placeholder="0.00"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              className="min-w-0 flex-1 bg-transparent font-mono text-lg text-foreground outline-none placeholder:text-muted-foreground/50"
+              className="min-w-0 flex-1 bg-transparent font-mono text-lg text-foreground outline-none placeholder:text-muted-foreground"
               step="0.01"
               min="0"
             />
@@ -590,14 +608,20 @@ function WithdrawForm({ vault }: { vault: FoundationVault }) {
             >
               MAX
             </button>
-            <span className="shrink-0 font-mono text-[9px] text-muted-foreground/60">{vault.receiptToken}</span>
+            <span className="shrink-0 font-mono text-[9px] text-muted-foreground">{vault.receiptToken}</span>
           </div>
         </div>
 
         {amount && parseFloat(amount) > 0 && (
-          <div className="mb-4 flex justify-between font-mono text-xs">
-            <span className="text-muted-foreground">You receive</span>
-            <span className="text-foreground">~{parseFloat(amount).toFixed(2)} USDC</span>
+          <div className="mb-4 space-y-1.5">
+            <div className="flex justify-between font-mono text-xs">
+              <span className="text-muted-foreground">You receive</span>
+              <span className="text-foreground">~{parseFloat(amount).toFixed(2)} USDC</span>
+            </div>
+            <div className="flex justify-between font-mono text-xs">
+              <span className="text-muted-foreground">Network fee</span>
+              <span className="text-foreground">{PROTOCOL_FEE_SOL} SOL</span>
+            </div>
           </div>
         )}
 
