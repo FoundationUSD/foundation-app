@@ -98,7 +98,7 @@ export const FOUNDATION_VAULTS: FoundationVault[] = [
       "Your oroUSD balance grows via Token-2022 interest-bearing extension",
       "Withdraw anytime — Foundation sells $GOLD and returns USDC",
     ],
-    status: "live",
+    status: "coming_soon",
     vaultPda: process.env.NEXT_PUBLIC_ORO_VAULT_PDA || "",
     usdcAccount: process.env.NEXT_PUBLIC_ORO_USDC_ATA || "",
     mint: process.env.NEXT_PUBLIC_ORO_MINT || "",
