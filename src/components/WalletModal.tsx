@@ -59,7 +59,7 @@ export function WalletModal({ open, onClose }: WalletModalProps) {
   const installed = sorted.filter((w) => w.readyState === "Installed");
   const notInstalled = sorted.filter((w) => w.readyState !== "Installed");
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-[9000] flex items-center justify-center">
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/70 backdrop-blur-md" onClick={onClose} />
