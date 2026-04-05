@@ -13,14 +13,16 @@ import {
   Transaction,
   TransactionInstruction,
   VersionedTransaction,
+  AddressLookupTableAccount,
 } from "@solana/web3.js";
-import {
-  TOKEN_PROGRAM_ID,
-  getAssociatedTokenAddressSync,
-  createTransferInstruction,
-} from "@solana/spl-token";
+// spl-token imports available if needed for future protocol integrations
 import { executeVaultTransaction, getVaultAddresses } from "@/lib/solana/squads";
 import type { VaultName } from "@/lib/solana/squads";
+
+function getConnection(): Connection {
+  const url = process.env.SOLANA_RPC_URL || process.env.NEXT_PUBLIC_SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com";
+  return new Connection(url, "confirmed");
+}
 
 const USDC_MINT = new PublicKey("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
 const USDV_MINT = new PublicKey("Ex5DaKYMCN6QWFA4n67TmMwsH8MJV68RX6YXTmVM532C");
@@ -120,7 +122,7 @@ async function deployToKamino(usdcAmount: number): Promise<{ success: boolean; t
   }
 
   const { transaction: txBase64 } = await res.json();
-  const instructions = deserializeTxInstructions(txBase64);
+  const instructions = await deserializeTxInstructions(txBase64);
 
   if (instructions.length === 0) {
     throw new Error("Kamino API returned empty transaction");
@@ -151,7 +153,7 @@ async function withdrawFromKamino(usdcAmount: number): Promise<{ success: boolea
   }
 
   const { transaction: txBase64 } = await res.json();
-  const instructions = deserializeTxInstructions(txBase64);
+  const instructions = await deserializeTxInstructions(txBase64);
 
   if (instructions.length === 0) {
     throw new Error("Kamino API returned empty transaction");
@@ -257,7 +259,7 @@ async function jupiterSwap(params: {
   }
 
   const { swapTransaction } = await swapRes.json();
-  const instructions = deserializeTxInstructions(swapTransaction);
+  const instructions = await deserializeTxInstructions(swapTransaction);
 
   if (instructions.length === 0) {
     throw new Error("Jupiter returned empty swap transaction");
@@ -273,34 +275,77 @@ async function jupiterSwap(params: {
 
 /**
  * Deserialize a base64-encoded transaction and extract its instructions.
- * Works with both legacy Transaction and VersionedTransaction.
+ * Resolves Address Lookup Tables for VersionedTransactions.
  */
-function deserializeTxInstructions(txBase64: string): TransactionInstruction[] {
+async function deserializeTxInstructions(txBase64: string): Promise<TransactionInstruction[]> {
   const buffer = Buffer.from(txBase64, "base64");
 
   // Try VersionedTransaction first (more common from APIs)
   try {
     const vtx = VersionedTransaction.deserialize(buffer);
     const msg = vtx.message;
-    const accountKeys = msg.staticAccountKeys;
 
-    // Resolve address table lookups if present
-    // For now, we only handle static keys — ALT resolution requires fetching lookup tables
+    // Build full account key list (static + ALT resolved)
+    let allKeys = [...msg.staticAccountKeys];
+
+    if (msg.addressTableLookups && msg.addressTableLookups.length > 0) {
+      const connection = getConnection();
+      // Fetch all lookup tables in parallel
+      const altAccounts = await Promise.all(
+        msg.addressTableLookups.map(async (lookup) => {
+          const res = await connection.getAddressLookupTable(lookup.accountKey);
+          return res.value;
+        }),
+      );
+
+      // Resolve writable and readonly keys from each ALT
+      for (let i = 0; i < msg.addressTableLookups.length; i++) {
+        const lookup = msg.addressTableLookups[i];
+        const alt = altAccounts[i];
+        if (!alt) throw new Error(`Failed to fetch ALT: ${lookup.accountKey.toBase58()}`);
+
+        for (const idx of lookup.writableIndexes) {
+          allKeys.push(alt.state.addresses[idx]);
+        }
+        for (const idx of lookup.readonlyIndexes) {
+          allKeys.push(alt.state.addresses[idx]);
+        }
+      }
+    }
+
+    const numStaticWritableSigned = msg.header.numRequiredSignatures - msg.header.numReadonlySignedAccounts;
+    const numStaticWritableUnsigned = msg.staticAccountKeys.length - msg.header.numRequiredSignatures - msg.header.numReadonlyUnsignedAccounts;
+
+    // Count ALT writable keys
+    const altWritableCount = msg.addressTableLookups
+      ? msg.addressTableLookups.reduce((s, l) => s + l.writableIndexes.length, 0)
+      : 0;
+
     return msg.compiledInstructions.map((ci) => {
-      const programId = accountKeys[ci.programIdIndex];
-      const keys = ci.accountKeyIndexes.map((idx) => ({
-        pubkey: accountKeys[idx],
-        // We don't know exact signer/writable from compiled format,
-        // but the Squads vault transaction re-derives these from the program
-        isSigner: idx < msg.header.numRequiredSignatures,
-        isWritable:
-          idx < msg.header.numRequiredSignatures - msg.header.numReadonlySignedAccounts ||
-          (idx >= msg.header.numRequiredSignatures &&
-            idx < accountKeys.length - msg.header.numReadonlyUnsignedAccounts),
-      }));
+      const programId = allKeys[ci.programIdIndex];
+      const keys = ci.accountKeyIndexes.map((idx) => {
+        const pubkey = allKeys[idx];
+        const isStatic = idx < msg.staticAccountKeys.length;
+        let isSigner = false;
+        let isWritable = false;
+
+        if (isStatic) {
+          isSigner = idx < msg.header.numRequiredSignatures;
+          isWritable = idx < numStaticWritableSigned ||
+            (idx >= msg.header.numRequiredSignatures && idx < msg.header.numRequiredSignatures + numStaticWritableUnsigned);
+        } else {
+          // ALT keys: writable ones come first, then readonly
+          const altIdx = idx - msg.staticAccountKeys.length;
+          isWritable = altIdx < altWritableCount;
+        }
+
+        return { pubkey, isSigner, isWritable };
+      });
       return new TransactionInstruction({ programId, keys, data: Buffer.from(ci.data) });
     });
-  } catch {
+  } catch (e) {
+    // If it's an ALT fetch error, re-throw
+    if (e instanceof Error && e.message.includes("ALT")) throw e;
     // Fall back to legacy Transaction
   }
 
