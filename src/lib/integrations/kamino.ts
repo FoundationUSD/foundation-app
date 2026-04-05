@@ -152,14 +152,15 @@ export async function buildKaminoDepositTx(params: {
   mintAddress: string;
   amount: string;
   market: string;
+  reserve?: string;
 }): Promise<{ transaction: string } | null> {
   try {
     const res = await fetch(`${KAMINO_API}/ktx/klend/deposit`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        owner: params.userWallet,
-        mint: params.mintAddress,
+        wallet: params.userWallet,
+        reserve: params.reserve || params.mintAddress,
         amount: params.amount,
         market: params.market,
       }),
@@ -185,14 +186,15 @@ export async function buildKaminoWithdrawTx(params: {
   mintAddress: string;
   amount: string;
   market: string;
+  reserve?: string;
 }): Promise<{ transaction: string } | null> {
   try {
     const res = await fetch(`${KAMINO_API}/ktx/klend/withdraw`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        owner: params.userWallet,
-        mint: params.mintAddress,
+        wallet: params.userWallet,
+        reserve: params.reserve || params.mintAddress,
         amount: params.amount,
         market: params.market,
       }),
