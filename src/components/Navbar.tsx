@@ -15,41 +15,39 @@ export function Navbar() {
   ];
 
   return (
-    <nav className="fixed top-0 right-0 left-0 z-50 border-b border-white/[0.04] bg-[#060a12]/80 backdrop-blur-xl">
-      <div className="mx-auto flex h-14 max-w-[1080px] items-center justify-between px-6">
+    <nav className="fixed top-0 right-0 left-0 z-50 border-b border-[var(--border-color)] bg-[var(--bg)]/80 backdrop-blur-xl">
+      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-6">
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-2.5 transition-opacity hover:opacity-70">
+        <Link href="/" className="flex items-center gap-3 transition-opacity hover:opacity-80">
           <Image
             src="/partners/rounded-nobg.png"
             alt="Foundation"
-            width={22}
-            height={22}
-            className="opacity-70"
+            width={24}
+            height={24}
+            className="opacity-80"
           />
-          <span className="font-serif text-[15px] font-light tracking-wide text-foreground">
+          <span className="font-serif text-base font-light tracking-wide text-[var(--fg)]">
             Foundation
           </span>
         </Link>
 
-        {/* Right side */}
-        <div className="flex items-center gap-1">
+        {/* Nav links + theme + wallet */}
+        <div className="flex items-center gap-5">
           {links.map((link) => (
             <Link
               key={link.href}
               href={link.href}
-              className={`px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.15em] transition-colors ${
+              className={`font-mono text-[10px] uppercase tracking-[0.12em] transition-colors ${
                 pathname === link.href
-                  ? "text-foreground"
-                  : "text-muted-foreground hover:text-foreground"
+                  ? "text-gold-500"
+                  : "text-[var(--muted)] hover:text-[var(--fg)]"
               }`}
             >
               {link.label}
             </Link>
           ))}
-          <div className="ml-3 h-4 w-px bg-white/[0.06]" />
-          <div className="ml-3">
-            <WalletButton />
-          </div>
+          <ThemeToggle />
+          <WalletButton />
         </div>
       </div>
     </nav>
