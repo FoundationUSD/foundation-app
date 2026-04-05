@@ -33,6 +33,22 @@ const KAMINO_USDC_RESERVE = "9GJ9GBRwCp4pHmWrQ43L5xpc9Vykg7jnfwcFGN8FoHYu";
 
 const JUPITER_API = "https://lite-api.jup.ag/swap/v1";
 
+// Solomon stake program
+const SOLOMON_PROGRAM = new PublicKey("HSnn7bDvkZSEwujZDPtUcdo9KL7Conycgmy8m6mBFD5");
+const SOLOMON_VAULT_STATE = new PublicKey("BsPrkRjar8ktWagbcxsEzSBSpVnaj47nasjpFHWp1VMF");
+const SOLOMON_VAULT_USDV_ACCOUNT = new PublicKey("4AZVLwe6KinAmV3p7Hpj4PYQHrAGXhbpcCCiqLYRxwHf");
+const SOLOMON_MINT_AUTHORITY = new PublicKey("AFidqoSLvwSkv7HtCHiGBmdK6Sp32Me8jwSGvWKNkJVy");
+const SOLOMON_EVENT_AUTHORITY = new PublicKey("FEunrQB7m6s2ZicCTvYJCfiPQAFfb4baCM7TaP8f37CU");
+const SUSDV_MINT = new PublicKey("pTA4St7D5WshfLUPBXoaxn5m8e3k2ort2DVt3gUTa17");
+const TOKEN_PROGRAM = new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
+const SYSTEM_PROGRAM = new PublicKey("11111111111111111111111111111111");
+const ATA_PROGRAM = new PublicKey("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL");
+
+// Instruction discriminators (from on-chain tx analysis)
+const SOLOMON_STAKE_DISCRIMINATOR = Buffer.from("ceb0ca12c8d1b36c", "hex");
+const SOLOMON_START_UNSTAKE_DISCRIMINATOR = Buffer.from("c8f36a6faa481f75", "hex");
+const SOLOMON_UNSTAKE_DISCRIMINATOR = Buffer.from("5a5f6b2acd7c32e1", "hex");
+
 // ============================================================
 // Main dispatcher
 // ============================================================
@@ -184,33 +200,60 @@ async function deployToSolomon(usdcAmount: number): Promise<{ success: boolean; 
   console.log(`Solomon: swapped ${usdcAmount / 1e6} USDC → USDv, tx: ${swapSig}`);
 
   // Step 2: Stake USDv → sUSDV via Solomon program
-  // Solomon staking is permissionless — the vault PDA stakes its USDv
-  // For now, the USDv sits in the vault after swap. Solomon staking
-  // instruction building requires Anchor IDL which we don't have yet.
-  // TODO: Build Solomon stake instruction when IDL is available
-  console.warn("Solomon stake (USDv → sUSDV) not yet implemented — USDv held in vault");
+  // Convert USDC amount (6 dec) to USDv amount (9 dec) — approximate 1:1
+  const usdvAmount = BigInt(usdcAmount) * BigInt(1000); // 6 dec → 9 dec
+  const stakeIx = buildSolomonStakeInstruction(vault.vaultPda, usdvAmount);
+  const stakeSig = await executeVaultTransaction("solomon", [stakeIx]);
+  console.log(`Solomon: staked ${Number(usdvAmount) / 1e9} USDv → sUSDV, tx: ${stakeSig}`);
 
-  return { success: true, tx: swapSig };
+  return { success: true, tx: stakeSig };
 }
 
 async function withdrawFromSolomon(usdcAmount: number): Promise<{ success: boolean; tx?: string; error?: string }> {
   const vault = getVaultAddresses("solomon");
 
-  // TODO: Step 1 — Unstake sUSDV → USDv (7-day cooldown)
-  // For now, check if vault has USDv and swap back
+  // Step 1: Start unstake sUSDV → USDv
+  // Note: Solomon has a 7-day cooldown. StartUnstake burns sUSDV and creates
+  // an unstake ticket. After cooldown, Unstake releases USDv.
+  // For immediate withdrawals, we check if vault has idle USDv first.
+  const connection = getConnection();
+  const vaultUsdvAta = findAtaAddress(USDV_MINT.toBase58(), vault.vaultPda);
+  const usdvBalance = await connection.getTokenAccountBalance(vaultUsdvAta).catch(() => null);
+  const idleUsdv = usdvBalance ? Number(usdvBalance.value.amount) : 0;
+  const neededUsdv = usdcAmount * 1000; // 6 dec → 9 dec
+
+  if (idleUsdv < neededUsdv) {
+    // Need to unstake — start the cooldown
+    const sUsdvAmount = BigInt(neededUsdv - idleUsdv);
+    try {
+      const startUnstakeIx = buildSolomonStartUnstakeInstruction(vault.vaultPda, sUsdvAmount);
+      const unstakeSig = await executeVaultTransaction("solomon", [startUnstakeIx]);
+      console.log(`Solomon: started unstake of ${Number(sUsdvAmount) / 1e9} sUSDV, tx: ${unstakeSig}`);
+      // Cooldown is 7 days — user will need to wait
+      return { success: false, error: "Unstake initiated — 7-day cooldown. USDC will be available after cooldown completes." };
+    } catch (err) {
+      console.error("Solomon unstake failed:", err);
+      // Fall through — try to swap whatever USDv is available
+    }
+  }
 
   // Step 2: Jupiter swap USDv → USDC
-  // First check how much USDv we need to swap for the requested USDC amount
+  const swapAmount = Math.min(idleUsdv, neededUsdv);
+  if (swapAmount <= 0) {
+    return { success: false, error: "No USDv available to swap. Unstake cooldown in progress." };
+  }
+
+  // Convert USDv (9 dec) back to USDC-equivalent amount (6 dec) for Jupiter
   const swapSig = await jupiterSwap({
     vaultName: "solomon",
     vaultPda: vault.vaultPda,
     inputMint: USDV_MINT,
     outputMint: USDC_MINT,
-    amount: usdcAmount, // approximate 1:1 for stablecoins
+    amount: swapAmount,
     slippageBps: 50,
   });
 
-  console.log(`Solomon: swapped USDv → ${usdcAmount / 1e6} USDC, tx: ${swapSig}`);
+  console.log(`Solomon: swapped USDv → USDC, tx: ${swapSig}`);
   return { success: true, tx: swapSig };
 }
 
@@ -355,4 +398,91 @@ async function deserializeTxInstructions(txBase64: string): Promise<TransactionI
   } catch {
     throw new Error("Failed to deserialize transaction");
   }
+}
+
+// ============================================================
+// Solomon instruction builders
+// ============================================================
+
+/**
+ * Build a Solomon Stake instruction: USDv → sUSDV
+ * Account layout derived from on-chain transaction analysis.
+ */
+function buildSolomonStakeInstruction(
+  userPda: PublicKey,
+  usdvAmount: bigint,
+): TransactionInstruction {
+  const userSusdvAta = findAtaAddress(SUSDV_MINT.toBase58(), userPda);
+  const userUsdvAta = findAtaAddress(USDV_MINT.toBase58(), userPda);
+
+  // Data: 8-byte discriminator + 8-byte seed (0) + 8-byte amount (u64 LE)
+  const data = Buffer.alloc(24);
+  SOLOMON_STAKE_DISCRIMINATOR.copy(data, 0);
+  // Bytes 8-15: seed = 0 (Solomon vault salt)
+  data.writeBigUInt64LE(usdvAmount, 16);
+
+  return new TransactionInstruction({
+    programId: SOLOMON_PROGRAM,
+    keys: [
+      { pubkey: SOLOMON_VAULT_STATE, isSigner: false, isWritable: true },
+      { pubkey: SUSDV_MINT, isSigner: false, isWritable: true },
+      { pubkey: userSusdvAta, isSigner: false, isWritable: true },
+      { pubkey: userUsdvAta, isSigner: false, isWritable: true },
+      { pubkey: SOLOMON_VAULT_USDV_ACCOUNT, isSigner: false, isWritable: true },
+      { pubkey: SOLOMON_MINT_AUTHORITY, isSigner: false, isWritable: false },
+      { pubkey: SOLOMON_EVENT_AUTHORITY, isSigner: false, isWritable: true },
+      { pubkey: TOKEN_PROGRAM, isSigner: false, isWritable: false },
+      { pubkey: SYSTEM_PROGRAM, isSigner: false, isWritable: false },
+    ],
+    data,
+  });
+}
+
+/**
+ * Build a Solomon StartUnstake instruction: burns sUSDV, creates unstake ticket.
+ * 7-day cooldown before USDv is released via Unstake.
+ */
+function buildSolomonStartUnstakeInstruction(
+  userPda: PublicKey,
+  susdvAmount: bigint,
+): TransactionInstruction {
+  const userSusdvAta = findAtaAddress(SUSDV_MINT.toBase58(), userPda);
+  const userUsdvAta = findAtaAddress(USDV_MINT.toBase58(), userPda);
+
+  // Derive unstake ticket PDA
+  const [unstakeTicket] = PublicKey.findProgramAddressSync(
+    [Buffer.from("unstake"), userPda.toBuffer()],
+    SOLOMON_PROGRAM,
+  );
+
+  const data = Buffer.alloc(24);
+  SOLOMON_START_UNSTAKE_DISCRIMINATOR.copy(data, 0);
+  data.writeBigUInt64LE(susdvAmount, 16);
+
+  return new TransactionInstruction({
+    programId: SOLOMON_PROGRAM,
+    keys: [
+      { pubkey: TOKEN_PROGRAM, isSigner: false, isWritable: false },
+      { pubkey: SOLOMON_VAULT_STATE, isSigner: false, isWritable: true },
+      { pubkey: SUSDV_MINT, isSigner: false, isWritable: true },
+      { pubkey: userUsdvAta, isSigner: false, isWritable: true },
+      { pubkey: userSusdvAta, isSigner: false, isWritable: true },
+      { pubkey: SOLOMON_VAULT_USDV_ACCOUNT, isSigner: false, isWritable: true },
+      { pubkey: SOLOMON_MINT_AUTHORITY, isSigner: false, isWritable: false },
+      { pubkey: unstakeTicket, isSigner: false, isWritable: true },
+      { pubkey: SOLOMON_EVENT_AUTHORITY, isSigner: false, isWritable: true },
+      { pubkey: SYSTEM_PROGRAM, isSigner: false, isWritable: false },
+    ],
+    data,
+  });
+}
+
+/** Derive ATA address (sync, no RPC needed) */
+function findAtaAddress(mint: string, owner: PublicKey): PublicKey {
+  const mintPk = new PublicKey(mint);
+  const [ata] = PublicKey.findProgramAddressSync(
+    [owner.toBuffer(), TOKEN_PROGRAM.toBuffer(), mintPk.toBuffer()],
+    ATA_PROGRAM,
+  );
+  return ata;
 }

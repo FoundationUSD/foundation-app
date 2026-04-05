@@ -9,7 +9,11 @@ export const dynamic = "force-dynamic";
 const KAMINO_API = "https://api.kamino.finance";
 
 async function fetchSolomonApy(): Promise<number> {
-  return 12.5; // From Solomon docs — basis trading target
+  // Solomon doesn't expose a public APY API.
+  // sUSDV yield comes from basis trading (spot-long / perp-short).
+  // 12.5% is the documented target from Solomon Labs.
+  // TODO: scrape or partner API when available.
+  return 12.5;
 }
 
 async function fetchKaminoApy(): Promise<number> {
