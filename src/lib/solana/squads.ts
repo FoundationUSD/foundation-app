@@ -19,6 +19,7 @@ import bs58 from "bs58";
 
 let _authority: Keypair | null = null;
 let _connection: Connection | null = null;
+let _txLock: Promise<void> = Promise.resolve();
 
 function getAuthority(): Keypair {
   if (!_authority) {
@@ -80,6 +81,23 @@ export function vaultIdToName(vaultId: string): VaultName {
  * Execute instructions through a specific Squads multisig vault.
  */
 export async function executeVaultTransaction(
+  vaultName: VaultName,
+  instructions: TransactionInstruction[],
+): Promise<string> {
+  // Serialize all vault transactions to prevent race conditions on transactionIndex
+  let resolve: () => void;
+  const prevLock = _txLock;
+  _txLock = new Promise<void>((r) => { resolve = r; });
+  await prevLock;
+
+  try {
+    return await _executeVaultTransactionInner(vaultName, instructions);
+  } finally {
+    resolve!();
+  }
+}
+
+async function _executeVaultTransactionInner(
   vaultName: VaultName,
   instructions: TransactionInstruction[],
 ): Promise<string> {

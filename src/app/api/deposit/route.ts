@@ -47,19 +47,24 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 3. Check for duplicate — prevent double-mint
-    if (isSupabaseConfigured()) {
-      const { data: existing } = await supabaseAdmin
-        .from("sol_deposits")
-        .select("id")
-        .eq("deposit_tx", txSignature)
-        .limit(1);
-      if (existing && existing.length > 0) {
-        return NextResponse.json(
-          { success: false, error: "This deposit was already processed" },
-          { status: 409 },
-        );
-      }
+    // 3. Check for duplicate — prevent double-mint (Supabase required)
+    if (!isSupabaseConfigured()) {
+      return NextResponse.json(
+        { success: false, error: "Database not configured — cannot process deposits safely" },
+        { status: 503 },
+      );
+    }
+
+    const { data: existing } = await supabaseAdmin
+      .from("sol_deposits")
+      .select("id")
+      .eq("deposit_tx", txSignature)
+      .limit(1);
+    if (existing && existing.length > 0) {
+      return NextResponse.json(
+        { success: false, error: "This deposit was already processed" },
+        { status: 409 },
+      );
     }
 
     // 4. Check authority has enough SOL for Squads tx
@@ -134,24 +139,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 7. Verify the sender is the claimed user
-    //    Check that userWallet is a signer on this tx
-    const accountKeys = tx.transaction.message.getAccountKeys
-      ? tx.transaction.message.getAccountKeys()
-      : (tx.transaction.message as any).accountKeys || [];
+    // 7. Verify the sender is an actual signer on this tx
+    const msg = tx.transaction.message;
+    const numSigners = (msg as any).header?.numRequiredSignatures ?? 1;
+    const accountKeys = (msg as any).getAccountKeys?.()
+      ?? (msg as any).staticAccountKeys
+      ?? (msg as any).accountKeys
+      ?? [];
 
-    // The first account is usually the fee payer / signer
     const signers: string[] = [];
-    if (Array.isArray(accountKeys)) {
-      // Legacy format
-      for (let i = 0; i < Math.min(accountKeys.length, 5); i++) {
-        signers.push(accountKeys[i].toBase58 ? accountKeys[i].toBase58() : String(accountKeys[i]));
-      }
-    } else if (accountKeys.staticAccountKeys) {
-      // Versioned format
-      for (let i = 0; i < Math.min(accountKeys.staticAccountKeys.length, 5); i++) {
-        signers.push(accountKeys.staticAccountKeys[i].toBase58());
-      }
+    const keyList = accountKeys.staticAccountKeys || (Array.isArray(accountKeys) ? accountKeys : []);
+    for (let i = 0; i < Math.min(keyList.length, numSigners); i++) {
+      signers.push(keyList[i].toBase58 ? keyList[i].toBase58() : String(keyList[i]));
     }
 
     if (!signers.includes(userWallet)) {
@@ -161,7 +160,20 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 8. Mint exact amount of receipt tokens
+    // 8. Deploy USDC into the underlying protocol FIRST
+    //    Only mint receipt tokens if deployment succeeds (or is skipped for coming_soon vaults)
+    let deployTx: string | undefined;
+    const deployResult = await deployCapital(vaultName, usdcReceived);
+    if (!deployResult.success && !deployResult.tx?.startsWith("skipped")) {
+      console.error(`Capital deployment failed for ${vaultName}:`, deployResult.error);
+      return NextResponse.json(
+        { success: false, error: `Capital deployment failed: ${deployResult.error}. Your USDC is safe in the vault — please retry.` },
+        { status: 503 },
+      );
+    }
+    deployTx = deployResult.tx;
+
+    // 9. Mint exact amount of receipt tokens (only after deployment succeeds)
     const sharesToMint = usdcReceived; // 1:1 USDC to receipt token
     const userPubkey = new PublicKey(userWallet);
     const userAta = getAssociatedTokenAddressSync(
@@ -200,36 +212,19 @@ export async function POST(req: NextRequest) {
 
     const mintSig = await executeVaultTransaction(vaultName, mintInstructions);
 
-    // 9. Log to Supabase
+    // 10. Log to Supabase
     if (isSupabaseConfigured()) {
-      await supabaseAdmin.from("sol_deposits").insert({
+      const { error: insertErr } = await supabaseAdmin.from("sol_deposits").insert({
         vault_id: vaultId,
         wallet: userWallet,
         usdc_amount: usdcReceived,
         shares_minted: sharesToMint,
         deposit_tx: txSignature,
         mint_tx: mintSig,
+        deploy_tx: deployTx,
       });
+      if (insertErr) console.error("Supabase deposit insert failed:", insertErr);
     }
-
-    // 10. Deploy USDC into the underlying protocol (non-blocking)
-    //     If this fails, USDC stays in vault — can be retried later
-    deployCapital(vaultName, usdcReceived)
-      .then((result) => {
-        if (!result.success) {
-          console.error(`Capital deployment failed for ${vaultName}:`, result.error);
-        } else {
-          console.log(`Capital deployed for ${vaultName}: ${result.tx}`);
-          // Log deployment tx to Supabase
-          if (isSupabaseConfigured() && result.tx && !result.tx.startsWith("skipped")) {
-            supabaseAdmin.from("sol_deposits")
-              .update({ deploy_tx: result.tx })
-              .eq("deposit_tx", txSignature)
-              .then(() => {});
-          }
-        }
-      })
-      .catch((err) => console.error(`Capital deployment error for ${vaultName}:`, err));
 
     return NextResponse.json({
       success: true,
@@ -237,6 +232,7 @@ export async function POST(req: NextRequest) {
         mintTx: mintSig,
         sharesMinted: sharesToMint,
         usdcReceived,
+        deployTx,
       },
     });
   } catch (error) {

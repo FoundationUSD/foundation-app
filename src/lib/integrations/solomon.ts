@@ -93,8 +93,20 @@ export async function getSolomonData(): Promise<SolomonProtocolData> {
     const usdvSupply = usdvMintResult?.exists ? Number(usdvMintResult.data.supply) / 1e9 : 0;
     const susdvSupply = susdvMintResult?.exists ? Number(susdvMintResult.data.supply) / 1e9 : 0;
 
-    // Exchange rate: total backing / supply
-    const exchangeRate = susdvSupply > 0 && usdvSupply > 0 ? usdvSupply / susdvSupply : 1;
+    // Exchange rate: vault USDv balance / sUSDV supply
+    // The vault holds USDv backing all sUSDV, so rate = vaultUsdv / susdvSupply
+    let exchangeRate = 1;
+    try {
+      const { Connection, PublicKey } = await import("@solana/web3.js");
+      const conn = new Connection(SOLANA_RPC_URL, "confirmed");
+      const vaultUsdvBal = await conn.getTokenAccountBalance(
+        new PublicKey("4AZVLwe6KinAmV3p7Hpj4PYQHrAGXhbpcCCiqLYRxwHf"),
+      );
+      const vaultUsdv = Number(vaultUsdvBal.value.amount) / 1e9;
+      if (susdvSupply > 0 && vaultUsdv > 0) {
+        exchangeRate = vaultUsdv / susdvSupply;
+      }
+    } catch {}
 
     return {
       usdvMint: SOLOMON_USDV_MINT,
