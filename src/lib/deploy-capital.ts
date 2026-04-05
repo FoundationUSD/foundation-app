@@ -13,14 +13,29 @@ import {
   Transaction,
   TransactionInstruction,
   VersionedTransaction,
+  Keypair,
+  sendAndConfirmTransaction,
 } from "@solana/web3.js";
-// spl-token imports available if needed for future protocol integrations
+import {
+  TOKEN_PROGRAM_ID,
+  getAssociatedTokenAddressSync,
+  createTransferInstruction,
+  createAssociatedTokenAccountInstruction,
+  getAccount,
+} from "@solana/spl-token";
 import { executeVaultTransaction, getVaultAddresses } from "@/lib/solana/squads";
 import type { VaultName } from "@/lib/solana/squads";
+import bs58 from "bs58";
 
 function getConnection(): Connection {
   const url = process.env.SOLANA_RPC_URL || process.env.NEXT_PUBLIC_SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com";
   return new Connection(url, "confirmed");
+}
+
+function getAuthority(): Keypair {
+  const secret = process.env.VAULT_AUTHORITY_SECRET;
+  if (!secret) throw new Error("VAULT_AUTHORITY_SECRET not set");
+  return Keypair.fromSecretKey(bs58.decode(secret));
 }
 
 const USDC_MINT = new PublicKey("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
@@ -260,6 +275,17 @@ async function withdrawFromSolomon(usdcAmount: number): Promise<{ success: boole
 // Jupiter swap helper
 // ============================================================
 
+/**
+ * Jupiter swap using authority wallet as intermediary.
+ *
+ * Jupiter swaps have too many accounts (~28+) to fit inside a Squads vault
+ * transaction (which wraps the inner tx, nearly doubling size past the 1,232 byte limit).
+ *
+ * Flow:
+ * 1. Squads: transfer input token from vault PDA → authority wallet
+ * 2. Authority signs Jupiter swap directly (no Squads wrapping)
+ * 3. Authority transfers output token back to vault PDA
+ */
 async function jupiterSwap(params: {
   vaultName: VaultName;
   vaultPda: PublicKey;
@@ -268,47 +294,85 @@ async function jupiterSwap(params: {
   amount: number;
   slippageBps: number;
 }): Promise<string> {
-  // 1. Get quote
+  const connection = getConnection();
+  const authority = getAuthority();
+
+  // Step 1: Transfer input token from vault PDA to authority (via Squads)
+  const authInputAta = getAssociatedTokenAddressSync(params.inputMint, authority.publicKey, false, TOKEN_PROGRAM_ID);
+  const vaultInputAta = getAssociatedTokenAddressSync(params.inputMint, params.vaultPda, true, TOKEN_PROGRAM_ID);
+
+  const step1Ixs: TransactionInstruction[] = [];
+  try { await getAccount(connection, authInputAta, "confirmed", TOKEN_PROGRAM_ID); } catch {
+    step1Ixs.push(createAssociatedTokenAccountInstruction(params.vaultPda, authInputAta, authority.publicKey, params.inputMint, TOKEN_PROGRAM_ID));
+  }
+  step1Ixs.push(createTransferInstruction(vaultInputAta, authInputAta, params.vaultPda, params.amount, [], TOKEN_PROGRAM_ID));
+  await executeVaultTransaction(params.vaultName, step1Ixs);
+  console.log(`Jupiter: transferred ${params.amount} input tokens from vault to authority`);
+
+  // Step 2: Authority executes Jupiter swap directly
   const quoteRes = await fetch(
     `${JUPITER_API}/quote?` +
     `inputMint=${params.inputMint.toBase58()}` +
     `&outputMint=${params.outputMint.toBase58()}` +
     `&amount=${params.amount}` +
-    `&slippageBps=${params.slippageBps}`,
+    `&slippageBps=${params.slippageBps}` +
+    `&onlyDirectRoutes=true`,
   );
-
-  if (!quoteRes.ok) {
-    const text = await quoteRes.text();
-    throw new Error(`Jupiter quote failed ${quoteRes.status}: ${text}`);
-  }
-
+  if (!quoteRes.ok) throw new Error(`Jupiter quote failed ${quoteRes.status}`);
   const quote = await quoteRes.json();
 
-  // 2. Get swap transaction
   const swapRes = await fetch(`${JUPITER_API}/swap`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       quoteResponse: quote,
-      userPublicKey: params.vaultPda.toBase58(),
+      userPublicKey: authority.publicKey.toBase58(),
       wrapAndUnwrapSol: false,
     }),
   });
-
-  if (!swapRes.ok) {
-    const text = await swapRes.text();
-    throw new Error(`Jupiter swap failed ${swapRes.status}: ${text}`);
-  }
+  if (!swapRes.ok) throw new Error(`Jupiter swap failed ${swapRes.status}`);
 
   const { swapTransaction } = await swapRes.json();
-  const instructions = await deserializeTxInstructions(swapTransaction);
+  const swapBuffer = Buffer.from(swapTransaction, "base64");
+  const vtx = VersionedTransaction.deserialize(swapBuffer);
 
-  if (instructions.length === 0) {
-    throw new Error("Jupiter returned empty swap transaction");
+  // Resolve ALTs for signing
+  const altAccounts = await Promise.all(
+    (vtx.message.addressTableLookups || []).map(async (lookup) => {
+      const res = await connection.getAddressLookupTable(lookup.accountKey);
+      return res.value!;
+    }),
+  );
+
+  const { blockhash } = await connection.getLatestBlockhash();
+  vtx.message.recentBlockhash = blockhash;
+  vtx.sign([authority]);
+  const swapSig = await connection.sendRawTransaction(vtx.serialize());
+  await connection.confirmTransaction(swapSig, "confirmed");
+  console.log(`Jupiter: swap executed by authority, tx: ${swapSig}`);
+
+  // Step 3: Transfer output token from authority back to vault PDA
+  const authOutputAta = getAssociatedTokenAddressSync(params.outputMint, authority.publicKey, false, TOKEN_PROGRAM_ID);
+  const vaultOutputAta = getAssociatedTokenAddressSync(params.outputMint, params.vaultPda, true, TOKEN_PROGRAM_ID);
+
+  // Get actual output amount received
+  const outputBalance = await connection.getTokenAccountBalance(authOutputAta);
+  const outputAmount = Number(outputBalance.value.amount);
+  if (outputAmount <= 0) throw new Error("Jupiter swap returned 0 output tokens");
+
+  const step3Ixs: TransactionInstruction[] = [];
+  try { await getAccount(connection, vaultOutputAta, "confirmed", TOKEN_PROGRAM_ID); } catch {
+    step3Ixs.push(createAssociatedTokenAccountInstruction(authority.publicKey, vaultOutputAta, params.vaultPda, params.outputMint, TOKEN_PROGRAM_ID));
   }
+  step3Ixs.push(createTransferInstruction(authOutputAta, vaultOutputAta, authority.publicKey, outputAmount, [], TOKEN_PROGRAM_ID));
 
-  // 3. Execute via Squads
-  return await executeVaultTransaction(params.vaultName, instructions);
+  const step3Tx = new Transaction().add(...step3Ixs);
+  step3Tx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
+  step3Tx.feePayer = authority.publicKey;
+  const step3Sig = await sendAndConfirmTransaction(connection, step3Tx, [authority]);
+  console.log(`Jupiter: transferred ${outputAmount} output tokens back to vault, tx: ${step3Sig}`);
+
+  return swapSig;
 }
 
 // ============================================================
