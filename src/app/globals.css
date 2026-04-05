@@ -64,9 +64,44 @@
 
 html { color-scheme: dark; }
 
+/* ============================================
+   Light mode tokens
+   ============================================ */
+
+.light {
+  --bg: #edf1f9;
+  --surface: #ffffff;
+  --card: #ffffff;
+  --border-color: rgba(12, 35, 64, 0.1);
+  --border-hover: rgba(12, 35, 64, 0.18);
+  --fg: #0c2340;
+  --muted: #3d4f63;
+  --muted-fg: #5a6b7d;
+  --glass-bg: rgba(255, 255, 255, 0.5);
+  --glass-bg-hover: rgba(255, 255, 255, 0.7);
+  --glass-border: rgba(12, 35, 64, 0.08);
+  --glass-border-hover: rgba(12, 35, 64, 0.14);
+  --input-bg: rgba(12, 35, 64, 0.04);
+  --rule: rgba(12, 35, 64, 0.08);
+  --dot-color: rgba(12, 35, 64, 0.06);
+  --grid-line: rgba(12, 35, 64, 0.05);
+  --noise-opacity: 0.15;
+  --noise-blend: multiply;
+  --blob-color: rgba(12, 35, 64, 0.04);
+  color-scheme: light;
+}
+
+/* ============================================
+   Base
+   ============================================ */
+
+html {
+  scroll-behavior: smooth;
+}
+
 body {
-  background: var(--color-background);
-  color: var(--color-foreground);
+  background: var(--bg);
+  color: var(--fg);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -210,6 +245,12 @@ body::after {
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.1) inset,
     0 1px 8px rgba(184, 150, 12, 0.2);
+}
+
+.btn-primary:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
 }
 
 .btn-glass {

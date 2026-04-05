@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, Cormorant_Garamond, DM_Mono } from "next/font/google";
 import { WalletProvider } from "@/components/WalletProvider";
 import { Navbar } from "@/components/Navbar";
+import { NoiseBackground } from "@/components/NoiseBackground";
 import "./globals.css";
 
 const inter = Inter({
@@ -55,8 +56,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${inter.variable} ${cormorant.variable} ${dmMono.variable}`}>
-      <body className="min-h-screen bg-background text-foreground antialiased">
+    <html lang="en" className={`${inter.variable} ${cormorant.variable} ${dmMono.variable}`} suppressHydrationWarning>
+      <head>
+        {/* Prevent flash: apply saved theme before paint */}
+        <script dangerouslySetInnerHTML={{ __html: `try{if(localStorage.getItem('theme')==='light')document.documentElement.classList.add('light')}catch(e){}` }} />
+      </head>
+      <body className="min-h-screen antialiased">
+        <NoiseBackground />
         <WalletProvider>
           <Navbar />
           <main className="pt-14">{children}</main>
