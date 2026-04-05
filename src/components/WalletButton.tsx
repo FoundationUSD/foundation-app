@@ -131,7 +131,7 @@ export function WalletButton() {
     <div ref={dropdownRef} className="relative">
       <button
         onClick={() => setOpen(!open)}
-        className="glass flex items-center gap-2 rounded-none border-white/[0.08] px-4 py-2 transition-all hover:border-white/[0.15]"
+        className="flex items-center gap-2 border border-[var(--border-color)] bg-[var(--glass-bg)] px-4 py-2 transition-all hover:border-[var(--border-hover)]"
       >
         {wallet?.adapter.icon && (
           <Image unoptimized
@@ -141,25 +141,25 @@ export function WalletButton() {
           />
         )}
 
-        <span className="font-mono text-[11px] tracking-wide text-foreground">
+        <span className="font-mono text-[11px] tracking-wide text-[var(--fg)]">
           {shortenAddress(publicKey.toBase58(), 4)}
         </span>
 
         {solBalance !== null && (
-          <span className="font-mono text-[10px] text-muted-foreground">
+          <span className="font-mono text-[10px] text-[var(--muted-fg)]">
             {solBalance.toFixed(2)} SOL
           </span>
         )}
 
         <ChevronDown
-          className={`h-3 w-3 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`}
+          className={`h-3 w-3 text-[var(--muted-fg)] transition-transform ${open ? "rotate-180" : ""}`}
         />
       </button>
 
       {open && (
-        <div className="glass-strong absolute right-0 z-50 mt-2 w-64 animate-fade-in overflow-hidden rounded-sm border border-white/[0.08] p-0">
+        <div className="absolute right-0 z-50 mt-2 w-64 animate-fade-in overflow-hidden border border-[var(--border-color)] bg-[var(--bg)] p-0">
           {/* Header */}
-          <div className="border-b border-white/[0.06] p-4">
+          <div className="border-b border-[var(--rule)] p-4">
             <div className="mb-1 flex items-center gap-2">
               {wallet?.adapter.icon && (
                 <Image unoptimized
@@ -168,25 +168,25 @@ export function WalletButton() {
                   className="h-5 w-5 rounded-sm" width={20} height={20}
                 />
               )}
-              <span className="font-mono text-xs text-foreground">
+              <span className="font-mono text-xs text-[var(--fg)]">
                 {wallet?.adapter.name}
               </span>
               <ShieldCheck className="h-3.5 w-3.5 text-success" />
             </div>
-            <p className="font-mono text-[11px] text-muted-foreground">
+            <p className="font-mono text-[11px] text-[var(--muted-fg)]">
               {publicKey.toBase58()}
             </p>
           </div>
 
           {/* Balance */}
-          <div className="border-b border-white/[0.06] p-4">
+          <div className="border-b border-[var(--rule)] p-4">
             <div className="flex items-center gap-2">
               <Coins className="h-4 w-4 text-gold-400" />
               <div>
-                <p className="font-mono text-sm text-foreground">
+                <p className="font-mono text-sm text-[var(--fg)]">
                   {solBalance !== null ? `${solBalance.toFixed(4)} SOL` : "Loading..."}
                 </p>
-                <p className="font-mono text-[9px] uppercase tracking-[0.15em] text-muted-foreground">
+                <p className="font-mono text-[9px] uppercase tracking-[0.15em] text-[var(--muted-fg)]">
                   Balance
                 </p>
               </div>
@@ -197,14 +197,14 @@ export function WalletButton() {
           <div className="p-2">
             <button
               onClick={copyAddress}
-              className="flex w-full items-center gap-3 rounded-sm px-3 py-2.5 text-left transition-colors hover:bg-white/[0.04]"
+              className="flex w-full items-center gap-3 rounded-sm px-3 py-2.5 text-left transition-colors hover:bg-[var(--glass-bg-hover)]"
             >
               {copied ? (
                 <Check className="h-4 w-4 text-success" />
               ) : (
-                <Copy className="h-4 w-4 text-muted-foreground" />
+                <Copy className="h-4 w-4 text-[var(--muted-fg)]" />
               )}
-              <span className="font-mono text-xs text-foreground">
+              <span className="font-mono text-xs text-[var(--fg)]">
                 {copied ? "Copied!" : "Copy Address"}
               </span>
             </button>
@@ -213,10 +213,10 @@ export function WalletButton() {
               href={`${EXPLORER_URL}/account/${publicKey.toBase58()}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex w-full items-center gap-3 rounded-sm px-3 py-2.5 text-left transition-colors hover:bg-white/[0.04]"
+              className="flex w-full items-center gap-3 rounded-sm px-3 py-2.5 text-left transition-colors hover:bg-[var(--glass-bg-hover)]"
             >
-              <ExternalLink className="h-4 w-4 text-muted-foreground" />
-              <span className="font-mono text-xs text-foreground">View on Explorer</span>
+              <ExternalLink className="h-4 w-4 text-[var(--muted-fg)]" />
+              <span className="font-mono text-xs text-[var(--fg)]">View on Explorer</span>
             </a>
 
             <button
