@@ -59,13 +59,14 @@ export function WalletModal({ open, onClose }: WalletModalProps) {
   const installed = sorted.filter((w) => w.readyState === "Installed");
   const notInstalled = sorted.filter((w) => w.readyState !== "Installed");
 
+  // Portal to body so it escapes navbar stacking context
   return createPortal(
-    <div className="fixed inset-0 z-[9000] flex items-center justify-center">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center">
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-md" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
 
       {/* Modal */}
-      <div className="relative z-10 w-full max-w-sm overflow-hidden border border-white/[0.08] bg-[#0c1220] shadow-2xl">
+      <div className="relative z-10 w-full max-w-sm overflow-hidden border border-[var(--border-color)] bg-[var(--bg)]">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-[var(--rule)] px-6 py-4">
           <h2 className="font-serif text-lg font-light text-[var(--fg)]">Connect Wallet</h2>
