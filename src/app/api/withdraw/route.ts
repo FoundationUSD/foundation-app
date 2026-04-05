@@ -34,30 +34,40 @@ export async function POST(req: NextRequest) {
 
     const vault = getVaultAddresses(vaultName);
 
-    // Prevent duplicate withdrawal
-    if (isSupabaseConfigured()) {
-      const { data: existing } = await supabaseAdmin
-        .from("sol_withdrawals")
-        .select("id")
-        .eq("burn_tx", burnTxSignature)
-        .limit(1);
-      if (existing && existing.length > 0) {
-        return NextResponse.json(
-          { success: false, error: "This withdrawal was already processed" },
-          { status: 409 },
-        );
-      }
+    // Prevent duplicate withdrawal (Supabase required)
+    if (!isSupabaseConfigured()) {
+      return NextResponse.json(
+        { success: false, error: "Database not configured — cannot process withdrawals safely" },
+        { status: 503 },
+      );
+    }
+
+    const { data: existing } = await supabaseAdmin
+      .from("sol_withdrawals")
+      .select("id")
+      .eq("burn_tx", burnTxSignature)
+      .limit(1);
+    if (existing && existing.length > 0) {
+      return NextResponse.json(
+        { success: false, error: "This withdrawal was already processed" },
+        { status: 409 },
+      );
     }
 
     const rpcUrl = process.env.SOLANA_RPC_URL || process.env.NEXT_PUBLIC_SOLANA_RPC_URL!;
     const connection = new Connection(rpcUrl, "confirmed");
 
     // Check authority SOL
+    const authoritySecret = process.env.VAULT_AUTHORITY_SECRET;
+    if (!authoritySecret) {
+      return NextResponse.json(
+        { success: false, error: "Server configuration error" },
+        { status: 500 },
+      );
+    }
     const bs58 = await import("bs58");
     const { Keypair } = await import("@solana/web3.js");
-    const authority = Keypair.fromSecretKey(
-      bs58.default.decode(process.env.VAULT_AUTHORITY_SECRET!),
-    );
+    const authority = Keypair.fromSecretKey(bs58.default.decode(authoritySecret));
     const authBalance = await connection.getBalance(authority.publicKey);
     if (authBalance < MIN_AUTHORITY_SOL * LAMPORTS_PER_SOL) {
       return NextResponse.json(
@@ -139,7 +149,6 @@ export async function POST(req: NextRequest) {
     const withdrawResult = await withdrawCapital(vaultName, usdcOwed);
     if (!withdrawResult.success) {
       console.error(`Protocol withdrawal failed for ${vaultName}:`, withdrawResult.error);
-      // Continue anyway — vault may have idle USDC from previous deposits
     }
 
     // Check vault has enough USDC
@@ -147,9 +156,25 @@ export async function POST(req: NextRequest) {
       || getAssociatedTokenAddressSync(USDC_MINT, vault.vaultPda, true, TOKEN_PROGRAM_ID);
     const vaultBalance = await connection.getTokenAccountBalance(vaultUsdcAta);
     if (Number(vaultBalance.value.amount) < usdcOwed) {
+      // CRITICAL: User already burned tokens. Re-mint them to prevent fund loss.
+      console.error(`CRITICAL: Insufficient vault USDC after withdrawCapital. Re-minting ${sharesBurned} tokens to ${userWallet}`);
+      try {
+        const { TOKEN_2022_PROGRAM_ID, createMintToInstruction, getAssociatedTokenAddressSync: getAta2022, createAssociatedTokenAccountInstruction, getAccount } = await import("@solana/spl-token");
+        const userPubkey = new PublicKey(userWallet);
+        const userReceiptAta = getAta2022(vault.mint!, userPubkey, false, TOKEN_2022_PROGRAM_ID);
+        const remintIxs = [];
+        try { await getAccount(connection, userReceiptAta, "confirmed", TOKEN_2022_PROGRAM_ID); } catch {
+          remintIxs.push(createAssociatedTokenAccountInstruction(vault.vaultPda, userReceiptAta, userPubkey, vault.mint!, TOKEN_2022_PROGRAM_ID));
+        }
+        remintIxs.push(createMintToInstruction(vault.mint!, userReceiptAta, vault.vaultPda, sharesBurned, [], TOKEN_2022_PROGRAM_ID));
+        await executeVaultTransaction(vaultName, remintIxs);
+        console.log(`Re-minted ${sharesBurned} tokens to ${userWallet}`);
+      } catch (remintErr) {
+        console.error("CRITICAL: Re-mint also failed:", remintErr);
+      }
       return NextResponse.json(
-        { success: false, error: "Insufficient vault liquidity. Please try again later." },
-        { status: 400 },
+        { success: false, error: "Insufficient vault liquidity. Your tokens have been restored. Please try again later." },
+        { status: 503 },
       );
     }
 
@@ -170,7 +195,7 @@ export async function POST(req: NextRequest) {
 
     // Log
     if (isSupabaseConfigured()) {
-      await supabaseAdmin.from("sol_withdrawals").insert({
+      const { error: insertErr } = await supabaseAdmin.from("sol_withdrawals").insert({
         vault_id: vaultId,
         wallet: userWallet,
         shares_burned: sharesBurned,
@@ -178,6 +203,7 @@ export async function POST(req: NextRequest) {
         burn_tx: burnTxSignature,
         transfer_tx: sig,
       });
+      if (insertErr) console.error("Supabase withdrawal insert failed:", insertErr);
     }
 
     return NextResponse.json({

@@ -9,11 +9,62 @@ export const dynamic = "force-dynamic";
 const KAMINO_API = "https://api.kamino.finance";
 
 async function fetchSolomonApy(): Promise<number> {
-  // Solomon doesn't expose a public APY API.
-  // sUSDV yield comes from basis trading (spot-long / perp-short).
-  // 12.5% is the documented target from Solomon Labs.
-  // TODO: scrape or partner API when available.
-  return 12.5;
+  // Compute APY from on-chain exchange rate: vaultUsdvBalance / susdvSupply
+  // Compare current rate vs rate stored 7 days ago in Supabase
+  try {
+    const { Connection, PublicKey } = await import("@solana/web3.js");
+    const rpcUrl = process.env.SOLANA_RPC_URL || process.env.NEXT_PUBLIC_SOLANA_RPC_URL!;
+    const conn = new Connection(rpcUrl, "confirmed");
+
+    const vaultUsdvAccount = new PublicKey("4AZVLwe6KinAmV3p7Hpj4PYQHrAGXhbpcCCiqLYRxwHf");
+    const susdvMint = new PublicKey("pTA4St7D5WshfLUPBXoaxn5m8e3k2ort2DVt3gUTa17");
+
+    const [usdvBal, susdvSupply] = await Promise.all([
+      conn.getTokenAccountBalance(vaultUsdvAccount),
+      conn.getTokenSupply(susdvMint),
+    ]);
+
+    const vaultUsdv = Number(usdvBal.value.amount);
+    const totalSusdv = Number(susdvSupply.value.amount);
+    if (totalSusdv === 0) return 12.5;
+
+    const currentRate = vaultUsdv / totalSusdv;
+
+    // Try to get historical rate from Supabase for APY calculation
+    if (isSupabaseConfigured()) {
+      const weekAgo = new Date(Date.now() - 7 * 86400_000).toISOString();
+      const { data: history } = await supabaseAdmin
+        .from("sol_nav_history")
+        .select("metadata")
+        .eq("vault_id", "fdn-solomon")
+        .gte("created_at", weekAgo)
+        .order("created_at", { ascending: true })
+        .limit(1);
+
+      if (history?.[0]?.metadata?.solomonRate) {
+        const oldRate = history[0].metadata.solomonRate;
+        const daysDiff = 7;
+        const apy = (currentRate / oldRate - 1) * (365 / daysDiff) * 100;
+        if (apy > 0 && apy < 50) {
+          console.log(`Solomon live APY: ${apy.toFixed(2)}% (rate: ${currentRate.toFixed(6)} vs ${oldRate.toFixed(6)})`);
+          return apy;
+        }
+      }
+
+      // Store current rate for future APY calculation
+      await supabaseAdmin.from("sol_nav_history").insert({
+        vault_id: "fdn-solomon",
+        rate_bps: 0,
+        apy: 0,
+        metadata: { solomonRate: currentRate, vaultUsdv, totalSusdv },
+      });
+    }
+
+    return 12.5; // Fallback until we have historical data
+  } catch (err) {
+    console.error("Failed to compute Solomon APY:", err);
+    return 12.5;
+  }
 }
 
 async function fetchKaminoApy(): Promise<number> {
@@ -60,11 +111,9 @@ const VAULT_RATES: VaultRate[] = [
  */
 export async function GET(req: NextRequest) {
   const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret) {
-    const authHeader = req.headers.get("authorization");
-    if (authHeader !== `Bearer ${cronSecret}`) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  const authHeader = req.headers.get("authorization");
+  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const results: Record<string, unknown>[] = [];

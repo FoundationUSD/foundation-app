@@ -13,7 +13,6 @@ import {
   Transaction,
   TransactionInstruction,
   VersionedTransaction,
-  AddressLookupTableAccount,
 } from "@solana/web3.js";
 // spl-token imports available if needed for future protocol integrations
 import { executeVaultTransaction, getVaultAddresses } from "@/lib/solana/squads";
@@ -412,27 +411,37 @@ function buildSolomonStakeInstruction(
   userPda: PublicKey,
   usdvAmount: bigint,
 ): TransactionInstruction {
-  const userSusdvAta = findAtaAddress(SUSDV_MINT.toBase58(), userPda);
   const userUsdvAta = findAtaAddress(USDV_MINT.toBase58(), userPda);
+  const userSusdvAta = findAtaAddress(SUSDV_MINT.toBase58(), userPda);
 
-  // Data: 8-byte discriminator + 8-byte seed (0) + 8-byte amount (u64 LE)
+  // Per-user escrow PDA (41 bytes, program-owned receipt account)
+  const [userEscrow] = PublicKey.findProgramAddressSync(
+    [SOLOMON_VAULT_STATE.toBuffer(), userPda.toBuffer()],
+    SOLOMON_PROGRAM,
+  );
+  // Escrow authority PDA
+  const [escrowAuthority] = PublicKey.findProgramAddressSync(
+    [Buffer.from("escrow"), SOLOMON_VAULT_STATE.toBuffer(), userPda.toBuffer()],
+    SOLOMON_PROGRAM,
+  );
+
+  // Data: 8-byte discriminator + 8-byte padding (0) + 8-byte amount (u64 LE)
   const data = Buffer.alloc(24);
   SOLOMON_STAKE_DISCRIMINATOR.copy(data, 0);
-  // Bytes 8-15: seed = 0 (Solomon vault salt)
   data.writeBigUInt64LE(usdvAmount, 16);
 
   return new TransactionInstruction({
     programId: SOLOMON_PROGRAM,
     keys: [
-      { pubkey: SOLOMON_VAULT_STATE, isSigner: false, isWritable: true },
-      { pubkey: SUSDV_MINT, isSigner: false, isWritable: true },
-      { pubkey: userSusdvAta, isSigner: false, isWritable: true },
-      { pubkey: userUsdvAta, isSigner: false, isWritable: true },
-      { pubkey: SOLOMON_VAULT_USDV_ACCOUNT, isSigner: false, isWritable: true },
-      { pubkey: SOLOMON_MINT_AUTHORITY, isSigner: false, isWritable: false },
-      { pubkey: SOLOMON_EVENT_AUTHORITY, isSigner: false, isWritable: true },
-      { pubkey: TOKEN_PROGRAM, isSigner: false, isWritable: false },
-      { pubkey: SYSTEM_PROGRAM, isSigner: false, isWritable: false },
+      { pubkey: SOLOMON_VAULT_STATE, isSigner: false, isWritable: true },    // [0] vault state
+      { pubkey: SUSDV_MINT, isSigner: false, isWritable: true },             // [1] sUSDV mint
+      { pubkey: userUsdvAta, isSigner: false, isWritable: true },            // [2] user USDv ATA (source)
+      { pubkey: userSusdvAta, isSigner: false, isWritable: true },           // [3] user sUSDV ATA (dest)
+      { pubkey: SOLOMON_VAULT_USDV_ACCOUNT, isSigner: false, isWritable: true }, // [4] vault USDv
+      { pubkey: userEscrow, isSigner: false, isWritable: true },             // [5] user escrow
+      { pubkey: escrowAuthority, isSigner: false, isWritable: true },        // [6] escrow authority
+      { pubkey: TOKEN_PROGRAM, isSigner: false, isWritable: false },         // [7]
+      { pubkey: SYSTEM_PROGRAM, isSigner: false, isWritable: false },        // [8]
     ],
     data,
   });
@@ -447,11 +456,20 @@ function buildSolomonStartUnstakeInstruction(
   susdvAmount: bigint,
 ): TransactionInstruction {
   const userSusdvAta = findAtaAddress(SUSDV_MINT.toBase58(), userPda);
-  const userUsdvAta = findAtaAddress(USDV_MINT.toBase58(), userPda);
 
-  // Derive unstake ticket PDA
-  const [unstakeTicket] = PublicKey.findProgramAddressSync(
-    [Buffer.from("unstake"), userPda.toBuffer()],
+  // Per-user escrow PDA
+  const [userEscrow] = PublicKey.findProgramAddressSync(
+    [SOLOMON_VAULT_STATE.toBuffer(), userPda.toBuffer()],
+    SOLOMON_PROGRAM,
+  );
+  // Unstake queue PDA (1216 bytes, ring buffer for pending unstakes)
+  const [unstakeQueue] = PublicKey.findProgramAddressSync(
+    [Buffer.from("unstake_queue"), SOLOMON_VAULT_STATE.toBuffer(), userPda.toBuffer()],
+    SOLOMON_PROGRAM,
+  );
+  // Escrow authority PDA
+  const [escrowAuthority] = PublicKey.findProgramAddressSync(
+    [Buffer.from("escrow"), SOLOMON_VAULT_STATE.toBuffer(), userPda.toBuffer()],
     SOLOMON_PROGRAM,
   );
 
@@ -462,16 +480,16 @@ function buildSolomonStartUnstakeInstruction(
   return new TransactionInstruction({
     programId: SOLOMON_PROGRAM,
     keys: [
-      { pubkey: TOKEN_PROGRAM, isSigner: false, isWritable: false },
-      { pubkey: SOLOMON_VAULT_STATE, isSigner: false, isWritable: true },
-      { pubkey: SUSDV_MINT, isSigner: false, isWritable: true },
-      { pubkey: userUsdvAta, isSigner: false, isWritable: true },
-      { pubkey: userSusdvAta, isSigner: false, isWritable: true },
-      { pubkey: SOLOMON_VAULT_USDV_ACCOUNT, isSigner: false, isWritable: true },
-      { pubkey: SOLOMON_MINT_AUTHORITY, isSigner: false, isWritable: false },
-      { pubkey: unstakeTicket, isSigner: false, isWritable: true },
-      { pubkey: SOLOMON_EVENT_AUTHORITY, isSigner: false, isWritable: true },
-      { pubkey: SYSTEM_PROGRAM, isSigner: false, isWritable: false },
+      { pubkey: TOKEN_PROGRAM, isSigner: false, isWritable: false },           // [0]
+      { pubkey: SOLOMON_VAULT_STATE, isSigner: false, isWritable: true },      // [1] vault state
+      { pubkey: SUSDV_MINT, isSigner: false, isWritable: true },               // [2] sUSDV mint
+      { pubkey: userPda, isSigner: true, isWritable: true },                   // [3] user wallet (signer)
+      { pubkey: userSusdvAta, isSigner: false, isWritable: true },             // [4] user sUSDV ATA (burn)
+      { pubkey: SOLOMON_VAULT_USDV_ACCOUNT, isSigner: false, isWritable: true }, // [5] vault USDv
+      { pubkey: userEscrow, isSigner: false, isWritable: true },               // [6] user escrow
+      { pubkey: unstakeQueue, isSigner: false, isWritable: true },             // [7] unstake queue
+      { pubkey: escrowAuthority, isSigner: false, isWritable: true },          // [8] escrow authority
+      { pubkey: SYSTEM_PROGRAM, isSigner: false, isWritable: false },          // [9]
     ],
     data,
   });
