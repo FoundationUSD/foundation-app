@@ -37,7 +37,7 @@ function getConnection(): Connection {
   return _connection;
 }
 
-type VaultName = "solomon" | "kamino" | "drift" | "oro";
+export type VaultName = "solomon" | "kamino" | "drift" | "oro";
 
 /**
  * Get vault addresses for a specific vault by name.
