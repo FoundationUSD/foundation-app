@@ -9,6 +9,7 @@ import {
 } from "@solana/spl-token";
 import { executeVaultTransaction, getVaultAddresses, vaultIdToName } from "@/lib/solana/squads";
 import { isSupabaseConfigured, supabaseAdmin } from "@/lib/supabase-server";
+import { deployCapital } from "@/lib/deploy-capital";
 
 export const dynamic = "force-dynamic";
 
@@ -210,6 +211,25 @@ export async function POST(req: NextRequest) {
         mint_tx: mintSig,
       });
     }
+
+    // 10. Deploy USDC into the underlying protocol (non-blocking)
+    //     If this fails, USDC stays in vault — can be retried later
+    deployCapital(vaultName, usdcReceived)
+      .then((result) => {
+        if (!result.success) {
+          console.error(`Capital deployment failed for ${vaultName}:`, result.error);
+        } else {
+          console.log(`Capital deployed for ${vaultName}: ${result.tx}`);
+          // Log deployment tx to Supabase
+          if (isSupabaseConfigured() && result.tx && !result.tx.startsWith("skipped")) {
+            supabaseAdmin.from("sol_deposits")
+              .update({ deploy_tx: result.tx })
+              .eq("deposit_tx", txSignature)
+              .then(() => {});
+          }
+        }
+      })
+      .catch((err) => console.error(`Capital deployment error for ${vaultName}:`, err));
 
     return NextResponse.json({
       success: true,

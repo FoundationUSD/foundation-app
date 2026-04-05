@@ -7,6 +7,7 @@ import {
 } from "@solana/spl-token";
 import { executeVaultTransaction, getVaultAddresses, vaultIdToName } from "@/lib/solana/squads";
 import { isSupabaseConfigured, supabaseAdmin } from "@/lib/supabase-server";
+import { withdrawCapital } from "@/lib/deploy-capital";
 
 export const dynamic = "force-dynamic";
 
@@ -132,6 +133,13 @@ export async function POST(req: NextRequest) {
           { status: 400 },
         );
       }
+    }
+
+    // Withdraw capital from the underlying protocol back to vault
+    const withdrawResult = await withdrawCapital(vaultName, usdcOwed);
+    if (!withdrawResult.success) {
+      console.error(`Protocol withdrawal failed for ${vaultName}:`, withdrawResult.error);
+      // Continue anyway — vault may have idle USDC from previous deposits
     }
 
     // Check vault has enough USDC
