@@ -2,8 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
-import { useWallet } from "@solana/wallet-adapter-react";
-import { useConnection } from "@solana/wallet-adapter-react";
+import { useWallet, useConnection } from "@solana/wallet-adapter-react";
 import { PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL } from "@solana/web3.js";
 import {
   TOKEN_PROGRAM_ID,
@@ -11,12 +10,16 @@ import {
   getAssociatedTokenAddressSync,
   createTransferInstruction,
   createBurnInstruction,
-  getAccount,
 } from "@solana/spl-token";
-import { ArrowLeft, Loader2, Check, ExternalLink, Wallet, Shield } from "lucide-react";
+import { ArrowLeft, Loader2, Check, ExternalLink, Shield, TrendingUp, BarChart3, Users, Lock, AlertTriangle, Wallet } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { WalletModal } from "@/components/WalletModal";
+import { formatAPY } from "@/lib/utils";
+import { getTxUrl, PROTOCOL_FEE_SOL, VAULT_AUTHORITY_PUBKEY } from "@/lib/constants";
+import type { FoundationVault } from "@/lib/vaults";
+
+const USDC_MINT_PK = new PublicKey("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
 
 const PROTOCOL_LOGO: Record<string, string> = {
   solomon: "/partners/solomon-circle.png",
@@ -24,18 +27,20 @@ const PROTOCOL_LOGO: Record<string, string> = {
   drift: "/partners/drift.png",
   oro: "/partners/oro.png",
 };
-import { formatAPY } from "@/lib/utils";
-import { getTxUrl, PROTOCOL_FEE_SOL, VAULT_AUTHORITY_PUBKEY } from "@/lib/constants";
-import type { FoundationVault } from "@/lib/vaults";
 
-const USDC_MINT_PK = new PublicKey("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
-
-const RISK_CONFIG = {
-  conservative: { color: "text-emerald-400", bg: "bg-emerald-500/10", label: "Conservative" },
-  moderate: { color: "text-blue-400", bg: "bg-blue-500/10", label: "Moderate" },
-  growth: { color: "text-amber-400", bg: "bg-amber-500/10", label: "Growth" },
+const RISK_LABELS: Record<string, string> = {
+  conservative: "Conservative",
+  moderate: "Moderate",
+  growth: "Growth",
 };
 
+const TABS = [
+  { key: "overview", label: "Overview" },
+  { key: "performance", label: "Performance" },
+  { key: "strategy", label: "Strategy" },
+  { key: "transparency", label: "Transparency" },
+  { key: "risks", label: "Risks" },
+] as const;
 
 export default function StrategyPage() {
   const params = useParams();
@@ -44,6 +49,9 @@ export default function StrategyPage() {
   const [walletModalOpen, setWalletModalOpen] = useState(false);
   const [vault, setVault] = useState<FoundationVault | null>(null);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<string>("overview");
+  const [activeAction, setActiveAction] = useState<"deposit" | "withdraw">("deposit");
+  const [positionBalance, setPositionBalance] = useState(0);
 
   useEffect(() => {
     async function load() {
@@ -51,7 +59,8 @@ export default function StrategyPage() {
         const res = await fetch("/api/strategies");
         const json = await res.json();
         if (json.success) {
-          setVault(json.data.find((s: FoundationVault) => s.id === strategyId) || null);
+          const found = json.data.find((s: FoundationVault) => s.id === strategyId) || null;
+          setVault(found);
         }
       } catch {
         // silently fail
@@ -62,157 +71,370 @@ export default function StrategyPage() {
     load();
   }, [strategyId]);
 
+  useEffect(() => {
+    if (!wallet.publicKey || !vault) return;
+    (async () => {
+      try {
+        const res = await fetch(`/api/user/portfolio?wallet=${wallet.publicKey!.toBase58()}`);
+        const json = await res.json();
+        if (json.success) {
+          const pos = json.data.find((p: { vaultId: string }) => p.vaultId === vault.id);
+          setPositionBalance(pos ? pos.depositedUsdc : 0);
+        }
+      } catch {
+        setPositionBalance(0);
+      }
+    })();
+  }, [wallet.publicKey, vault]);
+
   if (loading) {
     return (
-      <div className="mx-auto max-w-4xl px-6 py-12">
-        <div className="skeleton mb-8 h-8 w-32 rounded-sm" />
-        <div className="skeleton h-64 rounded-sm" />
+      <div className="fdn-page mx-auto flex min-h-[500px] flex-col rounded-xl border border-[var(--rule)] bg-white p-4 shadow-sm md:px-6 lg:p-6">
+        <div className="skeleton mb-8 h-8 w-32 rounded-lg" />
+        <div className="skeleton h-64 rounded-lg" />
       </div>
     );
   }
 
   if (!vault) {
     return (
-      <div className="mx-auto max-w-4xl px-6 py-24 text-center">
-        <p className="text-muted-foreground">Vault not found</p>
-        <Link href="/" className="mt-4 inline-block font-mono text-xs text-gold-400">
-          ← Back
-        </Link>
+      <div className="fdn-page mx-auto max-w-7xl px-6 py-24 text-center">
+        <div className="infra-card overflow-hidden p-8 text-center">
+          <p className="mb-2 text-lg text-[#0c2340]">Vault not found</p>
+          <p className="mb-4 text-sm text-[var(--text-accent)]">The requested strategy does not exist.</p>
+          <Link href="/" className="btn-primary inline-block px-6 py-2.5 font-mono text-xs">
+            Back to Vaults
+          </Link>
+        </div>
       </div>
     );
   }
 
-  const risk = RISK_CONFIG[vault.riskTier];
+  const isLive = vault.status === "live";
 
   return (
-    <div className="mx-auto max-w-4xl px-6 py-12">
-      <Link
-        href="/"
-        className="mb-8 inline-flex items-center gap-2 font-mono text-xs text-muted-foreground transition-colors hover:text-foreground"
-      >
-        <ArrowLeft className="h-3.5 w-3.5" />
-        Back to Vaults
-      </Link>
-
-      {/* Header */}
-      <div className="mb-8">
-        <div className="mb-3 flex flex-wrap items-center gap-2">
-          {PROTOCOL_LOGO[vault.protocol] && (
-            <Image
-              src={PROTOCOL_LOGO[vault.protocol]}
-              alt={vault.protocol}
-              width={24}
-              height={24}
-              className="rounded-sm"
-            />
-          )}
-          <span className={`${risk.bg} ${risk.color} rounded-sm px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.1em]`}>
-            {risk.label}
-          </span>
-          {vault.status === "live" ? (
-            <span className="rounded-sm bg-success/10 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.1em] text-success">
-              Live
-            </span>
-          ) : (
-            <span className="rounded-sm bg-white/[0.04] px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.1em] text-muted-foreground">
-              Coming Soon
-            </span>
-          )}
-        </div>
-        <h1 className="mb-1 font-serif text-3xl font-light text-foreground">{vault.name}</h1>
-        <p className="mb-1 font-mono text-xs text-muted-foreground">{vault.receiptToken}</p>
-        <p className="text-sm text-muted-foreground">{vault.description}</p>
-      </div>
-
-      <div className="grid gap-8 lg:grid-cols-[1fr_380px]">
-        {/* Left */}
-        <div className="space-y-6">
-          {/* Stats */}
-          <div className="border border-white/[0.06] p-6">
-            <h3 className="section-label mb-4">Vault Details</h3>
-            <div className="space-y-3">
-              <div className="flex justify-between">
-                <span className="text-sm text-muted-foreground">Current APY</span>
-                <span className="text-gradient-gold font-mono text-sm font-medium">
-                  {vault.apy > 0 ? formatAPY(vault.apy) : "--"}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-muted-foreground">Strategy</span>
-                <span className="font-mono text-sm text-foreground">{vault.strategy}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-muted-foreground">Underlying</span>
-                <span className="font-mono text-sm text-foreground">{vault.underlying}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-muted-foreground">Deposit Asset</span>
-                <span className="font-mono text-sm text-foreground">USDC</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-muted-foreground">Receipt Token</span>
-                <span className="font-mono text-sm text-foreground">{vault.receiptToken} (Token-2022)</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-muted-foreground">Vault Custody</span>
-                <span className="font-mono text-sm text-foreground">Squads Multisig</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-muted-foreground">Risk Tier</span>
-                <span className={`font-mono text-sm ${risk.color}`}>{risk.label}</span>
+    <div className="fdn-page mx-auto flex min-h-[500px] max-w-7xl flex-col rounded-xl border border-[var(--rule)] bg-white p-4 shadow-sm md:px-6 lg:p-6">
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 md:flex-row">
+        {/* Left: Strategy Details */}
+        <div className="order-2 min-w-0 flex-1 md:order-1">
+          <div className="flex w-full flex-col gap-3">
+            {/* Back Button */}
+            <div className="flex items-center gap-3">
+              <Link
+                href="/"
+                className="flex h-10 w-10 items-center justify-center rounded-lg border border-[var(--rule)] bg-light-bg transition-colors hover:bg-light-bg/80"
+              >
+                <ArrowLeft className="h-5 w-5 text-[#0c2340]" />
+              </Link>
+              <div className="flex-1">
+                <h1 className="text-2xl font-semibold text-[#0c2340]">
+                  Strategy Details
+                </h1>
               </div>
             </div>
-          </div>
 
-          {/* Features */}
-          <div className="border border-white/[0.06] p-6">
-            <h3 className="section-label mb-4">Features</h3>
-            <div className="flex flex-wrap gap-2">
-              {vault.features.map((f) => (
-                <span
-                  key={f}
-                  className="flex items-center gap-1.5 border border-white/[0.06] px-3 py-1 font-mono text-[10px] text-foreground"
-                >
-                  <Shield className="h-3 w-3 text-gold-400" />
-                  {f}
-                </span>
-              ))}
-            </div>
-          </div>
-
-          {/* How it works */}
-          <div className="border border-white/[0.06] p-6">
-            <h3 className="section-label mb-4">How It Works</h3>
-            <div className="space-y-3 text-sm text-muted-foreground">
-              {vault.howItWorks.map((step, i) => (
-                <div key={i} className="flex gap-3">
-                  <span className="font-mono text-gold-400">{i + 1}.</span>
-                  <p>{step}</p>
+            {/* Strategy Header Card */}
+            <div className="rounded-xl border border-[var(--rule)] bg-white p-4">
+              <div className="flex items-start gap-3 mb-3">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-[var(--rule)] bg-light-bg">
+                  {PROTOCOL_LOGO[vault.protocol] && (
+                    <Image
+                      src={PROTOCOL_LOGO[vault.protocol]}
+                      alt={vault.protocol}
+                      width={32}
+                      height={32}
+                      className="h-8 w-8 object-contain rounded-md"
+                    />
+                  )}
                 </div>
+                <div className="min-w-0 flex-1">
+                  <div className="mb-1.5 flex items-center gap-2">
+                    <h2 className="text-lg font-semibold text-[#0c2340]">
+                      {vault.name}
+                    </h2>
+                    <span
+                      className={`rounded px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider
+                        ${isLive ? "bg-emerald-500/10 text-emerald-600" : "bg-black/[0.04] text-[var(--text-accent)]"}
+                      `}
+                    >
+                      {isLive ? "Live" : "Coming Soon"}
+                    </span>
+                    <span className={`rounded px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider
+                      ${vault.riskTier === "conservative" ? "bg-emerald-500/10 text-emerald-600" :
+                        vault.riskTier === "moderate" ? "bg-blue-500/10 text-blue-600" :
+                        "bg-amber-500/10 text-amber-600"}
+                    `}>
+                      {RISK_LABELS[vault.riskTier] || vault.riskTier}
+                    </span>
+                  </div>
+                  <p className="text-xs leading-relaxed text-[var(--text-accent)]">
+                    {vault.description}
+                  </p>
+                </div>
+              </div>
+
+              {/* Key Metrics */}
+              <div className="grid grid-cols-2 gap-3 border-t border-[var(--rule)] pt-3">
+                <div>
+                  <div className="mb-1 text-xs text-[var(--text-accent)]">TVL (USD)</div>
+                  <div className="text-xl font-semibold text-[#0c2340]">
+                    --
+                  </div>
+                </div>
+                <div>
+                  <div className="mb-1 text-xs text-[var(--text-accent)]">APY</div>
+                  <div className="text-xl font-semibold text-[#0c2340]">
+                    {vault.apy > 0 ? formatAPY(vault.apy) : "--"}%
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Tabs Navigation */}
+            <div className="flex w-full items-center gap-0 overflow-hidden rounded-xl border border-[var(--rule)] bg-light-bg">
+              {TABS.map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key)}
+                  className={`flex-1 cursor-pointer px-2 py-2.5 text-center text-xs font-medium transition-colors sm:text-sm whitespace-nowrap
+                    ${activeTab === tab.key
+                      ? "bg-white text-[#0c2340] shadow-sm"
+                      : "text-[var(--text-accent)] hover:bg-white/50"
+                    }`}
+                >
+                  {tab.label}
+                </button>
               ))}
+            </div>
+
+            {/* Tab Content */}
+            <div className="min-h-[400px] w-full">
+              {/* Overview Tab */}
+              {activeTab === "overview" && (
+                <div className="relative w-full space-y-3">
+                  {/* Key Highlights */}
+                  <div className="rounded-xl border border-[var(--rule)] bg-white p-4 min-w-full">
+                    <h3 className="mb-2 text-sm font-semibold text-[#0c2340]">Highlights</h3>
+                    <div className="space-y-2">
+                      {vault.features.slice(0, 4).map((feature, i) => (
+                        <div key={i} className="flex items-start gap-2">
+                          <div className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500">
+                            <svg viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                          <span className="text-xs text-[var(--text-accent)]">{feature}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Curator / Manager */}
+                    <div className="pt-3 mt-3 border-t border-[var(--rule)]">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          {PROTOCOL_LOGO[vault.protocol] && (
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[var(--rule)] bg-light-bg overflow-hidden">
+                              <Image
+                                src={PROTOCOL_LOGO[vault.protocol]}
+                                alt={vault.protocol}
+                                width={40}
+                                height={40}
+                                className="h-full w-full object-cover"
+                              />
+                            </div>
+                          )}
+                          <div>
+                            <div className="mb-0.5 flex items-center gap-1.5">
+                              <span className="text-xs font-semibold text-[#0c2340]">
+                                Managed by {vault.protocol === "solomon" ? "Solomon" : vault.protocol === "kamino" ? "Kamino" : vault.protocol === "drift" ? "Drift" : vault.protocol === "oro" ? "Oro" : "Foundation"}
+                              </span>
+                            </div>
+                            <div className="text-[9px] text-[var(--text-accent)]">Vault Manager / Curator</div>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="font-mono text-xs text-[#0c2340]">{vault.strategy}</div>
+                          <div className="text-[9px] text-[var(--text-accent)] uppercase tracking-wider">
+                            {vault.underlying}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* How It Works */}
+                  {vault.howItWorks && vault.howItWorks.length > 0 && (
+                    <div className="rounded-xl border border-[var(--rule)] bg-white p-4">
+                      <h3 className="mb-3 text-sm font-semibold text-[#0c2340]">How It Works</h3>
+                      <div className="space-y-2 text-sm text-[var(--text-accent)]">
+                        {vault.howItWorks.map((step, i) => (
+                          <div key={i} className="flex gap-3 leading-relaxed">
+                            <span className="font-mono text-[#0c2340]">{i + 1}.</span>
+                            <p>{step}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Performance Tab */}
+              {activeTab === "performance" && (
+                <div className="relative w-full space-y-3">
+                  <div className="rounded-xl border border-[var(--rule)] bg-white p-4">
+                    <h3 className="mb-3 text-sm font-semibold text-[#0c2340]">Yield Breakdown</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <div className="mb-1 text-xs text-[var(--text-accent)]">Current APY</div>
+                        <div className="text-lg font-semibold text-[#0c2340]">
+                          {vault.apy > 0 ? `${formatAPY(vault.apy)}%` : "--"}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="mb-1 text-xs text-[var(--text-accent)]">Strategy Type</div>
+                        <div className="text-lg font-semibold text-[#0c2340]">{vault.strategy}</div>
+                      </div>
+                      <div>
+                        <div className="mb-1 text-xs text-[var(--text-accent)]">Underlying</div>
+                        <div className="text-lg font-semibold text-[#0c2340]">{vault.underlying}</div>
+                        <div className="mt-0.5 text-[9px] text-[var(--text-accent)]">
+                          {vault.receiptToken} (Token-2022)
+                        </div>
+                      </div>
+                      <div>
+                        <div className="mb-1 text-xs text-[var(--text-accent)]">Vault Custody</div>
+                        <div className="text-lg font-semibold text-[#0c2340]">Squads Multisig</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Strategy Tab */}
+              {activeTab === "strategy" && (
+                <div className="relative w-full space-y-3">
+                  <div className="rounded-xl border border-[var(--rule)] bg-white p-4">
+                    <h3 className="mb-3 text-sm font-semibold text-[#0c2340]">Strategy Allocation</h3>
+                    <div className="rounded-lg border border-[var(--rule)] bg-light-bg p-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          {PROTOCOL_LOGO[vault.protocol] && (
+                            <Image src={PROTOCOL_LOGO[vault.protocol]} alt={vault.protocol} width={20} height={20} className="h-5 w-5 rounded-md" />
+                          )}
+                          <span className="text-xs font-medium text-[#0c2340]">{vault.protocol}</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="text-xs text-[var(--text-accent)]">100%</span>
+                          <span className="text-xs font-medium text-emerald-600">
+                            {vault.apy > 0 ? `${formatAPY(vault.apy)}% APY` : "--"}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-4">
+                      <h4 className="mb-2 text-xs font-medium text-[var(--text-accent)]">Features</h4>
+                      <div className="flex flex-wrap gap-2">
+                        {vault.features.map((f, i) => (
+                          <span key={i} className="flex items-center gap-1.5 rounded-md border border-[var(--rule)] px-3 py-1.5 font-mono text-[10px] text-[#0c2340]">
+                            <Shield className="h-3 w-3 text-gold-500" />
+                            {f}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Transparency Tab */}
+              {activeTab === "transparency" && (
+                <div className="relative w-full space-y-3">
+                  <div className="rounded-xl border border-[var(--rule)] bg-white p-4">
+                    <h3 className="mb-3 text-sm font-semibold text-[#0c2340]">Transparency & Security</h3>
+                    <div className="space-y-3">
+                      <div className="flex items-start gap-3">
+                        <Lock className="h-4 w-4 shrink-0 text-emerald-500 mt-0.5" />
+                        <div>
+                          <div className="text-xs font-medium text-[#0c2340]">Multisig Custody</div>
+                          <div className="text-xs text-[var(--text-accent)]">All vaults are secured by Squads Protocol multisig</div>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-3">
+                        <BarChart3 className="h-4 w-4 shrink-0 text-emerald-500 mt-0.5" />
+                        <div>
+                          <div className="text-xs font-medium text-[#0c2340]">On-Chain Verification</div>
+                          <div className="text-xs text-[var(--text-accent)]">All transactions are verifiable on Solana explorer</div>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-3">
+                        <TrendingUp className="h-4 w-4 shrink-0 text-emerald-500 mt-0.5" />
+                        <div>
+                          <div className="text-xs font-medium text-[#0c2340]">Token-2022 Receipt Tokens</div>
+                          <div className="text-xs text-[var(--text-accent)]">Deposits receive {vault.receiptToken} — a transfer-restricted SPL token</div>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-3">
+                        <Users className="h-4 w-4 shrink-0 text-emerald-500 mt-0.5" />
+                        <div>
+                          <div className="text-xs font-medium text-[#0c2340]">Foundation Managed</div>
+                          <div className="text-xs text-[var(--text-accent)]">Active management by the Foundation team with real-time monitoring</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Risks Tab */}
+              {activeTab === "risks" && (
+                <div className="relative w-full space-y-3">
+                  <div className="rounded-xl border border-[var(--rule)] bg-white p-4">
+                    <h3 className="mb-3 text-sm font-semibold text-[#0c2340]">Risk Analysis</h3>
+                    <div className="mb-4 flex items-center gap-2">
+                      <AlertTriangle className="h-4 w-4 text-amber-500" />
+                      <span className="text-xs font-medium text-[#0c2340]">Risk Tier: {RISK_LABELS[vault.riskTier]}</span>
+                    </div>
+                    <div className="space-y-3 text-sm text-[var(--text-accent)]">
+                      <div className="rounded-lg border border-[var(--rule)] bg-light-bg p-3">
+                        <div className="mb-1 text-xs font-medium text-[#0c2340]">Smart Contract Risk</div>
+                        <div className="text-xs">All protocols used are audited and battle-tested on Solana mainnet</div>
+                      </div>
+                      <div className="rounded-lg border border-[var(--rule)] bg-light-bg p-3">
+                        <div className="mb-1 text-xs font-medium text-[#0c2340]">Market Risk</div>
+                        <div className="text-xs">Strategy is designed to be market-neutral, minimizing exposure to asset price fluctuations</div>
+                      </div>
+                      <div className="rounded-lg border border-[var(--rule)] bg-light-bg p-3">
+                        <div className="mb-1 text-xs font-medium text-[#0c2340]">Liquidity Risk</div>
+                        <div className="text-xs">Withdrawals are processed on-demand but may be delayed during high volatility or low liquidity periods</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
 
-        {/* Right: Deposit */}
-        <div>
-          {vault.status === "coming_soon" ? (
-            <div className="border border-white/[0.06] p-6 text-center">
-              <p className="mb-2 font-serif text-lg text-foreground">Coming Soon</p>
-              <p className="text-xs text-muted-foreground">
-                This vault is deployed on-chain and ready. Deposits will be enabled shortly.
-              </p>
-            </div>
-          ) : !wallet.connected ? (
-            <div className="border border-white/[0.06] p-6 text-center">
-              <Wallet className="mx-auto mb-3 h-8 w-8 text-muted-foreground" />
-              <p className="mb-4 text-sm text-muted">Connect wallet to deposit</p>
-              <button onClick={() => setWalletModalOpen(true)} className="btn-primary w-full">
-                Connect Wallet
-              </button>
-            </div>
+        {/* Right: Action Widget */}
+        <div className="order-1 w-full flex-shrink-0 md:order-2 md:w-[420px]">
+          {isLive ? (
+            <ActionWidget
+              vault={vault}
+              activeAction={activeAction}
+              onActionChange={setActiveAction}
+              wallet={wallet}
+              positionBalance={positionBalance}
+            />
           ) : (
-            <VaultActions vault={vault} />
+            <div className="rounded-xl border border-[var(--rule)] bg-white p-6 text-center shadow-sm">
+              <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-xl border border-[var(--rule)] bg-light-bg">
+                <Lock className="h-7 w-7 text-[var(--text-accent)]" />
+              </div>
+              <p className="mb-2 text-lg font-medium text-[#0c2340]">Coming Soon</p>
+              <p className="text-xs text-[var(--text-accent)]">This vault is deployed on-chain and ready. Deposits will be enabled shortly.</p>
+            </div>
           )}
         </div>
       </div>
@@ -222,9 +444,85 @@ export default function StrategyPage() {
   );
 }
 
-function DepositForm({ vault }: { vault: FoundationVault }) {
+/* ─── Action Widget (right side) ─── */
+
+function ActionWidget({
+  vault,
+  activeAction,
+  onActionChange,
+  wallet,
+  positionBalance,
+}: {
+  vault: FoundationVault;
+  activeAction: "deposit" | "withdraw";
+  onActionChange: (a: "deposit" | "withdraw") => void;
+  wallet: ReturnType<typeof useWallet>;
+  positionBalance: number;
+}) {
+  if (!wallet.connected) {
+    return (
+      <div style={{ background: "rgba(255,255,255,0.7)", backdropFilter: "blur(28px)", border: "1px solid rgba(255,255,255,0.6)", borderRadius: 14, padding: 32, textAlign: "center" }}>
+        <div style={{ margin: "0 auto 12px", width: 48, height: 48, borderRadius: "50%", background: "rgba(184,150,12,0.08)", border: "1px solid rgba(184,150,12,0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <Wallet style={{ width: 20, height: 20, color: "#b8960c" }} />
+        </div>
+        <p style={{ fontFamily: "var(--font-serif)", fontSize: 18, fontWeight: 300, color: "#0f172a", marginBottom: 4 }}>Connect Wallet</p>
+        <p style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "#6b7280" }}>Connect to deposit into this vault</p>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ background: "rgba(255,255,255,0.75)", backdropFilter: "blur(28px) saturate(170%)", border: "1px solid rgba(255,255,255,0.65)", borderRadius: 14, overflow: "hidden", boxShadow: "0 1px 0 rgba(255,255,255,0.9) inset, 0 8px 32px rgba(0,0,0,0.06)" }}>
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
+        <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, fontWeight: 500, letterSpacing: "0.18em", textTransform: "uppercase", color: "#0c2340" }}>Vault Actions</span>
+        {/* Toggle */}
+        <div style={{ display: "flex", background: "rgba(0,0,0,0.05)", borderRadius: 10, padding: 3, gap: 2 }}>
+          {(["deposit", "withdraw"] as const).map((a) => (
+            <button
+              key={a}
+              onClick={() => onActionChange(a)}
+              style={{
+                padding: "7px 18px",
+                borderRadius: 8,
+                border: "none",
+                fontFamily: "var(--font-mono)",
+                fontSize: 12,
+                fontWeight: activeAction === a ? 600 : 400,
+                cursor: "pointer",
+                transition: "all 0.2s ease",
+                background: activeAction === a ? "#0c2340" : "transparent",
+                color: activeAction === a ? "#ffffff" : "#6b7280",
+                boxShadow: activeAction === a ? "0 1px 4px rgba(12,35,64,0.3)" : "none",
+              }}
+            >
+              {a.charAt(0).toUpperCase() + a.slice(1)}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ padding: 20 }}>
+        {activeAction === "deposit" ? (
+          <DepositForm vault={vault} wallet={wallet} />
+        ) : (
+          <WithdrawForm vault={vault} wallet={wallet} positionBalance={positionBalance} />
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ─── Deposit Form ─── */
+
+function DepositForm({
+  vault,
+  wallet,
+}: {
+  vault: FoundationVault;
+  wallet: ReturnType<typeof useWallet>;
+}) {
   const { connection } = useConnection();
-  const wallet = useWallet();
   const [amount, setAmount] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -250,9 +548,8 @@ function DepositForm({ vault }: { vault: FoundationVault }) {
     setTxSignature(null);
 
     try {
-      const amountLamports = Math.floor(num * 1_000_000); // USDC 6 decimals
+      const amountLamports = Math.floor(num * 1_000_000);
 
-      // User's USDC ATA → This vault's USDC ATA
       const userUsdcAta = getAssociatedTokenAddressSync(USDC_MINT_PK, wallet.publicKey);
       const vaultUsdcAta = new PublicKey(vault.usdcAccount);
 
@@ -265,7 +562,6 @@ function DepositForm({ vault }: { vault: FoundationVault }) {
         TOKEN_PROGRAM_ID,
       );
 
-      // Protocol fee — covers Squads multisig tx costs
       const feeIx = SystemProgram.transfer({
         fromPubkey: wallet.publicKey,
         toPubkey: new PublicKey(VAULT_AUTHORITY_PUBKEY),
@@ -281,7 +577,6 @@ function DepositForm({ vault }: { vault: FoundationVault }) {
       const sig = await connection.sendRawTransaction(signed.serialize());
       await connection.confirmTransaction(sig, "confirmed");
 
-      // Notify backend to mint receipt token (server reads exact amount from tx)
       const mintRes = await fetch("/api/deposit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -294,7 +589,6 @@ function DepositForm({ vault }: { vault: FoundationVault }) {
 
       const mintJson = await mintRes.json();
       if (!mintJson.success) {
-        // USDC was sent but mint failed — show error with tx link so user can contact support
         setError(
           `USDC deposited (${sig.slice(0, 8)}...) but ${vault.receiptToken} minting failed: ${mintJson.error || "Unknown error"}. Contact support with your tx signature.`
         );
@@ -312,26 +606,26 @@ function DepositForm({ vault }: { vault: FoundationVault }) {
 
   if (txSignature) {
     return (
-      <div className="border border-white/[0.06] p-6">
-        <div className="mb-4 flex items-center gap-2 text-success">
+      <div>
+        <div className="mb-4 flex items-center gap-2 text-emerald-600">
           <Check className="h-5 w-5" />
           <span className="font-mono text-sm">Deposit Successful</span>
         </div>
-        <p className="mb-3 text-xs text-muted-foreground">
+        <p className="mb-3 text-xs text-[var(--text-accent)]">
           Your USDC has been deposited. {vault.receiptToken} tokens will be minted to your wallet.
         </p>
         <a
           href={getTxUrl(txSignature)}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center gap-1 text-gold-400 hover:text-gold-300"
+          className="flex items-center gap-1 text-gold-500 hover:text-gold-400"
         >
           <span className="font-mono text-xs">View on Solscan</span>
           <ExternalLink className="h-3 w-3" />
         </a>
         <button
           onClick={() => setTxSignature(null)}
-          className="mt-4 w-full font-mono text-xs text-muted-foreground hover:text-foreground"
+          className="mt-4 w-full font-mono text-xs text-[var(--text-accent)] hover:text-[#0c2340]"
         >
           Deposit again
         </button>
@@ -339,143 +633,116 @@ function DepositForm({ vault }: { vault: FoundationVault }) {
     );
   }
 
+  const num = parseFloat(amount);
+  const hasAmount = !isNaN(num) && num > 0;
+
   return (
-    <div className="border border-white/[0.06] p-6">
-      <h4 className="mb-1 font-mono text-xs font-medium uppercase tracking-wider text-foreground">
-        Deposit USDC
-      </h4>
-      <p className="mb-4 font-mono text-[10px] text-muted-foreground">
-        {vault.name} · {vault.apy > 0 ? formatAPY(vault.apy) : "--"} APY
-      </p>
-
-      <form onSubmit={handleDeposit}>
-        <div className="mb-4">
-          <div className="flex items-center gap-2 overflow-hidden border border-white/[0.08] bg-white/[0.03] px-4 py-3 focus-within:border-gold-500/30">
-            <input
-              type="number"
-              placeholder="0.00"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              className="min-w-0 flex-1 bg-transparent font-mono text-lg text-foreground outline-none placeholder:text-muted-foreground"
-              step="0.01"
-              min="0"
-            />
-            <span className="shrink-0 font-mono text-[9px] text-muted-foreground">USDC</span>
-          </div>
-        </div>
-
-        {amount && parseFloat(amount) > 0 && (
-          <div className="mb-4 space-y-1.5">
-            <div className="flex justify-between font-mono text-xs">
-              <span className="text-muted-foreground">You receive</span>
-              <span className="text-foreground">{vault.receiptToken}</span>
-            </div>
-            <div className="flex justify-between font-mono text-xs">
-              <span className="text-muted-foreground">Est. yearly yield</span>
-              <span className="text-gold-400">
-                {vault.apy > 0
-                  ? `~$${(parseFloat(amount) * vault.apy / 100).toFixed(2)}`
-                  : "--"}
-              </span>
-            </div>
-            <div className="flex justify-between font-mono text-xs">
-              <span className="text-muted-foreground">Vault custody</span>
-              <span className="text-foreground">Squads Multisig</span>
-            </div>
-            <div className="flex justify-between font-mono text-xs">
-              <span className="text-muted-foreground">Network fee</span>
-              <span className="text-foreground">{PROTOCOL_FEE_SOL} SOL</span>
-            </div>
-          </div>
+    <form onSubmit={handleDeposit}>
+      {/* Vault info row */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+        <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "#6b7280" }}>
+          {vault.name} · ~{vault.apy > 0 ? formatAPY(vault.apy) : "--"}% APY
+        </span>
+        {hasAmount && (
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "#34d399", background: "rgba(52,211,153,0.08)", padding: "2px 8px", borderRadius: 4 }}>
+            +~${(num * vault.apy / 100).toFixed(0)}/yr
+          </span>
         )}
-
-        {error && <p className="mb-3 font-mono text-xs text-error">{error}</p>}
-
-        <button
-          type="submit"
-          disabled={loading || !amount || parseFloat(amount) <= 0}
-          className="btn-primary flex w-full items-center justify-center gap-2 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {loading ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Confirming...
-            </>
-          ) : (
-            "Deposit USDC"
-          )}
-        </button>
-      </form>
-    </div>
-  );
-}
-
-function VaultActions({ vault }: { vault: FoundationVault }) {
-  const [tab, setTab] = useState<"deposit" | "withdraw">("deposit");
-
-  return (
-    <div className="space-y-4">
-      <div className="flex gap-2 border-b border-white/[0.06] pb-2">
-        <button
-          onClick={() => setTab("deposit")}
-          className={`px-4 py-2 font-mono text-xs transition-colors ${
-            tab === "deposit" ? "text-gold-400 border-b-2 border-gold-400" : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          Deposit
-        </button>
-        <button
-          onClick={() => setTab("withdraw")}
-          className={`px-4 py-2 font-mono text-xs transition-colors ${
-            tab === "withdraw" ? "text-gold-400 border-b-2 border-gold-400" : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          Withdraw
-        </button>
       </div>
 
-      {tab === "deposit" ? (
-        <DepositForm vault={vault} />
-      ) : (
-        <WithdrawForm vault={vault} />
+      {/* Amount input */}
+      <div
+        style={{
+          display: "flex", alignItems: "center", gap: 12,
+          background: "rgba(255,255,255,0.9)", border: "1.5px solid rgba(12,35,64,0.12)",
+          borderRadius: 12, padding: "14px 16px", marginBottom: 14,
+          boxShadow: "0 1px 0 rgba(255,255,255,0.9) inset",
+          transition: "border-color 0.2s",
+        }}
+        onFocus={() => {}} // focus handled by focus-within via JS
+      >
+        <input
+          type="number"
+          placeholder="0.00"
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+          step="0.01"
+          min="0"
+          style={{
+            flex: 1, minWidth: 0, background: "transparent", border: "none",
+            outline: "none", boxShadow: "none", WebkitAppearance: "none",
+            fontFamily: "var(--font-mono)", fontSize: 28, fontWeight: 400,
+            letterSpacing: "-0.03em", color: "#0f172a",
+          }}
+          onFocus={(e) => { (e.target.closest("div") as HTMLElement)!.style.borderColor = "rgba(184,150,12,0.5)"; (e.target.closest("div") as HTMLElement)!.style.boxShadow = "0 0 0 3px rgba(184,150,12,0.08)"; }}
+          onBlur={(e) => { (e.target.closest("div") as HTMLElement)!.style.borderColor = "rgba(12,35,64,0.12)"; (e.target.closest("div") as HTMLElement)!.style.boxShadow = "0 1px 0 rgba(255,255,255,0.9) inset"; }}
+        />
+        <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.08em", color: "#0c2340", background: "rgba(12,35,64,0.07)", border: "1px solid rgba(12,35,64,0.1)", borderRadius: 6, padding: "5px 10px", flexShrink: 0 }}>
+          USDC
+        </span>
+      </div>
+
+      {/* Summary */}
+      {hasAmount && (
+        <div style={{ background: "rgba(0,0,0,0.025)", borderRadius: 10, padding: "10px 14px", marginBottom: 14, border: "1px solid rgba(0,0,0,0.05)" }}>
+          {[
+            { label: "You receive", value: vault.receiptToken },
+            { label: "Est. yearly", value: `~$${(num * vault.apy / 100).toFixed(2)}` },
+            { label: "Network fee", value: `${PROTOCOL_FEE_SOL} SOL` },
+          ].map(({ label, value }, i) => (
+            <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 0", borderTop: i > 0 ? "1px solid rgba(0,0,0,0.05)" : "none" }}>
+              <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "#6b7280" }}>{label}</span>
+              <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, fontWeight: 500, color: "#0c2340" }}>{value}</span>
+            </div>
+          ))}
+        </div>
       )}
-    </div>
+
+      {error && <p style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "#f87171", marginBottom: 10 }}>{error}</p>}
+
+      <button
+        type="submit"
+        disabled={loading || !hasAmount}
+        style={{
+          width: "100%", padding: "14px", border: "none", borderRadius: 10, cursor: loading || !hasAmount ? "not-allowed" : "pointer",
+          fontFamily: "var(--font-mono)", fontSize: 11, fontWeight: 500, letterSpacing: "0.12em", textTransform: "uppercase",
+          background: loading || !hasAmount ? "rgba(12,35,64,0.35)" : "#0c2340",
+          color: "#ffffff", transition: "all 0.2s ease",
+          display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+        }}
+        onMouseEnter={(e) => { if (!loading && hasAmount) (e.target as HTMLElement).style.background = "#b8960c"; }}
+        onMouseLeave={(e) => { if (!loading && hasAmount) (e.target as HTMLElement).style.background = "#0c2340"; }}
+      >
+        {loading ? <><Loader2 style={{ width: 14, height: 14, animation: "spin 1s linear infinite" }} /> Confirming…</> : "Deposit USDC"}
+      </button>
+    </form>
   );
 }
 
-function WithdrawForm({ vault }: { vault: FoundationVault }) {
+/* ─── Withdraw Form ─── */
+
+function WithdrawForm({
+  vault,
+  wallet,
+  positionBalance,
+}: {
+  vault: FoundationVault;
+  wallet: ReturnType<typeof useWallet>;
+  positionBalance: number;
+}) {
   const { connection } = useConnection();
-  const wallet = useWallet();
   const [amount, setAmount] = useState("");
-  const [balance, setBalance] = useState<number>(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [txSignature, setTxSignature] = useState<string | null>(null);
-
-  // Fetch actual withdrawable amount from Supabase (net deposits - withdrawals)
-  useEffect(() => {
-    if (!wallet.publicKey) return;
-    (async () => {
-      try {
-        const res = await fetch(`/api/user/portfolio?wallet=${wallet.publicKey!.toBase58()}`);
-        const json = await res.json();
-        if (json.success) {
-          const pos = json.data.find((p: { vaultId: string }) => p.vaultId === vault.id);
-          setBalance(pos ? pos.depositedUsdc : 0);
-        }
-      } catch {
-        setBalance(0);
-      }
-    })();
-  }, [wallet.publicKey, vault.id]);
 
   const handleWithdraw = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!wallet.publicKey || !wallet.signTransaction) return;
 
     const num = parseFloat(amount);
-    if (isNaN(num) || num <= 0 || num > balance) {
-      setError(num > balance ? "Insufficient balance" : "Enter a valid amount");
+    if (isNaN(num) || num <= 0 || num > positionBalance) {
+      setError(num > positionBalance ? "Insufficient balance" : "Enter a valid amount");
       return;
     }
 
@@ -493,7 +760,6 @@ function WithdrawForm({ vault }: { vault: FoundationVault }) {
       const mintPk = new PublicKey(vault.mint);
       const userAta = getAssociatedTokenAddressSync(mintPk, wallet.publicKey, false, TOKEN_2022_PROGRAM_ID);
 
-      // User burns their receipt tokens
       const burnIx = createBurnInstruction(
         userAta,
         mintPk,
@@ -503,7 +769,6 @@ function WithdrawForm({ vault }: { vault: FoundationVault }) {
         TOKEN_2022_PROGRAM_ID,
       );
 
-      // Protocol fee — covers Squads multisig tx costs
       const feeIx = SystemProgram.transfer({
         fromPubkey: wallet.publicKey,
         toPubkey: new PublicKey(VAULT_AUTHORITY_PUBKEY),
@@ -519,7 +784,6 @@ function WithdrawForm({ vault }: { vault: FoundationVault }) {
       const sig = await connection.sendRawTransaction(signed.serialize());
       await connection.confirmTransaction(sig, "confirmed");
 
-      // Notify backend to send USDC back
       const res = await fetch("/api/withdraw", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -538,7 +802,6 @@ function WithdrawForm({ vault }: { vault: FoundationVault }) {
 
       setTxSignature(sig);
       setAmount("");
-      setBalance((prev) => prev - num);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Withdrawal failed");
     } finally {
@@ -548,26 +811,26 @@ function WithdrawForm({ vault }: { vault: FoundationVault }) {
 
   if (txSignature) {
     return (
-      <div className="border border-white/[0.06] p-6">
-        <div className="mb-4 flex items-center gap-2 text-success">
+      <div>
+        <div className="mb-4 flex items-center gap-2 text-emerald-600">
           <Check className="h-5 w-5" />
           <span className="font-mono text-sm">Withdrawal Successful</span>
         </div>
-        <p className="mb-3 text-xs text-muted-foreground">
+        <p className="mb-3 text-xs text-[var(--text-accent)]">
           Your {vault.receiptToken} tokens were burned. USDC will be sent to your wallet.
         </p>
         <a
           href={getTxUrl(txSignature)}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center gap-1 text-gold-400 hover:text-gold-300"
+          className="flex items-center gap-1 text-gold-500 hover:text-gold-400"
         >
           <span className="font-mono text-xs">View on Solscan</span>
           <ExternalLink className="h-3 w-3" />
         </a>
         <button
           onClick={() => setTxSignature(null)}
-          className="mt-4 w-full font-mono text-xs text-muted-foreground hover:text-foreground"
+          className="mt-4 w-full font-mono text-xs text-[var(--text-accent)] hover:text-[#0c2340]"
         >
           Withdraw again
         </button>
@@ -576,72 +839,71 @@ function WithdrawForm({ vault }: { vault: FoundationVault }) {
   }
 
   return (
-    <div className="border border-white/[0.06] p-6">
-      <h4 className="mb-1 font-mono text-xs font-medium uppercase tracking-wider text-foreground">
+    <form onSubmit={handleWithdraw}>
+      <div className="mb-1 font-mono text-xs font-medium uppercase tracking-wider text-[#0c2340]">
         Withdraw USDC
-      </h4>
-      <p className="mb-4 font-mono text-[10px] text-muted-foreground">
+      </div>
+      <p className="mb-4 font-mono text-[10px] text-[var(--text-accent)]">
         Burn {vault.receiptToken} to receive USDC back
-        {balance > 0 && (
-          <span className="ml-2 text-foreground">
-            Balance: {balance.toFixed(2)} {vault.receiptToken}
+        {positionBalance > 0 && (
+          <span className="ml-2 text-[#0c2340]">
+            Balance: {positionBalance.toFixed(2)} {vault.receiptToken}
           </span>
         )}
       </p>
 
-      <form onSubmit={handleWithdraw}>
-        <div className="mb-4">
-          <div className="flex items-center gap-2 overflow-hidden border border-white/[0.08] bg-white/[0.03] px-4 py-3 focus-within:border-gold-500/30">
-            <input
-              type="number"
-              placeholder="0.00"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              className="min-w-0 flex-1 bg-transparent font-mono text-lg text-foreground outline-none placeholder:text-muted-foreground"
-              step="0.01"
-              min="0"
-            />
-            <button
-              type="button"
-              onClick={() => setAmount(balance.toString())}
-              className="shrink-0 font-mono text-[9px] uppercase text-gold-400 hover:text-gold-300"
-            >
-              MAX
-            </button>
-            <span className="shrink-0 font-mono text-[9px] text-muted-foreground">{vault.receiptToken}</span>
+      <div className="mb-4">
+        <div className="fdn-input-wrap">
+          <input
+            type="number"
+            placeholder="0.00"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            className="fdn-input focus:outline-none focus-visible:outline-none"
+            style={{ outline: "none", boxShadow: "none" }}
+            step="0.01"
+            min="0"
+          />
+          <button
+            type="button"
+            onClick={() => setAmount(positionBalance.toString())}
+            className="shrink-0 font-mono text-[10px] font-medium uppercase tracking-wider text-gold-500 hover:text-gold-400 transition-colors"
+          >
+            MAX
+          </button>
+          <span className="fdn-input-label">{vault.receiptToken}</span>
+        </div>
+      </div>
+
+      {amount && parseFloat(amount) > 0 && (
+        <div className="mb-4 space-y-1.5 rounded-lg border border-[var(--rule)] bg-light-bg p-3">
+          <div className="flex justify-between font-mono text-xs">
+            <span className="text-[var(--text-accent)]">You receive</span>
+            <span className="text-[#0c2340]">~{parseFloat(amount).toFixed(2)} USDC</span>
+          </div>
+          <div className="flex justify-between font-mono text-xs">
+            <span className="text-[var(--text-accent)]">Network fee</span>
+            <span className="text-[#0c2340]">{PROTOCOL_FEE_SOL} SOL</span>
           </div>
         </div>
+      )}
 
-        {amount && parseFloat(amount) > 0 && (
-          <div className="mb-4 space-y-1.5">
-            <div className="flex justify-between font-mono text-xs">
-              <span className="text-muted-foreground">You receive</span>
-              <span className="text-foreground">~{parseFloat(amount).toFixed(2)} USDC</span>
-            </div>
-            <div className="flex justify-between font-mono text-xs">
-              <span className="text-muted-foreground">Network fee</span>
-              <span className="text-foreground">{PROTOCOL_FEE_SOL} SOL</span>
-            </div>
-          </div>
+      {error && <p className="mb-3 font-mono text-xs text-red-500">{error}</p>}
+
+      <button
+        type="submit"
+        disabled={loading || !amount || parseFloat(amount) <= 0 || positionBalance <= 0}
+        className="btn-glass flex w-full items-center justify-center gap-2 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        {loading ? (
+          <>
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Burning...
+          </>
+        ) : (
+          "Withdraw USDC"
         )}
-
-        {error && <p className="mb-3 font-mono text-xs text-error">{error}</p>}
-
-        <button
-          type="submit"
-          disabled={loading || !amount || parseFloat(amount) <= 0 || balance <= 0}
-          className="btn-glass flex w-full items-center justify-center gap-2 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {loading ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Burning...
-            </>
-          ) : (
-            "Withdraw USDC"
-          )}
-        </button>
-      </form>
-    </div>
+      </button>
+    </form>
   );
 }

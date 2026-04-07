@@ -3,77 +3,75 @@
 import { useEffect, useRef } from "react";
 
 export function NoiseBackground() {
-  const holeRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const el = holeRef.current;
-    if (!el) return;
+    // Trailing gold dot — lags slightly behind the native cursor
+    const dot = document.getElementById("cursor-dot");
+    if (!dot) return;
 
-    let currentX = -200;
-    let currentY = -200;
-    let targetX = -200;
-    let targetY = -200;
+    let rx = -200, ry = -200;
+    let mx = -200, my = -200;
     let raf: number;
+    let initialized = false;
 
-    const handleMouse = (e: MouseEvent) => {
-      targetX = e.clientX;
-      targetY = e.clientY;
-    };
+    const onMouseMove = (e: MouseEvent) => {
+      mx = e.clientX;
+      my = e.clientY;
+      // Teleport on first move so dot doesn't slide in from off-screen
+      if (!initialized) {
+        rx = mx; ry = my;
+        dot.style.left = rx + "px";
+        dot.style.top = ry + "px";
+        initialized = true;
+      }
 
-    const handleLeave = () => {
-      targetX = -200;
-      targetY = -200;
+      // Card glow tracking
+      const cards = document.querySelectorAll(".glass-card, .infra-card");
+      cards.forEach((card) => {
+        const rect = card.getBoundingClientRect();
+        const x = ((e.clientX - rect.left) / rect.width) * 100;
+        const y = ((e.clientY - rect.top) / rect.height) * 100;
+        (card as HTMLElement).style.setProperty("--mouse-x", x + "%");
+        (card as HTMLElement).style.setProperty("--mouse-y", y + "%");
+      });
     };
 
     const tick = () => {
-      currentX += (targetX - currentX) * 0.06;
-      currentY += (targetY - currentY) * 0.06;
-      el.style.setProperty("--mx", `${currentX}px`);
-      el.style.setProperty("--my", `${currentY}px`);
+      rx += (mx - rx) * 0.16;
+      ry += (my - ry) * 0.16;
+      dot.style.left = rx + "px";
+      dot.style.top = ry + "px";
       raf = requestAnimationFrame(tick);
     };
 
-    window.addEventListener("mousemove", handleMouse);
-    document.addEventListener("mouseleave", handleLeave);
+    const onMouseOver = (e: MouseEvent) => {
+      const el = (e.target as Element).closest(
+        'a, button, [role="button"], input, select, textarea'
+      );
+      if (el) {
+        dot.classList.add("cursor-dot--hover");
+      } else {
+        dot.classList.remove("cursor-dot--hover");
+      }
+    };
+
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseover", onMouseOver);
     raf = requestAnimationFrame(tick);
 
     return () => {
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseover", onMouseOver);
       cancelAnimationFrame(raf);
-      window.removeEventListener("mousemove", handleMouse);
-      document.removeEventListener("mouseleave", handleLeave);
     };
   }, []);
 
   return (
-    <div className="pointer-events-none fixed inset-0 z-1">
-      {/* Soft gradient blobs */}
-      <div
-        className="absolute top-[-20%] left-[-10%] h-[600px] w-[600px] animate-[drift_25s_ease-in-out_infinite]"
-        style={{
-          background: "radial-gradient(circle, var(--blob-color) 0%, transparent 70%)",
-          borderRadius: "50%",
-        }}
-      />
-      <div
-        className="absolute right-[-5%] bottom-[10%] h-[500px] w-[500px] animate-[drift_30s_ease-in-out_infinite_reverse]"
-        style={{
-          background: "radial-gradient(circle, var(--blob-color) 0%, transparent 70%)",
-          borderRadius: "50%",
-        }}
-      />
-      <div
-        className="absolute top-[40%] left-[50%] h-[400px] w-[400px] animate-[drift_35s_ease-in-out_infinite_2s]"
-        style={{
-          background: "radial-gradient(circle, var(--blob-color) 0%, transparent 70%)",
-          borderRadius: "50%",
-        }}
-      />
-
-      {/* Cursor hole — masks the halftone dots around the cursor */}
-      <div
-        ref={holeRef}
-        className="cursor-hole"
-      />
-    </div>
+    <>
+      {/* Custom cursor elements */}
+      <div id="cursor-dot" />
+      <div id="cursor-ring" />
+    </>
   );
 }

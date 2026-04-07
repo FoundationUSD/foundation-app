@@ -59,13 +59,19 @@ export default function RootLayout({
     <html lang="en" className={`${inter.variable} ${cormorant.variable} ${dmMono.variable}`} suppressHydrationWarning>
       <head>
         {/* Prevent flash: apply saved theme before paint */}
-        <script dangerouslySetInnerHTML={{ __html: `try{if(localStorage.getItem('theme')==='light')document.documentElement.classList.add('light')}catch(e){}` }} />
+        <script dangerouslySetInnerHTML={{ __html: `try{const d=document.documentElement,m=localStorage.getItem('darkMode');if(m==='true'){d.classList.remove('light')}else{d.classList.add('light')}}catch(e){d.classList.add('light')}` }} />
       </head>
       <body className="min-h-screen antialiased">
         <NoiseBackground />
+        {/* Alpha Banner */}
+        <div className="fdn-alpha-banner">
+          <span className="fdn-alpha-banner__dot" />
+          FOUNDATION ALPHA — THIS VERSION IS SOLELY FOR EDUCATIONAL PURPOSES.
+          <span className="fdn-alpha-banner__dot" />
+        </div>
         <WalletProvider>
           <Navbar />
-          <main className="pt-14">{children}</main>
+          <main className="min-h-screen pt-[138px]">{children}</main>
         </WalletProvider>
       </body>
     </html>

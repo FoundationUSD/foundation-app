@@ -57,11 +57,8 @@ export const VAULT_AUTHORITY_PUBKEY = process.env.NEXT_PUBLIC_VAULT_AUTHORITY ||
 export const SOLOMON_USDV_MINT = address("Ex5DaKYMCN6QWFA4n67TmMwsH8MJV68RX6YXTmVM532C");
 export const SOLOMON_SUSDV_MINT = address("pTA4St7D5WshfLUPBXoaxn5m8e3k2ort2DVt3gUTa17");
 
-// Explorer
-export const EXPLORER_URL =
-  SOLANA_NETWORK === "mainnet-beta"
-    ? "https://solscan.io"
-    : "https://solscan.io?cluster=devnet";
+// Explorer — orbmarkets.io
+export const EXPLORER_URL = "https://orbmarkets.io";
 
 export const getTxUrl = (sig: string) => `${EXPLORER_URL}/tx/${sig}`;
 export const getAccountUrl = (addr: string) => `${EXPLORER_URL}/account/${addr}`;
