@@ -221,7 +221,7 @@ function VaultCard({ vault, onSelect }: { vault: FoundationVault; onSelect: () =
       <div className="strategy-card__header flex items-center justify-between">
         <div className="min-w-0 flex-1 items-center gap-3 flex">
           {logo && <Image src={logo} alt={vault.protocol} width={32} height={32} className="h-8 w-8 flex-shrink-0" />}
-          <span className="truncate font-mono text-base font-bold tracking-[-0.02em] text-[#0f172a]">
+          <span className="truncate font-mono text-base font-bold tracking-[-0.02em] text-[var(--fg)]">
             {vault.name}
           </span>
         </div>
@@ -239,8 +239,8 @@ function VaultCard({ vault, onSelect }: { vault: FoundationVault; onSelect: () =
         <div className="grid grid-cols-2 divide-x divide-[var(--rule)] ">
           <div className="px-5 py-4">
             <span className="section-label mb-1.5 block">TARGET APY</span>
-            <span className="font-mono text-2xl font-bold tracking-[-0.03em] text-emerald-600">
-              {vault.apy > 0 ? `${vault.apy}%` : "--"}
+            <span className="font-mono text-2xl font-bold tracking-[-0.03em] text-emerald-500">
+              {vault.apy > 0 ? formatAPY(vault.apy) : "--"}
             </span>
           </div>
           <div className="px-5 py-4">
@@ -255,13 +255,13 @@ function VaultCard({ vault, onSelect }: { vault: FoundationVault; onSelect: () =
         <div className="grid grid-cols-2 divide-x divide-[var(--rule)] ">
           <div className="px-5 py-4">
             <span className="section-label mb-1.5 block">CURATOR</span>
-            <span className="font-mono text-sm font-semibold text-[#0f172a]">
+            <span className="font-mono text-sm font-semibold text-[var(--fg)]">
               {vault.protocol.charAt(0).toUpperCase() + vault.protocol.slice(1)}
             </span>
           </div>
           <div className="px-5 py-4">
             <span className="section-label mb-1.5 block">TYPE</span>
-            <span className="font-mono text-sm font-semibold text-[#0f172a] uppercase">
+            <span className="font-mono text-sm font-semibold text-[var(--fg)] uppercase">
               {vault.strategy}
             </span>
           </div>
@@ -271,8 +271,8 @@ function VaultCard({ vault, onSelect }: { vault: FoundationVault; onSelect: () =
       {/* CTA */}
       <div className="strategy-card__footer flex items-center justify-between">
         <span className="text-[11px] font-mono tracking-wide text-[var(--text-accent)]">USDC</span>
-        <span className="text-[13px] font-medium tracking-wide text-[var(--navy)] transition-colors">
-          View Details &rarr;
+        <span className="text-[11px] font-mono font-semibold tracking-[0.1em] uppercase text-[var(--gold)] transition-colors">
+          View Strategy →
         </span>
       </div>
     </div>
@@ -302,7 +302,7 @@ function VaultDetail({ vault, onBack }: { vault: FoundationVault; onBack: () => 
           <h3 className="section-label mb-4">Vault Details</h3>
           <div className="space-y-2.5 text-[12px] sm:text-[13px]">
             {[
-              ["APY", vault.apy > 0 ? `${vault.apy}%` : "--"],
+              ["APY", vault.apy > 0 ? formatAPY(vault.apy) : "--"],
               ["Strategy", vault.strategy],
               ["Underlying", vault.underlying],
               ["Receipt Token", vault.receiptToken],

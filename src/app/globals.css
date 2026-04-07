@@ -646,6 +646,59 @@ html:not(.light) .fdn-input-label {
 }
 
 /* ============================================================
+   VAULT ACTION WIDGET — DARK MODE OVERRIDES
+   ============================================================ */
+html:not(.light) .aw-widget {
+  background: rgba(13, 18, 30, 0.95);
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 2px 24px rgba(0, 0, 0, 0.4);
+}
+html:not(.light) .aw-header {
+  border-bottom-color: rgba(255, 255, 255, 0.06);
+}
+html:not(.light) .aw-label { color: rgba(255, 255, 255, 0.9); }
+html:not(.light) .aw-toggle { background: rgba(255, 255, 255, 0.06); }
+html:not(.light) .aw-tab { color: #94a3b8; }
+html:not(.light) .aw-tab-active {
+  background: #b8960c;
+  color: #fff;
+  box-shadow: 0 1px 6px rgba(184, 150, 12, 0.35);
+}
+html:not(.light) .aw-info-text { color: #94a3b8; }
+html:not(.light) .aw-badge-navy {
+  color: #cbd5e1;
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+html:not(.light) .aw-input-wrap {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+html:not(.light) .aw-input-wrap:focus-within {
+  border-color: #b8960c;
+  box-shadow: 0 0 0 3px rgba(184, 150, 12, 0.12);
+}
+html:not(.light) .aw-amount { color: #f8fafc; }
+html:not(.light) .aw-amount::placeholder { color: rgba(255, 255, 255, 0.15); }
+html:not(.light) .aw-token { color: #64748b; }
+html:not(.light) .aw-summary {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.06);
+}
+html:not(.light) .aw-summary-row { border-top-color: rgba(255, 255, 255, 0.06); }
+html:not(.light) .aw-summary-label { color: #64748b; }
+html:not(.light) .aw-summary-value { color: #cbd5e1; }
+html:not(.light) .aw-submit { background: #b8960c; }
+html:not(.light) .aw-submit:hover:not(:disabled) { background: #d4af37; }
+html:not(.light) .aw-submit:disabled { background: rgba(255, 255, 255, 0.1); color: rgba(255, 255, 255, 0.3); }
+html:not(.light) .aw-connect {
+  background: rgba(13, 18, 30, 0.95);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+html:not(.light) .aw-success-text { color: #94a3b8; }
+html:not(.light) .aw-reset { color: #64748b; }
+
+/* ============================================================
    AMOUNT INPUT  (home page VaultActions deposit/withdraw)
    ============================================================ */
 .amount-input {
@@ -708,6 +761,17 @@ html:not(.light) .fdn-input-label {
   flex-shrink: 0;
   white-space: nowrap;
 }
+
+html:not(.light) .amount-input {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+html:not(.light) .amount-input:focus-within {
+  border-color: #b8960c;
+  box-shadow: 0 0 0 3px rgba(184, 150, 12, 0.12);
+}
+html:not(.light) .amount-input-field { color: #f8fafc; }
+html:not(.light) .amount-input-field::placeholder { color: rgba(255, 255, 255, 0.15); }
 
 /* ============================================================
    SCROLLBAR
