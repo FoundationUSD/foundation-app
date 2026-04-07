@@ -18,6 +18,7 @@ import { WalletModal } from "@/components/WalletModal";
 import { formatAPY } from "@/lib/utils";
 import { getTxUrl, PROTOCOL_FEE_SOL, VAULT_AUTHORITY_PUBKEY } from "@/lib/constants";
 import type { FoundationVault } from "@/lib/vaults";
+// aw-* styles live in globals.css
 
 const USDC_MINT_PK = new PublicKey("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
 
@@ -461,55 +462,40 @@ function ActionWidget({
 }) {
   if (!wallet.connected) {
     return (
-      <div style={{ background: "rgba(255,255,255,0.7)", backdropFilter: "blur(28px)", border: "1px solid rgba(255,255,255,0.6)", borderRadius: 14, padding: 32, textAlign: "center" }}>
-        <div style={{ margin: "0 auto 12px", width: 48, height: 48, borderRadius: "50%", background: "rgba(184,150,12,0.08)", border: "1px solid rgba(184,150,12,0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div className="aw-connect">
+        <div className="aw-connect-icon">
           <Wallet style={{ width: 20, height: 20, color: "#b8960c" }} />
         </div>
         <p style={{ fontFamily: "var(--font-serif)", fontSize: 18, fontWeight: 300, color: "#0f172a", marginBottom: 4 }}>Connect Wallet</p>
-        <p style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "#6b7280" }}>Connect to deposit into this vault</p>
+        <p style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "#94a3b8" }}>Connect to deposit into this vault</p>
       </div>
     );
   }
 
   return (
-    <div style={{ background: "rgba(255,255,255,0.75)", backdropFilter: "blur(28px) saturate(170%)", border: "1px solid rgba(255,255,255,0.65)", borderRadius: 14, overflow: "hidden", boxShadow: "0 1px 0 rgba(255,255,255,0.9) inset, 0 8px 32px rgba(0,0,0,0.06)" }}>
-      {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
-        <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, fontWeight: 500, letterSpacing: "0.18em", textTransform: "uppercase", color: "#0c2340" }}>Vault Actions</span>
-        {/* Toggle */}
-        <div style={{ display: "flex", background: "rgba(0,0,0,0.05)", borderRadius: 10, padding: 3, gap: 2 }}>
-          {(["deposit", "withdraw"] as const).map((a) => (
-            <button
-              key={a}
-              onClick={() => onActionChange(a)}
-              style={{
-                padding: "7px 18px",
-                borderRadius: 8,
-                border: "none",
-                fontFamily: "var(--font-mono)",
-                fontSize: 12,
-                fontWeight: activeAction === a ? 600 : 400,
-                cursor: "pointer",
-                transition: "all 0.2s ease",
-                background: activeAction === a ? "#0c2340" : "transparent",
-                color: activeAction === a ? "#ffffff" : "#6b7280",
-                boxShadow: activeAction === a ? "0 1px 4px rgba(12,35,64,0.3)" : "none",
-              }}
-            >
-              {a.charAt(0).toUpperCase() + a.slice(1)}
-            </button>
-          ))}
+    <div className="aw-widget">
+        <div className="aw-header">
+          <span className="aw-label">Vault Actions</span>
+          <div className="aw-toggle">
+            {(["deposit", "withdraw"] as const).map((a) => (
+              <button
+                key={a}
+                onClick={() => onActionChange(a)}
+                className={`aw-tab${activeAction === a ? " aw-tab-active" : ""}`}
+              >
+                {a.charAt(0).toUpperCase() + a.slice(1)}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="aw-body">
+          {activeAction === "deposit" ? (
+            <DepositForm vault={vault} wallet={wallet} />
+          ) : (
+            <WithdrawForm vault={vault} wallet={wallet} positionBalance={positionBalance} />
+          )}
         </div>
       </div>
-
-      <div style={{ padding: 20 }}>
-        {activeAction === "deposit" ? (
-          <DepositForm vault={vault} wallet={wallet} />
-        ) : (
-          <WithdrawForm vault={vault} wallet={wallet} positionBalance={positionBalance} />
-        )}
-      </div>
-    </div>
   );
 }
 
@@ -606,29 +592,13 @@ function DepositForm({
 
   if (txSignature) {
     return (
-      <div>
-        <div className="mb-4 flex items-center gap-2 text-emerald-600">
-          <Check className="h-5 w-5" />
-          <span className="font-mono text-sm">Deposit Successful</span>
-        </div>
-        <p className="mb-3 text-xs text-[var(--text-accent)]">
-          Your USDC has been deposited. {vault.receiptToken} tokens will be minted to your wallet.
-        </p>
-        <a
-          href={getTxUrl(txSignature)}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-1 text-gold-500 hover:text-gold-400"
-        >
-          <span className="font-mono text-xs">View on Solscan</span>
-          <ExternalLink className="h-3 w-3" />
+      <div className="aw-success">
+        <div className="aw-success-title"><Check style={{ width: 18, height: 18 }} />Deposit Successful</div>
+        <p className="aw-success-text">Your USDC has been deposited. {vault.receiptToken} tokens will be minted to your wallet.</p>
+        <a href={getTxUrl(txSignature)} target="_blank" rel="noopener noreferrer" className="aw-explorer">
+          View on Explorer <ExternalLink style={{ width: 11, height: 11 }} />
         </a>
-        <button
-          onClick={() => setTxSignature(null)}
-          className="mt-4 w-full font-mono text-xs text-[var(--text-accent)] hover:text-[#0c2340]"
-        >
-          Deposit again
-        </button>
+        <button onClick={() => setTxSignature(null)} className="aw-reset">Deposit again</button>
       </div>
     );
   }
@@ -638,82 +608,31 @@ function DepositForm({
 
   return (
     <form onSubmit={handleDeposit}>
-      {/* Vault info row */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-        <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "#6b7280" }}>
-          {vault.name} · ~{vault.apy > 0 ? formatAPY(vault.apy) : "--"}% APY
-        </span>
-        {hasAmount && (
-          <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "#34d399", background: "rgba(52,211,153,0.08)", padding: "2px 8px", borderRadius: 4 }}>
-            +~${(num * vault.apy / 100).toFixed(0)}/yr
-          </span>
-        )}
+      <div className="aw-info-row">
+        <span className="aw-info-text">{vault.name} · ~{vault.apy > 0 ? formatAPY(vault.apy) : "--"}% APY</span>
+        {hasAmount && <span className="aw-badge-green">+~${(num * vault.apy / 100).toFixed(0)}/yr</span>}
       </div>
-
-      {/* Amount input */}
-      <div
-        style={{
-          display: "flex", alignItems: "center", gap: 12,
-          background: "rgba(255,255,255,0.9)", border: "1.5px solid rgba(12,35,64,0.12)",
-          borderRadius: 12, padding: "14px 16px", marginBottom: 14,
-          boxShadow: "0 1px 0 rgba(255,255,255,0.9) inset",
-          transition: "border-color 0.2s",
-        }}
-        onFocus={() => {}} // focus handled by focus-within via JS
-      >
-        <input
-          type="number"
-          placeholder="0.00"
-          value={amount}
-          onChange={(e) => setAmount(e.target.value)}
-          step="0.01"
-          min="0"
-          style={{
-            flex: 1, minWidth: 0, background: "transparent", border: "none",
-            outline: "none", boxShadow: "none", WebkitAppearance: "none",
-            fontFamily: "var(--font-mono)", fontSize: 28, fontWeight: 400,
-            letterSpacing: "-0.03em", color: "#0f172a",
-          }}
-          onFocus={(e) => { (e.target.closest("div") as HTMLElement)!.style.borderColor = "rgba(184,150,12,0.5)"; (e.target.closest("div") as HTMLElement)!.style.boxShadow = "0 0 0 3px rgba(184,150,12,0.08)"; }}
-          onBlur={(e) => { (e.target.closest("div") as HTMLElement)!.style.borderColor = "rgba(12,35,64,0.12)"; (e.target.closest("div") as HTMLElement)!.style.boxShadow = "0 1px 0 rgba(255,255,255,0.9) inset"; }}
-        />
-        <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.08em", color: "#0c2340", background: "rgba(12,35,64,0.07)", border: "1px solid rgba(12,35,64,0.1)", borderRadius: 6, padding: "5px 10px", flexShrink: 0 }}>
-          USDC
-        </span>
+      <div className="aw-input-wrap">
+        <input type="number" placeholder="0.00" value={amount} onChange={(e) => setAmount(e.target.value)} step="0.01" min="0" className="aw-amount" />
+        <span className="aw-token">USDC</span>
       </div>
-
-      {/* Summary */}
       {hasAmount && (
-        <div style={{ background: "rgba(0,0,0,0.025)", borderRadius: 10, padding: "10px 14px", marginBottom: 14, border: "1px solid rgba(0,0,0,0.05)" }}>
+        <div className="aw-summary">
           {[
             { label: "You receive", value: vault.receiptToken },
             { label: "Est. yearly", value: `~$${(num * vault.apy / 100).toFixed(2)}` },
             { label: "Network fee", value: `${PROTOCOL_FEE_SOL} SOL` },
-          ].map(({ label, value }, i) => (
-            <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 0", borderTop: i > 0 ? "1px solid rgba(0,0,0,0.05)" : "none" }}>
-              <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "#6b7280" }}>{label}</span>
-              <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, fontWeight: 500, color: "#0c2340" }}>{value}</span>
+          ].map(({ label, value }) => (
+            <div key={label} className="aw-summary-row">
+              <span className="aw-summary-label">{label}</span>
+              <span className="aw-summary-value">{value}</span>
             </div>
           ))}
         </div>
       )}
-
-      {error && <p style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "#f87171", marginBottom: 10 }}>{error}</p>}
-
-      <button
-        type="submit"
-        disabled={loading || !hasAmount}
-        style={{
-          width: "100%", padding: "14px", border: "none", borderRadius: 10, cursor: loading || !hasAmount ? "not-allowed" : "pointer",
-          fontFamily: "var(--font-mono)", fontSize: 11, fontWeight: 500, letterSpacing: "0.12em", textTransform: "uppercase",
-          background: loading || !hasAmount ? "rgba(12,35,64,0.35)" : "#0c2340",
-          color: "#ffffff", transition: "all 0.2s ease",
-          display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-        }}
-        onMouseEnter={(e) => { if (!loading && hasAmount) (e.target as HTMLElement).style.background = "#b8960c"; }}
-        onMouseLeave={(e) => { if (!loading && hasAmount) (e.target as HTMLElement).style.background = "#0c2340"; }}
-      >
-        {loading ? <><Loader2 style={{ width: 14, height: 14, animation: "spin 1s linear infinite" }} /> Confirming…</> : "Deposit USDC"}
+      {error && <p className="aw-error">{error}</p>}
+      <button type="submit" disabled={loading || !hasAmount} className="aw-submit">
+        {loading ? <><Loader2 className="animate-spin" style={{ width: 14, height: 14 }} /> Confirming…</> : "Deposit USDC"}
       </button>
     </form>
   );
@@ -811,98 +730,48 @@ function WithdrawForm({
 
   if (txSignature) {
     return (
-      <div>
-        <div className="mb-4 flex items-center gap-2 text-emerald-600">
-          <Check className="h-5 w-5" />
-          <span className="font-mono text-sm">Withdrawal Successful</span>
-        </div>
-        <p className="mb-3 text-xs text-[var(--text-accent)]">
-          Your {vault.receiptToken} tokens were burned. USDC will be sent to your wallet.
-        </p>
-        <a
-          href={getTxUrl(txSignature)}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-1 text-gold-500 hover:text-gold-400"
-        >
-          <span className="font-mono text-xs">View on Solscan</span>
-          <ExternalLink className="h-3 w-3" />
+      <div className="aw-success">
+        <div className="aw-success-title"><Check style={{ width: 18, height: 18 }} />Withdrawal Successful</div>
+        <p className="aw-success-text">Your {vault.receiptToken} tokens were burned. USDC will be sent to your wallet.</p>
+        <a href={getTxUrl(txSignature)} target="_blank" rel="noopener noreferrer" className="aw-explorer">
+          View on Explorer <ExternalLink style={{ width: 11, height: 11 }} />
         </a>
-        <button
-          onClick={() => setTxSignature(null)}
-          className="mt-4 w-full font-mono text-xs text-[var(--text-accent)] hover:text-[#0c2340]"
-        >
-          Withdraw again
-        </button>
+        <button onClick={() => setTxSignature(null)} className="aw-reset">Withdraw again</button>
       </div>
     );
   }
 
+  const num = parseFloat(amount);
+  const hasAmount = !isNaN(num) && num > 0;
+  const isDisabled = loading || !hasAmount || positionBalance <= 0;
+
   return (
     <form onSubmit={handleWithdraw}>
-      <div className="mb-1 font-mono text-xs font-medium uppercase tracking-wider text-[#0c2340]">
-        Withdraw USDC
+      <div className="aw-info-row">
+        <span className="aw-info-text">Burn {vault.receiptToken} · receive USDC</span>
+        {positionBalance > 0 && <span className="aw-badge-navy">Bal: {positionBalance.toFixed(2)}</span>}
       </div>
-      <p className="mb-4 font-mono text-[10px] text-[var(--text-accent)]">
-        Burn {vault.receiptToken} to receive USDC back
-        {positionBalance > 0 && (
-          <span className="ml-2 text-[#0c2340]">
-            Balance: {positionBalance.toFixed(2)} {vault.receiptToken}
-          </span>
-        )}
-      </p>
-
-      <div className="mb-4">
-        <div className="fdn-input-wrap">
-          <input
-            type="number"
-            placeholder="0.00"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            className="fdn-input focus:outline-none focus-visible:outline-none"
-            style={{ outline: "none", boxShadow: "none" }}
-            step="0.01"
-            min="0"
-          />
-          <button
-            type="button"
-            onClick={() => setAmount(positionBalance.toString())}
-            className="shrink-0 font-mono text-[10px] font-medium uppercase tracking-wider text-gold-500 hover:text-gold-400 transition-colors"
-          >
-            MAX
-          </button>
-          <span className="fdn-input-label">{vault.receiptToken}</span>
-        </div>
+      <div className="aw-input-wrap">
+        <input type="number" placeholder="0.00" value={amount} onChange={(e) => setAmount(e.target.value)} step="0.01" min="0" max={positionBalance} className="aw-amount" />
+        <button type="button" onClick={() => setAmount(positionBalance.toFixed(2))} className="aw-max">MAX</button>
+        <span className="aw-token">{vault.receiptToken}</span>
       </div>
-
-      {amount && parseFloat(amount) > 0 && (
-        <div className="mb-4 space-y-1.5 rounded-lg border border-[var(--rule)] bg-light-bg p-3">
-          <div className="flex justify-between font-mono text-xs">
-            <span className="text-[var(--text-accent)]">You receive</span>
-            <span className="text-[#0c2340]">~{parseFloat(amount).toFixed(2)} USDC</span>
-          </div>
-          <div className="flex justify-between font-mono text-xs">
-            <span className="text-[var(--text-accent)]">Network fee</span>
-            <span className="text-[#0c2340]">{PROTOCOL_FEE_SOL} SOL</span>
-          </div>
+      {hasAmount && (
+        <div className="aw-summary">
+          {[
+            { label: "You receive", value: `~${num.toFixed(2)} USDC` },
+            { label: "Network fee", value: `${PROTOCOL_FEE_SOL} SOL` },
+          ].map(({ label, value }) => (
+            <div key={label} className="aw-summary-row">
+              <span className="aw-summary-label">{label}</span>
+              <span className="aw-summary-value">{value}</span>
+            </div>
+          ))}
         </div>
       )}
-
-      {error && <p className="mb-3 font-mono text-xs text-red-500">{error}</p>}
-
-      <button
-        type="submit"
-        disabled={loading || !amount || parseFloat(amount) <= 0 || positionBalance <= 0}
-        className="btn-glass flex w-full items-center justify-center gap-2 disabled:cursor-not-allowed disabled:opacity-50"
-      >
-        {loading ? (
-          <>
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Burning...
-          </>
-        ) : (
-          "Withdraw USDC"
-        )}
+      {error && <p className="aw-error">{error}</p>}
+      <button type="submit" disabled={isDisabled} className="aw-submit">
+        {loading ? <><Loader2 className="animate-spin" style={{ width: 14, height: 14 }} /> Burning…</> : "Withdraw USDC"}
       </button>
     </form>
   );

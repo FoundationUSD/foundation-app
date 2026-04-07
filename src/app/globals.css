@@ -357,6 +357,323 @@ html:not(.light) .fdn-input-label {
 }
 
 /* ============================================================
+   VAULT ACTION WIDGET  (strategy/[id] deposit + withdraw)
+   ============================================================ */
+.aw-widget {
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid #c8d4e8;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 2px 24px rgba(12, 35, 64, 0.1);
+}
+.aw-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e2e8f0;
+}
+.aw-label {
+  font-family: "DM Mono", monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #0c2340;
+}
+.aw-toggle {
+  display: flex;
+  background: #e8edf5;
+  border-radius: 10px;
+  padding: 3px;
+  gap: 2px;
+}
+.aw-tab {
+  padding: 8px 20px;
+  border-radius: 8px;
+  border: none;
+  font-family: "DM Mono", monospace;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.18s;
+  background: transparent;
+  color: #64748b;
+}
+.aw-tab-active {
+  background: #0c2340;
+  color: #fff;
+  font-weight: 700;
+  box-shadow: 0 1px 6px rgba(12, 35, 64, 0.3);
+}
+.aw-body {
+  padding: 20px;
+}
+.aw-info-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.aw-info-text {
+  font-family: "DM Mono", monospace;
+  font-size: 11px;
+  color: #64748b;
+}
+.aw-badge-green {
+  font-family: "DM Mono", monospace;
+  font-size: 10px;
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  border-radius: 4px;
+  padding: 2px 8px;
+}
+.aw-badge-navy {
+  font-family: "DM Mono", monospace;
+  font-size: 10px;
+  color: #0c2340;
+  background: #dde5f0;
+  border: 1px solid #94a3b8;
+  border-radius: 4px;
+  padding: 2px 8px;
+}
+.aw-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #f8fafc;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  transition: border-color 0.18s, box-shadow 0.18s;
+}
+.aw-input-wrap:focus-within {
+  border-color: #b8960c;
+  box-shadow: 0 0 0 3px rgba(184, 150, 12, 0.1);
+}
+.aw-amount {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  box-shadow: none;
+  font-family: "DM Mono", monospace;
+  font-size: 26px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  color: #0f172a;
+  -webkit-appearance: none;
+  -moz-appearance: textfield;
+  line-height: 1;
+}
+.aw-amount::placeholder { color: #cbd5e1; }
+.aw-amount::-webkit-outer-spin-button,
+.aw-amount::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.aw-amount:focus { outline: none; box-shadow: none; border: none; }
+.aw-token {
+  font-family: "DM Mono", monospace;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #64748b;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.aw-max {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 2px 4px;
+  font-family: "DM Mono", monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #b8960c;
+  flex-shrink: 0;
+  transition: color 0.15s;
+}
+.aw-max:hover { color: #d4af37; }
+.aw-summary {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+}
+.aw-summary-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 5px 0;
+  border-top: 1px solid #e2e8f0;
+}
+.aw-summary-row:first-child { border-top: none; }
+.aw-summary-label {
+  font-family: "DM Mono", monospace;
+  font-size: 11px;
+  color: #64748b;
+}
+.aw-summary-value {
+  font-family: "DM Mono", monospace;
+  font-size: 11px;
+  font-weight: 600;
+  color: #0c2340;
+}
+.aw-submit {
+  width: 100%;
+  padding: 16px;
+  border: none;
+  border-radius: 10px;
+  font-family: "DM Mono", monospace;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  background: #0c2340;
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.18s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+.aw-submit:hover:not(:disabled) { background: #b8960c; }
+.aw-submit:disabled { background: #94a3b8; cursor: not-allowed; }
+.aw-error {
+  font-family: "DM Mono", monospace;
+  font-size: 11px;
+  color: #f87171;
+  margin-bottom: 10px;
+}
+.aw-success { text-align: center; padding: 8px 0; }
+.aw-success-title {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  color: #10b981;
+  font-family: "DM Mono", monospace;
+  font-size: 13px;
+  font-weight: 600;
+}
+.aw-success-text {
+  font-family: "DM Mono", monospace;
+  font-size: 11px;
+  color: #64748b;
+  margin-bottom: 14px;
+}
+.aw-explorer {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: "DM Mono", monospace;
+  font-size: 11px;
+  color: #b8960c;
+  text-decoration: none;
+}
+.aw-reset {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: "DM Mono", monospace;
+  font-size: 11px;
+  color: #94a3b8;
+  display: block;
+  margin: 12px auto 0;
+  padding: 4px;
+}
+.aw-connect {
+  text-align: center;
+  padding: 32px 20px;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid #c8d4e8;
+  border-radius: 16px;
+}
+.aw-connect-icon {
+  margin: 0 auto 14px;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: rgba(184, 150, 12, 0.08);
+  border: 1px solid rgba(184, 150, 12, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ============================================================
+   AMOUNT INPUT  (home page VaultActions deposit/withdraw)
+   ============================================================ */
+.amount-input {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #f8fafc;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  transition: border-color 0.18s, box-shadow 0.18s;
+}
+.amount-input:focus-within {
+  border-color: #b8960c;
+  box-shadow: 0 0 0 3px rgba(184, 150, 12, 0.1);
+}
+.amount-input-field {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  box-shadow: none;
+  font-family: "DM Mono", monospace;
+  font-size: 26px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  color: #0f172a;
+  -webkit-appearance: none;
+  -moz-appearance: textfield;
+  line-height: 1;
+}
+.amount-input-field::placeholder { color: #cbd5e1; }
+.amount-input-field::-webkit-outer-spin-button,
+.amount-input-field::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.amount-input-field:focus { outline: none; box-shadow: none; border: none; }
+.amount-input-max {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 2px 4px;
+  font-family: "DM Mono", monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #b8960c;
+  flex-shrink: 0;
+  transition: color 0.15s;
+}
+.amount-input-max:hover { color: #d4af37; }
+.amount-input-token {
+  font-family: "DM Mono", monospace;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #64748b;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* ============================================================
    SCROLLBAR
    ============================================================ */
 ::-webkit-scrollbar {

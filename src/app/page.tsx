@@ -349,16 +349,12 @@ function VaultActions({ vault }: { vault: FoundationVault }) {
     <div className="infra-card">
       <div className="mb-4 flex items-center justify-between border-b border-[var(--rule)] px-5 py-4">
         <h4 className="font-mono text-xs font-medium uppercase tracking-wider text-[#0c2340]">Vault Actions</h4>
-        <div className="flex gap-0 overflow-hidden rounded-xl border border-[var(--rule)] bg-[#f0f4ff] dark:bg-[#0f1729]">
+        <div className="aw-toggle">
           {(["deposit", "withdraw"] as const).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
-              className={`cursor-pointer px-3 py-2 text-xs font-medium transition-colors ${
-                tab === t
-                  ? "rounded-lg bg-[#ffffff] px-3 py-2 text-xs font-medium text-[#0c2340] shadow-sm"
-                  : "text-[var(--text-accent)] hover:text-[#0c2340] hover:bg-white/50"
-              }`}
+              className={`aw-tab${tab === t ? " aw-tab-active" : ""}`}
             >
               {t.charAt(0).toUpperCase() + t.slice(1)}
             </button>
@@ -443,7 +439,7 @@ function DepositForm({ vault }: { vault: FoundationVault }) {
         </div>
       )}
       {error && <p className="mb-3 font-mono text-[10px] text-red-500">{error}</p>}
-      <button type="submit" disabled={loading || !amount || parseFloat(amount) <= 0} className="btn-primary flex w-full items-center justify-center gap-2 disabled:cursor-not-allowed disabled:opacity-50">
+      <button type="submit" disabled={loading || !amount || parseFloat(amount) <= 0} className="aw-submit">
         {loading ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Confirming...</> : "Deposit USDC"}
       </button>
     </form>
@@ -519,10 +515,17 @@ function WithdrawForm({ vault }: { vault: FoundationVault }) {
 
   return (
     <form onSubmit={handleWithdraw}>
-      <p className="mb-4 font-mono text-[10px] text-[var(--text-accent)]">
-        Burn {vault.receiptToken} · Balance: {balance > 0 ? `$${balance.toFixed(2)}` : "$0.00"}
-      </p>
-      <AmountInput value={amount} onChange={setAmount} token={vault.receiptToken} onMax={() => setAmount(balance.toString())} />
+      <div className="mb-3 flex items-center justify-between">
+        <span className="font-mono text-[10px] text-[var(--text-accent)]">
+          Burn {vault.receiptToken} · receive USDC
+        </span>
+        {balance > 0 && (
+          <span className="font-mono text-[10px] font-medium text-[#0c2340] bg-[#dde5f0] border border-[#94a3b8] rounded px-2 py-0.5">
+            Bal: {balance.toFixed(2)}
+          </span>
+        )}
+      </div>
+      <AmountInput value={amount} onChange={setAmount} token={vault.receiptToken} onMax={() => setAmount(balance.toFixed(2))} />
       {amount && parseFloat(amount) > 0 && (
         <div className="mb-4 space-y-1">
           <Row label="You receive" value={`~${parseFloat(amount).toFixed(2)} USDC`} />
@@ -530,7 +533,7 @@ function WithdrawForm({ vault }: { vault: FoundationVault }) {
         </div>
       )}
       {error && <p className="mb-3 font-mono text-[10px] text-red-500">{error}</p>}
-      <button type="submit" disabled={loading || !amount || parseFloat(amount) <= 0 || balance <= 0} className="btn-glass flex w-full items-center justify-center gap-2 disabled:cursor-not-allowed disabled:opacity-50">
+      <button type="submit" disabled={loading || !amount || parseFloat(amount) <= 0 || balance <= 0} className="aw-submit">
         {loading ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Burning...</> : "Withdraw USDC"}
       </button>
     </form>

@@ -26,6 +26,7 @@ const dmMono = DM_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "https://fdnusd.com"),
   title: "Foundation — Managed RWA Yield on Solana",
   description:
     "Deposit USDC into managed RWA vaults. Earn yield from Solomon basis trades, Kamino PRIME lending, and Drift levered credit. All on Solana via Squads multisig.",
