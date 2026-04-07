@@ -41,13 +41,13 @@ export function WalletButton() {
         `Sign in to Foundation\n\nWallet: ${publicKey.toBase58()}\nTimestamp: ${new Date().toISOString()}`,
       );
       await signMessage(message);
-      setSignedIn(true);
     } catch {
-      disconnect();
+      // User rejected sign message — still allow them in, just skip signature
     } finally {
+      setSignedIn(true);
       setSigning(false);
     }
-  }, [publicKey, signMessage, signedIn, signing, disconnect]);
+  }, [publicKey, signMessage, signedIn, signing]);
 
   useEffect(() => {
     if (connected && publicKey && !signedIn && !signing) handleSignIn();
