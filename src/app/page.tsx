@@ -399,12 +399,12 @@ function DepositForm({ vault }: { vault: FoundationVault }) {
         lamports: Math.floor(PROTOCOL_FEE_SOL * LAMPORTS_PER_SOL),
       });
       const tx = new Transaction().add(ix, feeIx);
-      const { blockhash } = await connection.getLatestBlockhash();
+      const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
       tx.recentBlockhash = blockhash;
       tx.feePayer = wallet.publicKey;
       const signed = await wallet.signTransaction(tx);
       const sig = await connection.sendRawTransaction(signed.serialize());
-      await connection.confirmTransaction(sig, "confirmed");
+      await connection.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, "confirmed");
 
       const res = await fetch("/api/deposit", {
         method: "POST",
@@ -489,12 +489,12 @@ function WithdrawForm({ vault }: { vault: FoundationVault }) {
         lamports: Math.floor(PROTOCOL_FEE_SOL * LAMPORTS_PER_SOL),
       });
       const tx = new Transaction().add(ix, feeIx);
-      const { blockhash } = await connection.getLatestBlockhash();
+      const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
       tx.recentBlockhash = blockhash;
       tx.feePayer = wallet.publicKey;
       const signed = await wallet.signTransaction(tx);
       const sig = await connection.sendRawTransaction(signed.serialize());
-      await connection.confirmTransaction(sig, "confirmed");
+      await connection.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, "confirmed");
 
       const res = await fetch("/api/withdraw", {
         method: "POST",
