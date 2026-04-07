@@ -8,12 +8,48 @@
    ============================================================ */
 
 @theme inline {
+  /* Simple aliases (used throughout existing components) */
   --color-navy: #0c2340;
   --color-navy-light: #1d4e6e;
   --color-navy-dark: #040e1a;
   --color-gold: #b8960c;
   --color-gold-light: #d4af37;
   --color-gold-dark: #97790a;
+
+  /* Expanded navy palette */
+  --color-navy-50: #f0f4f8;
+  --color-navy-100: #d9e2ec;
+  --color-navy-200: #b3c4d6;
+  --color-navy-300: #7a9bb5;
+  --color-navy-400: #4a6f8a;
+  --color-navy-500: #1d4e6e;
+  --color-navy-600: #0c2340;
+  --color-navy-700: #091b33;
+  --color-navy-800: #061426;
+  --color-navy-900: #040e1a;
+  --color-navy-950: #020810;
+
+  /* Expanded gold palette */
+  --color-gold-50: #fdf9e8;
+  --color-gold-100: #f9f0c4;
+  --color-gold-200: #f0de7e;
+  --color-gold-300: #e4c94a;
+  --color-gold-400: #d4af37;
+  --color-gold-500: #b8960c;
+  --color-gold-600: #97790a;
+  --color-gold-700: #715b08;
+  --color-gold-800: #4d3e06;
+  --color-gold-900: #2e2504;
+
+  /* Semantic aliases */
+  --color-background: var(--bg);
+  --color-surface: var(--surface);
+  --color-card: var(--card);
+  --color-border: var(--border-color);
+  --color-border-hover: var(--border-hover);
+  --color-foreground: var(--fg);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-fg);
 
   --color-success: #34d399;
   --color-warning: #fbbf24;
