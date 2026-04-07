@@ -240,7 +240,7 @@ function VaultCard({ vault, onSelect }: { vault: FoundationVault; onSelect: () =
           <div className="px-5 py-4">
             <span className="section-label mb-1.5 block">TARGET APY</span>
             <span className="font-mono text-2xl font-bold tracking-[-0.03em] text-emerald-500">
-              {vault.apy > 0 ? formatAPY(vault.apy) : "--"}
+              {formatAPY(vault.apy)}
             </span>
           </div>
           <div className="px-5 py-4">
@@ -302,7 +302,7 @@ function VaultDetail({ vault, onBack }: { vault: FoundationVault; onBack: () => 
           <h3 className="section-label mb-4">Vault Details</h3>
           <div className="space-y-2.5 text-[12px] sm:text-[13px]">
             {[
-              ["APY", vault.apy > 0 ? formatAPY(vault.apy) : "--"],
+              ["APY", formatAPY(vault.apy)],
               ["Strategy", vault.strategy],
               ["Underlying", vault.underlying],
               ["Receipt Token", vault.receiptToken],
@@ -428,7 +428,7 @@ function DepositForm({ vault }: { vault: FoundationVault }) {
   return (
     <form onSubmit={handleDeposit}>
       <p className="mb-4 font-mono text-[10px] text-[var(--text-accent)]">
-        {vault.name} · {vault.apy > 0 ? `~${vault.apy}%` : "--"} APY
+        {vault.name} · {formatAPY(vault.apy)} APY
       </p>
       <AmountInput value={amount} onChange={setAmount} token="USDC" />
       {amount && parseFloat(amount) > 0 && (

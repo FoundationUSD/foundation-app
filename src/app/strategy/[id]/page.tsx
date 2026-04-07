@@ -609,7 +609,7 @@ function DepositForm({
   return (
     <form onSubmit={handleDeposit}>
       <div className="aw-info-row">
-        <span className="aw-info-text">{vault.name} · ~{vault.apy > 0 ? formatAPY(vault.apy) : "--"}% APY</span>
+        <span className="aw-info-text">{vault.name} · ~{vault.apy > 0 ? formatAPY(vault.apy) : "--"} APY</span>
         {hasAmount && <span className="aw-badge-green">+~${(num * vault.apy / 100).toFixed(0)}/yr</span>}
       </div>
       <div className="aw-input-wrap">
