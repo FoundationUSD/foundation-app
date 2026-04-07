@@ -17,8 +17,10 @@ export function formatUSDCCompact(lamports: number): string {
   return `$${val.toFixed(2)}`;
 }
 
-export function formatAPY(apy: number): string {
-  return `${apy.toFixed(2)}%`;
+export function formatAPY(apy: number | string): string {
+  const num = Number(apy);
+  if (isNaN(num) || num <= 0) return "--";
+  return `${num.toFixed(2)}%`;
 }
 
 export function lamportsToUsdc(lamports: number): number {

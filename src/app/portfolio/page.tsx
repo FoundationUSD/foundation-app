@@ -9,6 +9,7 @@ import Avatar from "boring-avatars";
 import { WalletModal } from "@/components/WalletModal";
 import { FOUNDATION_VAULTS } from "@/lib/vaults";
 import { getTxUrl } from "@/lib/constants";
+import { formatAPY, formatNumber, lamportsToUsdc } from "@/lib/utils";
 
 interface Position {
   vaultId: string;
@@ -244,8 +245,8 @@ export default function PortfolioPage() {
                             <h4 className="text-sm font-semibold text-[#0f172a]">
                               {p.vaultName}
                             </h4>
-                            <div className="text-xs text-emerald-600 font-medium">
-                              {p.apy}% APY
+                            <div className="text-xs text-[var(--gold)] font-medium">
+                              {formatAPY(p.apy)} APY
                             </div>
                           </div>
                         </div>
@@ -323,54 +324,64 @@ export default function PortfolioPage() {
             </div>
           ) : (
             <div className="divide-y divide-[var(--rule)]">
-              {history.map((tx) => {
+              {history.map((tx, i) => {
                 const vault = FOUNDATION_VAULTS.find((v) => v.id === tx.vaultId);
                 const isDeposit = tx.type === "deposit";
                 const date = new Date(tx.createdAt);
                 return (
-                  <div key={tx.id} className="flex items-center gap-4 px-5 py-4">
-                    {/* Icon */}
-                    <div className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full ${
-                      isDeposit ? "bg-emerald-500/10" : "bg-amber-500/10"
-                    }`}>
-                      {isDeposit
-                        ? <ArrowDownLeft className="h-4 w-4 text-emerald-500" />
-                        : <ArrowUpRight className="h-4 w-4 text-amber-500" />
-                      }
+                  <div key={`${tx.id}-${i}`} className="group flex items-center justify-between px-5 py-4 transition-colors hover:bg-[var(--surface-strong)]">
+                    <div className="flex items-center gap-4 min-w-0">
+                      {/* Icon */}
+                      <div className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg border border-[var(--rule)] ${
+                        isDeposit ? "bg-emerald-500/5 text-emerald-600" : "bg-amber-500/5 text-amber-600"
+                      }`}>
+                        {isDeposit
+                          ? <ArrowDownLeft className="h-4 w-4" />
+                          : <ArrowUpRight className="h-4 w-4" />
+                        }
+                      </div>
+
+                      {/* Details */}
+                      <div className="flex flex-col min-w-0 pr-4">
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <span className="text-sm font-semibold text-[var(--fg)]">
+                            {isDeposit ? "Deposit" : "Withdrawal"}
+                          </span>
+                          <span className="rounded bg-[var(--surface-strong)] px-1.5 py-0.5 font-mono text-[9px] uppercase text-[var(--text-accent)] border border-[var(--rule)]">
+                            {vault?.receiptToken || "USDC"}
+                          </span>
+                        </div>
+                        <span className="font-mono text-[11px] text-[var(--muted)]">
+                          {date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                          {" · "}
+                          {date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
+                        </span>
+                      </div>
                     </div>
 
-                    {/* Details */}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-[var(--fg)]">
-                        {isDeposit ? "Deposit" : "Withdrawal"}
-                        {vault && <span className="ml-1.5 text-[var(--muted)] font-normal">· {vault.receiptToken}</span>}
-                      </p>
-                      <p className="font-mono text-[10px] text-[var(--muted)]">
-                        {date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                        {" · "}
-                        {date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
-                      </p>
+                    {/* Right side: Amount & Link */}
+                    <div className="flex items-center gap-4 flex-shrink-0 text-right">
+                      <div className="flex flex-col items-end">
+                        <span className={`font-mono text-[14px] font-medium ${isDeposit ? "text-emerald-500" : "text-[var(--text-page)]"}`}>
+                          {isDeposit ? "+" : "-"}{tx.amount ? formatNumber(lamportsToUsdc(tx.amount)) : "—"}
+                        </span>
+                        <span className="font-mono text-[10px] text-[var(--muted)]">USDC</span>
+                      </div>
+                      
+                      {tx.tx ? (
+                        <a
+                          href={getTxUrl(tx.tx)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex h-8 w-8 items-center justify-center rounded-md border border-[var(--rule)] text-[var(--muted)] opacity-0 transition-all hover:bg-[var(--surface)] hover:text-[var(--fg)] group-hover:opacity-100"
+                          title="View on Explorer"
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" />
+                        </a>
+                      ) : (
+                        <div className="w-8"></div>
+                      )}
                     </div>
-
-                    {/* Amount */}
-                    <div className="text-right flex-shrink-0">
-                      <p className={`font-mono text-sm font-medium ${isDeposit ? "text-emerald-500" : "text-amber-500"}`}>
-                        {isDeposit ? "+" : "-"}{tx.amount?.toFixed(2) ?? "—"} USDC
-                      </p>
-                    </div>
-
-                    {/* Explorer link */}
-                    {tx.tx && (
-                      <a
-                        href={getTxUrl(tx.tx)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex-shrink-0 rounded p-1.5 text-[var(--muted)] transition-colors hover:text-[var(--fg)] hover:bg-[var(--surface-strong)]"
-                        title="View on orbmarkets.io"
-                      >
-                        <ExternalLink className="h-3.5 w-3.5" />
-                      </a>
-                    )}
                   </div>
                 );
               })}

@@ -93,56 +93,45 @@
   --gold-light: #d4af37;
   --gold-dark: #97790a;
 
-  /* Dark surface aliases */
-  --dark-bg: #0a0f1a;
-  --dark-surface: #111827;
-  --dark-card: #151d2e;
-  --dark-card-elevated: #1c2538;
-  --dark-border: #1e293b;
-  --dark-border-hover: #334155;
-  --dark-text: #f8fafc;
-  --dark-text-secondary: #94a3b8;
-  --dark-text-tertiary: #64748b;
-
   /* Layout tokens */
-  --rule: rgba(0, 0, 0, 0.06);
-  --rule-solid: #d4dff0;
+  --rule: #e2e8f0;
+  --rule-solid: #cbd5e1;
 
   /* Text */
   --fg: #0f172a;
-  --muted: #6b7280;
-  --muted-fg: #9ca3af;
+  --muted: #64748b;
+  --muted-fg: #94a3b8;
 
   /* Surface */
-  --bg-primary: linear-gradient(180deg, #f0f4ff 0%, #eaf1fd 30%, #e8f0fe 55%, #edf3ff 80%, #f0f4ff 100%);
-  --surface: rgba(255, 255, 255, 0.45);
-  --surface-strong: rgba(255, 255, 255, 0.6);
+  --bg-primary: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+  --surface: #ffffff;
+  --surface-strong: #f8fafc;
   --border-hover: rgba(184, 150, 12, 0.25);
 
   /* Brand */
-  --text-accent: #6b7280;
+  --text-accent: #64748b;
   --text-page: #0f172a;
-  --text-success: #34d399;
-  --text-error: #f87171;
-  --text-warning: #fbbf24;
+  --text-success: #10b981;
+  --text-error: #ef4444;
+  --text-warning: #f59e0b;
   --link: #0c2340;
 
   /* Logo & header */
   --logo-text: #0c2340;
-  --hamburger: #0c2340;
+  --hamburger: #0f172a;
 
   /* Header */
   --header-bg: rgba(255, 255, 255, 0.85);
-  --header-border: rgba(0, 0, 0, 0.06);
-  --header-text-primary: #0c2340;
-  --header-text-secondary: #6b7280;
+  --header-border: #e2e8f0;
+  --header-text-primary: #0f172a;
+  --header-text-secondary: #64748b;
 }
 
 /* ============================================================
    CSS CUSTOM PROPERTIES — DARK
    ============================================================ */
 html:not(.light) {
-  --rule: rgba(255, 255, 255, 0.06);
+  --rule: rgba(255, 255, 255, 0.1);
   --rule-solid: #1e293b;
 
   --fg: #f8fafc;
@@ -150,22 +139,22 @@ html:not(.light) {
   --muted-fg: #64748b;
 
   --bg-primary: #0a0f1a;
-  --surface: rgba(255, 255, 255, 0.04);
-  --surface-strong: rgba(255, 255, 255, 0.06);
-  --border-hover: rgba(255, 255, 255, 0.12);
+  --surface: #111522;
+  --surface-strong: #171d2b;
+  --border-hover: rgba(184, 150, 12, 0.4);
 
   --text-accent: #94a3b8;
   --text-page: #f8fafc;
-  --text-success: #34d399;
-  --text-error: #f87171;
-  --text-warning: #fbbf24;
+  --text-success: #10b981;
+  --text-error: #ef4444;
+  --text-warning: #f59e0b;
   --link: #f8fafc;
 
   --logo-text: #f8fafc;
   --hamburger: #f8fafc;
 
-  --header-bg: rgba(15, 23, 42, 0.85);
-  --header-border: rgba(255, 255, 255, 0.06);
+  --header-bg: rgba(10, 15, 26, 0.85);
+  --header-border: rgba(255, 255, 255, 0.1);
   --header-text-primary: #f8fafc;
   --header-text-secondary: #94a3b8;
 }
