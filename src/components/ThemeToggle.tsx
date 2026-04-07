@@ -4,30 +4,38 @@ import { useState, useEffect } from "react";
 import { Sun, Moon } from "lucide-react";
 
 export function ThemeToggle() {
-  const [light, setLight] = useState(false);
+  const [dark, setDark] = useState(false);
 
   useEffect(() => {
-    const stored = localStorage.getItem("theme");
-    if (stored === "light") {
+    const stored = localStorage.getItem("darkMode");
+    if (stored === "true") {
+      document.documentElement.classList.remove("light");
+      setDark(true);
+    } else {
       document.documentElement.classList.add("light");
-      setLight(true);
+      setDark(false);
     }
   }, []);
 
   const toggle = () => {
-    const next = !light;
-    setLight(next);
-    document.documentElement.classList.toggle("light", next);
-    localStorage.setItem("theme", next ? "light" : "dark");
+    const next = !dark;
+    setDark(next);
+    if (next) {
+      document.documentElement.classList.remove("light");
+      localStorage.setItem("darkMode", "true");
+    } else {
+      document.documentElement.classList.add("light");
+      localStorage.setItem("darkMode", "false");
+    }
   };
 
   return (
     <button
       onClick={toggle}
-      className="flex h-8 w-8 items-center justify-center border border-[var(--border-color)] text-[var(--muted)] transition-colors hover:border-[var(--border-hover)] hover:text-[var(--fg)]"
-      title={light ? "Switch to dark" : "Switch to light"}
+      className="theme-toggle-btn"
+      title={dark ? "Switch to light" : "Switch to dark"}
     >
-      {light ? <Moon className="h-3.5 w-3.5" /> : <Sun className="h-3.5 w-3.5" />}
+      {dark ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
     </button>
   );
 }

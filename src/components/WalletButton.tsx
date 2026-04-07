@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { createPortal } from "react-dom";
 import Image from "next/image";
 import { useWallet, useConnection } from "@solana/wallet-adapter-react";
 import {
@@ -13,6 +12,7 @@ import {
   ChevronDown,
   ShieldCheck,
 } from "lucide-react";
+import Avatar from "boring-avatars";
 import { shortenAddress } from "@/lib/utils";
 import { EXPLORER_URL } from "@/lib/constants";
 import { WalletModal } from "@/components/WalletModal";
@@ -83,22 +83,13 @@ export function WalletButton() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // Render modal via portal so it's not trapped inside navbar
-  const renderModal = () => {
-    if (!mounted || !modalOpen) return null;
-    return createPortal(
-      <WalletModal open={modalOpen} onClose={() => setModalOpen(false)} />,
-      document.body,
-    );
-  };
-
   // Signing
   if (connected && signing) {
     return (
-      <div className="flex items-center gap-2 border border-gold-500/20 bg-gold-500/5 px-3 py-1.5">
-        <div className="h-3 w-3 animate-spin rounded-full border-2 border-gold-400 border-t-transparent" />
-        <span className="font-mono text-[10px] text-gold-400">Signing...</span>
-      </div>
+      <button className="fdn-wallet-btn fdn-wallet-btn--loading">
+        <span className="h-3 w-3 animate-spin rounded-full border-2 border-gold-400 border-t-transparent" />
+        <span>Signing…</span>
+      </button>
     );
   }
 
@@ -106,11 +97,11 @@ export function WalletButton() {
   if (!connected || !publicKey || !signedIn) {
     return (
       <>
-        <button onClick={() => setModalOpen(true)} className="btn-primary flex items-center gap-2 px-4 py-2 text-[10px]">
-          <Wallet className="h-3 w-3" />
-          Connect
+        <button onClick={() => setModalOpen(true)} className="fdn-header__connect-btn flex items-center gap-2">
+          <Wallet className="h-3.5 w-3.5" />
+          <span>Connect</span>
         </button>
-        {renderModal()}
+        {mounted && <WalletModal open={modalOpen} onClose={() => setModalOpen(false)} />}
       </>
     );
   }
@@ -120,68 +111,67 @@ export function WalletButton() {
     <div ref={dropdownRef} className="relative">
       <button
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-2 border border-white/[0.06] bg-white/[0.02] px-3 py-1.5 transition-all hover:border-white/[0.12] hover:bg-white/[0.04]"
+        className="fdn-wallet-connected flex items-center gap-2"
       >
-        {wallet?.adapter.icon && (
-          <Image unoptimized src={wallet.adapter.icon} alt="" width={14} height={14} className="h-3.5 w-3.5" />
-        )}
-        <span className="font-mono text-[10px] text-foreground">
-          {shortenAddress(publicKey.toBase58(), 4)}
-        </span>
-        <ChevronDown className={`h-2.5 w-2.5 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`} />
+        <div className="h-5 w-5 rounded-full overflow-hidden flex-shrink-0">
+          <Avatar size={20} name={publicKey.toBase58()} variant="beam" colors={["#0c2340","#b8960c","#d4af37","#1d4e6e","#f0f4ff"]} />
+        </div>
+        <span>{shortenAddress(publicKey.toBase58(), 4)}</span>
+        <ChevronDown className={`h-3 w-3 opacity-60 transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
 
       {open && (
-        <div className="absolute right-0 z-[200] mt-1 w-72 animate-fade-in border border-white/[0.08] bg-[#0c1220] shadow-2xl">
-          {/* Address + copy */}
-          <div className="border-b border-white/[0.06] p-4">
-            <div className="mb-2 flex items-center gap-2">
-              {wallet?.adapter.icon && (
-                <Image unoptimized src={wallet.adapter.icon} alt="" width={16} height={16} className="h-4 w-4" />
-              )}
-              <span className="font-mono text-[11px] text-foreground">{wallet?.adapter.name}</span>
-              <ShieldCheck className="h-3 w-3 text-success" />
+        <div className="fdn-wallet-dropdown">
+          {/* Wallet info */}
+          <div className="fdn-wallet-dropdown__header">
+            <div className="flex items-center gap-2.5 mb-3">
+              <div className="h-9 w-9 rounded-full overflow-hidden flex-shrink-0 border border-[var(--rule)]">
+                <Avatar size={36} name={publicKey.toBase58()} variant="beam" colors={["#0c2340","#b8960c","#d4af37","#1d4e6e","#f0f4ff"]} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5">
+                  {wallet?.adapter.icon && (
+                    <Image unoptimized src={wallet.adapter.icon} alt="" width={12} height={12} className="h-3 w-3 rounded-full" />
+                  )}
+                  <span className="font-mono text-[11px] font-medium text-[var(--fg)]">{wallet?.adapter.name}</span>
+                  <ShieldCheck className="h-3 w-3 text-emerald-400 ml-auto" />
+                </div>
+              </div>
             </div>
             <div className="flex items-center gap-2">
-              <p className="min-w-0 flex-1 truncate font-mono text-[10px] text-muted-foreground">
+              <p className="min-w-0 flex-1 truncate font-mono text-[10px] text-[var(--muted)]">
                 {publicKey.toBase58()}
               </p>
-              <button
-                onClick={copyAddress}
-                className="shrink-0 p-1 text-muted-foreground transition-colors hover:text-foreground"
-                title="Copy address"
-              >
-                {copied ? <Check className="h-3 w-3 text-success" /> : <Copy className="h-3 w-3" />}
+              <button onClick={copyAddress} className="shrink-0 rounded p-1 transition-colors hover:bg-[var(--surface-strong)]">
+                {copied ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3 text-[var(--muted)]" />}
               </button>
             </div>
           </div>
 
           {/* Balance */}
-          <div className="border-b border-white/[0.06] px-4 py-3">
-            <div className="flex items-center justify-between">
-              <span className="font-mono text-[9px] uppercase tracking-wider text-muted-foreground">Balance</span>
-              <span className="font-mono text-[12px] text-foreground">
-                {solBalance !== null ? `${solBalance.toFixed(4)} SOL` : "..."}
-              </span>
-            </div>
+          <div className="fdn-wallet-dropdown__balance">
+            <span className="font-mono text-[9px] uppercase tracking-[0.15em] text-[var(--muted)]">SOL Balance</span>
+            <span className="font-mono text-sm font-medium text-[var(--fg)]">
+              {solBalance !== null ? `${solBalance.toFixed(4)} SOL` : "—"}
+            </span>
           </div>
 
           {/* Actions */}
-          <div className="p-1.5">
+          <div className="fdn-wallet-dropdown__actions">
             <a
               href={`${EXPLORER_URL}/account/${publicKey.toBase58()}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex w-full items-center gap-2.5 px-3 py-2 text-left font-mono text-[10px] text-muted-foreground transition-colors hover:bg-white/[0.03] hover:text-foreground"
+              className="fdn-wallet-dropdown__action"
             >
-              <ExternalLink className="h-3 w-3" />
+              <ExternalLink className="h-3.5 w-3.5" />
               View on Explorer
             </a>
             <button
               onClick={() => { disconnect(); setOpen(false); }}
-              className="flex w-full items-center gap-2.5 px-3 py-2 text-left font-mono text-[10px] text-error/70 transition-colors hover:bg-error/5 hover:text-error"
+              className="fdn-wallet-dropdown__action fdn-wallet-dropdown__action--danger"
             >
-              <LogOut className="h-3 w-3" />
+              <LogOut className="h-3.5 w-3.5" />
               Disconnect
             </button>
           </div>
