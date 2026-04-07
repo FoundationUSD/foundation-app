@@ -10,6 +10,7 @@ import {
   Check,
   ExternalLink,
   ChevronDown,
+  Coins,
   ShieldCheck,
 } from "lucide-react";
 import Avatar from "boring-avatars";
@@ -28,13 +29,12 @@ export function WalletButton() {
   const [solBalance, setSolBalance] = useState<number | null>(null);
   const [signedIn, setSignedIn] = useState(false);
   const [signing, setSigning] = useState(false);
-  const [mounted, setMounted] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => setMounted(true), []);
-
+  // Sign message on connect to verify ownership
   const handleSignIn = useCallback(async () => {
     if (!publicKey || !signMessage || signedIn || signing) return;
+
     setSigning(true);
     try {
       const message = new TextEncoder().encode(
@@ -49,31 +49,48 @@ export function WalletButton() {
     }
   }, [publicKey, signMessage, signedIn, signing]);
 
+  // Trigger sign-in when wallet connects
   useEffect(() => {
-    if (connected && publicKey && !signedIn && !signing) handleSignIn();
+    if (connected && publicKey && !signedIn && !signing) {
+      handleSignIn();
+    }
   }, [connected, publicKey, signedIn, signing, handleSignIn]);
 
+  // Reset sign-in state on disconnect
   useEffect(() => {
     if (!connected) setSignedIn(false);
   }, [connected]);
 
+  // Fetch SOL balance
   useEffect(() => {
-    if (!publicKey || !signedIn) { setSolBalance(null); return; }
-    const fetch_ = async () => {
-      try { setSolBalance((await connection.getBalance(publicKey)) / LAMPORTS_PER_SOL); }
-      catch { setSolBalance(null); }
+    if (!publicKey || !signedIn) {
+      setSolBalance(null);
+      return;
+    }
+
+    const fetchBalance = async () => {
+      try {
+        const balance = await connection.getBalance(publicKey);
+        setSolBalance(balance / LAMPORTS_PER_SOL);
+      } catch {
+        setSolBalance(null);
+      }
     };
-    fetch_();
-    const i = setInterval(fetch_, 15000);
-    return () => clearInterval(i);
+
+    fetchBalance();
+    const interval = setInterval(fetchBalance, 15000);
+    return () => clearInterval(interval);
   }, [publicKey, signedIn, connection]);
 
+  // Close dropdown on outside click
   useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) setOpen(false);
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
     };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   const copyAddress = async () => {
@@ -83,7 +100,7 @@ export function WalletButton() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // Signing
+  // Signing in progress
   if (connected && signing) {
     return (
       <button className="fdn-wallet-btn fdn-wallet-btn--loading">
@@ -93,7 +110,7 @@ export function WalletButton() {
     );
   }
 
-  // Not connected
+  // Not connected or not signed in — show connect button
   if (!connected || !publicKey || !signedIn) {
     return (
       <>
@@ -101,12 +118,12 @@ export function WalletButton() {
           <Wallet className="h-3.5 w-3.5" />
           <span>Connect</span>
         </button>
-        {mounted && <WalletModal open={modalOpen} onClose={() => setModalOpen(false)} />}
+        <WalletModal open={modalOpen} onClose={() => setModalOpen(false)} />
       </>
     );
   }
 
-  // Connected
+  // Connected + signed in — show user dropdown
   return (
     <div ref={dropdownRef} className="relative">
       <button
@@ -150,14 +167,24 @@ export function WalletButton() {
 
           {/* Balance */}
           <div className="fdn-wallet-dropdown__balance">
-            <span className="font-mono text-[9px] uppercase tracking-[0.15em] text-[var(--muted)]">SOL Balance</span>
-            <span className="font-mono text-sm font-medium text-[var(--fg)]">
-              {solBalance !== null ? `${solBalance.toFixed(4)} SOL` : "—"}
-            </span>
+            <div className="flex items-center gap-2">
+              <Coins className="h-3.5 w-3.5 text-gold-400" />
+              <div>
+                <span className="font-mono text-[9px] uppercase tracking-[0.15em] text-[var(--muted)]">SOL Balance</span>
+                <span className="block font-mono text-sm font-medium text-[var(--fg)]">
+                  {solBalance !== null ? `${solBalance.toFixed(4)} SOL` : "—"}
+                </span>
+              </div>
+            </div>
           </div>
 
           {/* Actions */}
           <div className="fdn-wallet-dropdown__actions">
+            <button onClick={copyAddress} className="fdn-wallet-dropdown__action">
+              {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+              {copied ? "Copied!" : "Copy Address"}
+            </button>
+
             <a
               href={`${EXPLORER_URL}/account/${publicKey.toBase58()}`}
               target="_blank"
@@ -167,6 +194,7 @@ export function WalletButton() {
               <ExternalLink className="h-3.5 w-3.5" />
               View on Explorer
             </a>
+
             <button
               onClick={() => { disconnect(); setOpen(false); }}
               className="fdn-wallet-dropdown__action fdn-wallet-dropdown__action--danger"

@@ -160,18 +160,19 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 8. Deploy USDC into the underlying protocol FIRST
-    //    Only mint receipt tokens if deployment succeeds (or is skipped for coming_soon vaults)
+    // 8. Deploy USDC into the underlying protocol
+    //    If deployment fails, still mint tokens — USDC is safe in vault, deployment retried by cron
     let deployTx: string | undefined;
-    const deployResult = await deployCapital(vaultName, usdcReceived);
-    if (!deployResult.success && !deployResult.tx?.startsWith("skipped")) {
-      console.error(`Capital deployment failed for ${vaultName}:`, deployResult.error);
-      return NextResponse.json(
-        { success: false, error: `Capital deployment failed: ${deployResult.error}. Your USDC is safe in the vault — please retry.` },
-        { status: 503 },
-      );
+    try {
+      const deployResult = await deployCapital(vaultName, usdcReceived);
+      if (deployResult.success) {
+        deployTx = deployResult.tx;
+      } else {
+        console.error(`Capital deployment failed for ${vaultName}: ${deployResult.error} — minting tokens anyway`);
+      }
+    } catch (deployErr) {
+      console.error(`Capital deployment error for ${vaultName}:`, deployErr);
     }
-    deployTx = deployResult.tx;
 
     // 9. Mint exact amount of receipt tokens (only after deployment succeeds)
     const sharesToMint = usdcReceived; // 1:1 USDC to receipt token
