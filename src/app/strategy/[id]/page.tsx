@@ -90,7 +90,7 @@ export default function StrategyPage() {
 
   if (loading) {
     return (
-      <div className="fdn-page mx-auto flex min-h-[500px] flex-col rounded-xl border border-[var(--rule)] bg-white p-4 shadow-sm md:px-6 lg:p-6">
+      <div className="fdn-page mx-auto flex min-h-[500px] flex-col rounded-xl border border-[var(--rule)] bg-[var(--surface)] p-4 shadow-sm md:px-6 lg:p-6">
         <div className="skeleton mb-8 h-8 w-32 rounded-lg" />
         <div className="skeleton h-64 rounded-lg" />
       </div>
@@ -101,7 +101,7 @@ export default function StrategyPage() {
     return (
       <div className="fdn-page mx-auto max-w-7xl px-6 py-24 text-center">
         <div className="infra-card overflow-hidden p-8 text-center">
-          <p className="mb-2 text-lg text-[#0c2340]">Vault not found</p>
+          <p className="mb-2 text-lg text-[var(--fg)]">Vault not found</p>
           <p className="mb-4 text-sm text-[var(--text-accent)]">The requested strategy does not exist.</p>
           <Link href="/" className="btn-primary inline-block px-6 py-2.5 font-mono text-xs">
             Back to Vaults
@@ -114,7 +114,7 @@ export default function StrategyPage() {
   const isLive = vault.status === "live";
 
   return (
-    <div className="fdn-page mx-auto flex min-h-[500px] max-w-7xl flex-col rounded-xl border border-[var(--rule)] bg-white p-4 shadow-sm md:px-6 lg:p-6">
+    <div className="fdn-page mx-auto flex min-h-[500px] max-w-7xl flex-col rounded-xl border border-[var(--rule)] bg-[var(--surface)] p-4 shadow-sm md:px-6 lg:p-6">
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 md:flex-row">
         {/* Left: Strategy Details */}
         <div className="order-2 min-w-0 flex-1 md:order-1">
@@ -123,21 +123,21 @@ export default function StrategyPage() {
             <div className="flex items-center gap-3">
               <Link
                 href="/"
-                className="flex h-10 w-10 items-center justify-center rounded-lg border border-[var(--rule)] bg-light-bg transition-colors hover:bg-light-bg/80"
+                className="flex h-10 w-10 items-center justify-center rounded-lg border border-[var(--rule)] bg-[var(--surface-strong)] transition-colors hover:bg-[var(--surface-strong)]/80"
               >
-                <ArrowLeft className="h-5 w-5 text-[#0c2340]" />
+                <ArrowLeft className="h-5 w-5 text-[var(--fg)]" />
               </Link>
               <div className="flex-1">
-                <h1 className="text-2xl font-semibold text-[#0c2340]">
+                <h1 className="text-2xl font-semibold text-[var(--fg)]">
                   Strategy Details
                 </h1>
               </div>
             </div>
 
             {/* Strategy Header Card */}
-            <div className="rounded-xl border border-[var(--rule)] bg-white p-4">
+            <div className="rounded-xl border border-[var(--rule)] bg-[var(--surface)] p-4">
               <div className="flex items-start gap-3 mb-3">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-[var(--rule)] bg-light-bg">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-[var(--rule)] bg-[var(--surface-strong)]">
                   {PROTOCOL_LOGO[vault.protocol] && (
                     <Image
                       src={PROTOCOL_LOGO[vault.protocol]}
@@ -150,7 +150,7 @@ export default function StrategyPage() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="mb-1.5 flex items-center gap-2">
-                    <h2 className="text-lg font-semibold text-[#0c2340]">
+                    <h2 className="text-lg font-semibold text-[var(--fg)]">
                       {vault.name}
                     </h2>
                     <span
@@ -178,29 +178,29 @@ export default function StrategyPage() {
               <div className="grid grid-cols-2 gap-3 border-t border-[var(--rule)] pt-3">
                 <div>
                   <div className="mb-1 text-xs text-[var(--text-accent)]">TVL (USD)</div>
-                  <div className="text-xl font-semibold text-[#0c2340]">
+                  <div className="text-xl font-semibold text-[var(--fg)]">
                     --
                   </div>
                 </div>
                 <div>
                   <div className="mb-1 text-xs text-[var(--text-accent)]">APY</div>
-                  <div className="text-xl font-semibold text-[#0c2340]">
-                    {vault.apy > 0 ? formatAPY(vault.apy) : "--"}%
+                  <div className="text-xl font-semibold text-[var(--fg)]">
+                    {vault.apy > 0 ? formatAPY(vault.apy) : "--"}
                   </div>
                 </div>
               </div>
             </div>
 
             {/* Tabs Navigation */}
-            <div className="flex w-full items-center gap-0 overflow-hidden rounded-xl border border-[var(--rule)] bg-light-bg">
+            <div className="flex w-full items-center gap-0 overflow-hidden rounded-xl border border-[var(--rule)] bg-[var(--surface-strong)]">
               {TABS.map((tab) => (
                 <button
                   key={tab.key}
                   onClick={() => setActiveTab(tab.key)}
-                  className={`flex-1 cursor-pointer px-2 py-2.5 text-center text-xs font-medium transition-colors sm:text-sm whitespace-nowrap
+                  className={`flex-1 cursor-pointer px-2 py-2.5 text-center font-mono text-[11px] font-medium transition-all whitespace-nowrap tracking-wide
                     ${activeTab === tab.key
-                      ? "bg-white text-[#0c2340] shadow-sm"
-                      : "text-[var(--text-accent)] hover:bg-white/50"
+                      ? "bg-[var(--navy)] text-white shadow-sm"
+                      : "text-[var(--muted)] hover:text-[var(--fg)]"
                     }`}
                 >
                   {tab.label}
@@ -214,8 +214,8 @@ export default function StrategyPage() {
               {activeTab === "overview" && (
                 <div className="relative w-full space-y-3">
                   {/* Key Highlights */}
-                  <div className="rounded-xl border border-[var(--rule)] bg-white p-4 min-w-full">
-                    <h3 className="mb-2 text-sm font-semibold text-[#0c2340]">Highlights</h3>
+                  <div className="rounded-xl border border-[var(--rule)] bg-[var(--surface)] p-4 min-w-full">
+                    <h3 className="mb-2 text-sm font-semibold text-[var(--fg)]">Highlights</h3>
                     <div className="space-y-2">
                       {vault.features.slice(0, 4).map((feature, i) => (
                         <div key={i} className="flex items-start gap-2">
@@ -234,7 +234,7 @@ export default function StrategyPage() {
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                           {PROTOCOL_LOGO[vault.protocol] && (
-                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[var(--rule)] bg-light-bg overflow-hidden">
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[var(--rule)] bg-[var(--surface-strong)] overflow-hidden">
                               <Image
                                 src={PROTOCOL_LOGO[vault.protocol]}
                                 alt={vault.protocol}
@@ -246,7 +246,7 @@ export default function StrategyPage() {
                           )}
                           <div>
                             <div className="mb-0.5 flex items-center gap-1.5">
-                              <span className="text-xs font-semibold text-[#0c2340]">
+                              <span className="text-xs font-semibold text-[var(--fg)]">
                                 Managed by {vault.protocol === "solomon" ? "Solomon" : vault.protocol === "kamino" ? "Kamino" : vault.protocol === "drift" ? "Drift" : vault.protocol === "oro" ? "Oro" : "Foundation"}
                               </span>
                             </div>
@@ -254,7 +254,7 @@ export default function StrategyPage() {
                           </div>
                         </div>
                         <div className="text-right">
-                          <div className="font-mono text-xs text-[#0c2340]">{vault.strategy}</div>
+                          <div className="font-mono text-xs text-[var(--fg)]">{vault.strategy}</div>
                           <div className="text-[9px] text-[var(--text-accent)] uppercase tracking-wider">
                             {vault.underlying}
                           </div>
@@ -265,12 +265,12 @@ export default function StrategyPage() {
 
                   {/* How It Works */}
                   {vault.howItWorks && vault.howItWorks.length > 0 && (
-                    <div className="rounded-xl border border-[var(--rule)] bg-white p-4">
-                      <h3 className="mb-3 text-sm font-semibold text-[#0c2340]">How It Works</h3>
+                    <div className="rounded-xl border border-[var(--rule)] bg-[var(--surface)] p-4">
+                      <h3 className="mb-3 text-sm font-semibold text-[var(--fg)]">How It Works</h3>
                       <div className="space-y-2 text-sm text-[var(--text-accent)]">
                         {vault.howItWorks.map((step, i) => (
                           <div key={i} className="flex gap-3 leading-relaxed">
-                            <span className="font-mono text-[#0c2340]">{i + 1}.</span>
+                            <span className="font-mono text-[var(--fg)]">{i + 1}.</span>
                             <p>{step}</p>
                           </div>
                         ))}
@@ -283,29 +283,29 @@ export default function StrategyPage() {
               {/* Performance Tab */}
               {activeTab === "performance" && (
                 <div className="relative w-full space-y-3">
-                  <div className="rounded-xl border border-[var(--rule)] bg-white p-4">
-                    <h3 className="mb-3 text-sm font-semibold text-[#0c2340]">Yield Breakdown</h3>
+                  <div className="rounded-xl border border-[var(--rule)] bg-[var(--surface)] p-4">
+                    <h3 className="mb-3 text-sm font-semibold text-[var(--fg)]">Yield Breakdown</h3>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <div className="mb-1 text-xs text-[var(--text-accent)]">Current APY</div>
-                        <div className="text-lg font-semibold text-[#0c2340]">
-                          {vault.apy > 0 ? `${formatAPY(vault.apy)}%` : "--"}
+                        <div className="text-lg font-semibold text-[var(--fg)]">
+                          {vault.apy > 0 ? formatAPY(vault.apy) : "--"}
                         </div>
                       </div>
                       <div>
                         <div className="mb-1 text-xs text-[var(--text-accent)]">Strategy Type</div>
-                        <div className="text-lg font-semibold text-[#0c2340]">{vault.strategy}</div>
+                        <div className="text-lg font-semibold text-[var(--fg)]">{vault.strategy}</div>
                       </div>
                       <div>
                         <div className="mb-1 text-xs text-[var(--text-accent)]">Underlying</div>
-                        <div className="text-lg font-semibold text-[#0c2340]">{vault.underlying}</div>
+                        <div className="text-lg font-semibold text-[var(--fg)]">{vault.underlying}</div>
                         <div className="mt-0.5 text-[9px] text-[var(--text-accent)]">
                           {vault.receiptToken} (Token-2022)
                         </div>
                       </div>
                       <div>
                         <div className="mb-1 text-xs text-[var(--text-accent)]">Vault Custody</div>
-                        <div className="text-lg font-semibold text-[#0c2340]">Squads Multisig</div>
+                        <div className="text-lg font-semibold text-[var(--fg)]">Squads Multisig</div>
                       </div>
                     </div>
                   </div>
@@ -315,20 +315,20 @@ export default function StrategyPage() {
               {/* Strategy Tab */}
               {activeTab === "strategy" && (
                 <div className="relative w-full space-y-3">
-                  <div className="rounded-xl border border-[var(--rule)] bg-white p-4">
-                    <h3 className="mb-3 text-sm font-semibold text-[#0c2340]">Strategy Allocation</h3>
-                    <div className="rounded-lg border border-[var(--rule)] bg-light-bg p-3">
+                  <div className="rounded-xl border border-[var(--rule)] bg-[var(--surface)] p-4">
+                    <h3 className="mb-3 text-sm font-semibold text-[var(--fg)]">Strategy Allocation</h3>
+                    <div className="rounded-lg border border-[var(--rule)] bg-[var(--surface-strong)] p-3">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           {PROTOCOL_LOGO[vault.protocol] && (
                             <Image src={PROTOCOL_LOGO[vault.protocol]} alt={vault.protocol} width={20} height={20} className="h-5 w-5 rounded-md" />
                           )}
-                          <span className="text-xs font-medium text-[#0c2340]">{vault.protocol}</span>
+                          <span className="text-xs font-medium text-[var(--fg)]">{vault.protocol}</span>
                         </div>
                         <div className="flex items-center gap-3">
                           <span className="text-xs text-[var(--text-accent)]">100%</span>
                           <span className="text-xs font-medium text-emerald-600">
-                            {vault.apy > 0 ? `${formatAPY(vault.apy)}% APY` : "--"}
+                            {vault.apy > 0 ? `${formatAPY(vault.apy)} APY` : "--"}
                           </span>
                         </div>
                       </div>
@@ -338,7 +338,7 @@ export default function StrategyPage() {
                       <h4 className="mb-2 text-xs font-medium text-[var(--text-accent)]">Features</h4>
                       <div className="flex flex-wrap gap-2">
                         {vault.features.map((f, i) => (
-                          <span key={i} className="flex items-center gap-1.5 rounded-md border border-[var(--rule)] px-3 py-1.5 font-mono text-[10px] text-[#0c2340]">
+                          <span key={i} className="flex items-center gap-1.5 rounded-md border border-[var(--rule)] px-3 py-1.5 font-mono text-[10px] text-[var(--fg)]">
                             <Shield className="h-3 w-3 text-gold-500" />
                             {f}
                           </span>
@@ -352,34 +352,34 @@ export default function StrategyPage() {
               {/* Transparency Tab */}
               {activeTab === "transparency" && (
                 <div className="relative w-full space-y-3">
-                  <div className="rounded-xl border border-[var(--rule)] bg-white p-4">
-                    <h3 className="mb-3 text-sm font-semibold text-[#0c2340]">Transparency & Security</h3>
+                  <div className="rounded-xl border border-[var(--rule)] bg-[var(--surface)] p-4">
+                    <h3 className="mb-3 text-sm font-semibold text-[var(--fg)]">Transparency & Security</h3>
                     <div className="space-y-3">
                       <div className="flex items-start gap-3">
                         <Lock className="h-4 w-4 shrink-0 text-emerald-500 mt-0.5" />
                         <div>
-                          <div className="text-xs font-medium text-[#0c2340]">Multisig Custody</div>
+                          <div className="text-xs font-medium text-[var(--fg)]">Multisig Custody</div>
                           <div className="text-xs text-[var(--text-accent)]">All vaults are secured by Squads Protocol multisig</div>
                         </div>
                       </div>
                       <div className="flex items-start gap-3">
                         <BarChart3 className="h-4 w-4 shrink-0 text-emerald-500 mt-0.5" />
                         <div>
-                          <div className="text-xs font-medium text-[#0c2340]">On-Chain Verification</div>
+                          <div className="text-xs font-medium text-[var(--fg)]">On-Chain Verification</div>
                           <div className="text-xs text-[var(--text-accent)]">All transactions are verifiable on Solana explorer</div>
                         </div>
                       </div>
                       <div className="flex items-start gap-3">
                         <TrendingUp className="h-4 w-4 shrink-0 text-emerald-500 mt-0.5" />
                         <div>
-                          <div className="text-xs font-medium text-[#0c2340]">Token-2022 Receipt Tokens</div>
+                          <div className="text-xs font-medium text-[var(--fg)]">Token-2022 Receipt Tokens</div>
                           <div className="text-xs text-[var(--text-accent)]">Deposits receive {vault.receiptToken} — a transfer-restricted SPL token</div>
                         </div>
                       </div>
                       <div className="flex items-start gap-3">
                         <Users className="h-4 w-4 shrink-0 text-emerald-500 mt-0.5" />
                         <div>
-                          <div className="text-xs font-medium text-[#0c2340]">Foundation Managed</div>
+                          <div className="text-xs font-medium text-[var(--fg)]">Foundation Managed</div>
                           <div className="text-xs text-[var(--text-accent)]">Active management by the Foundation team with real-time monitoring</div>
                         </div>
                       </div>
@@ -391,23 +391,23 @@ export default function StrategyPage() {
               {/* Risks Tab */}
               {activeTab === "risks" && (
                 <div className="relative w-full space-y-3">
-                  <div className="rounded-xl border border-[var(--rule)] bg-white p-4">
-                    <h3 className="mb-3 text-sm font-semibold text-[#0c2340]">Risk Analysis</h3>
+                  <div className="rounded-xl border border-[var(--rule)] bg-[var(--surface)] p-4">
+                    <h3 className="mb-3 text-sm font-semibold text-[var(--fg)]">Risk Analysis</h3>
                     <div className="mb-4 flex items-center gap-2">
                       <AlertTriangle className="h-4 w-4 text-amber-500" />
-                      <span className="text-xs font-medium text-[#0c2340]">Risk Tier: {RISK_LABELS[vault.riskTier]}</span>
+                      <span className="text-xs font-medium text-[var(--fg)]">Risk Tier: {RISK_LABELS[vault.riskTier]}</span>
                     </div>
                     <div className="space-y-3 text-sm text-[var(--text-accent)]">
-                      <div className="rounded-lg border border-[var(--rule)] bg-light-bg p-3">
-                        <div className="mb-1 text-xs font-medium text-[#0c2340]">Smart Contract Risk</div>
+                      <div className="rounded-lg border border-[var(--rule)] bg-[var(--surface-strong)] p-3">
+                        <div className="mb-1 text-xs font-medium text-[var(--fg)]">Smart Contract Risk</div>
                         <div className="text-xs">All protocols used are audited and battle-tested on Solana mainnet</div>
                       </div>
-                      <div className="rounded-lg border border-[var(--rule)] bg-light-bg p-3">
-                        <div className="mb-1 text-xs font-medium text-[#0c2340]">Market Risk</div>
+                      <div className="rounded-lg border border-[var(--rule)] bg-[var(--surface-strong)] p-3">
+                        <div className="mb-1 text-xs font-medium text-[var(--fg)]">Market Risk</div>
                         <div className="text-xs">Strategy is designed to be market-neutral, minimizing exposure to asset price fluctuations</div>
                       </div>
-                      <div className="rounded-lg border border-[var(--rule)] bg-light-bg p-3">
-                        <div className="mb-1 text-xs font-medium text-[#0c2340]">Liquidity Risk</div>
+                      <div className="rounded-lg border border-[var(--rule)] bg-[var(--surface-strong)] p-3">
+                        <div className="mb-1 text-xs font-medium text-[var(--fg)]">Liquidity Risk</div>
                         <div className="text-xs">Withdrawals are processed on-demand but may be delayed during high volatility or low liquidity periods</div>
                       </div>
                     </div>
@@ -429,11 +429,11 @@ export default function StrategyPage() {
               positionBalance={positionBalance}
             />
           ) : (
-            <div className="rounded-xl border border-[var(--rule)] bg-white p-6 text-center shadow-sm">
-              <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-xl border border-[var(--rule)] bg-light-bg">
+            <div className="rounded-xl border border-[var(--rule)] bg-[var(--surface)] p-6 text-center shadow-sm">
+              <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-xl border border-[var(--rule)] bg-[var(--surface-strong)]">
                 <Lock className="h-7 w-7 text-[var(--text-accent)]" />
               </div>
-              <p className="mb-2 text-lg font-medium text-[#0c2340]">Coming Soon</p>
+              <p className="mb-2 text-lg font-medium text-[var(--fg)]">Coming Soon</p>
               <p className="text-xs text-[var(--text-accent)]">This vault is deployed on-chain and ready. Deposits will be enabled shortly.</p>
             </div>
           )}
