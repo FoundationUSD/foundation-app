@@ -166,7 +166,7 @@ export default function PortfolioPage() {
                   <div className="mb-0.5 text-xs text-[var(--text-accent)]">
                     Connected Wallet
                   </div>
-                  <div className="font-mono text-sm font-medium text-[#0f172a]">
+                  <div className="font-mono text-sm font-medium text-[var(--fg)]">
                     {wallet.publicKey.toBase58().slice(0, 6)}...{wallet.publicKey.toBase58().slice(-4)}
                   </div>
                 </div>
@@ -194,8 +194,8 @@ export default function PortfolioPage() {
             onClick={() => setSelectedSubTab(sub)}
             className={`rounded-lg px-6 py-2.5 text-sm font-semibold transition-all ${
               selectedSubTab === sub
-                ? "bg-white text-[#0f172a] shadow-sm"
-                : "bg-transparent text-[var(--text-accent)] hover:text-[#0f172a]"
+                ? "bg-[var(--surface-strong)] text-[var(--fg)] shadow-sm border border-[var(--rule)]"
+                : "bg-transparent text-[var(--muted)] hover:text-[var(--fg)] border border-transparent"
             }`}
           >
             {sub === "funds" ? "Funds" : "Transaction History"}
@@ -220,7 +220,7 @@ export default function PortfolioPage() {
 
           {/* Active Deposits */}
           <div className="border border-[var(--rule)] p-6">
-            <h3 className="mb-4 text-lg font-semibold text-[#0f172a]">
+            <h3 className="mb-4 text-lg font-semibold text-[var(--fg)]">
               Active Deposits
             </h3>
             {loading ? (
@@ -242,7 +242,7 @@ export default function PortfolioPage() {
                             />
                           )}
                           <div>
-                            <h4 className="text-sm font-semibold text-[#0f172a]">
+                            <h4 className="text-sm font-semibold text-[var(--fg)]">
                               {p.vaultName}
                             </h4>
                             <div className="text-xs text-[var(--gold)] font-medium">
@@ -257,7 +257,7 @@ export default function PortfolioPage() {
                             Balance
                           </div>
                           <div className="text-right">
-                            <div className="text-sm font-semibold text-[#0f172a]">
+                            <div className="text-sm font-semibold text-[var(--fg)]">
                               {p.depositedUsdc.toFixed(2)} USDc
                             </div>
                             <div className="text-xs text-[var(--text-accent)]">
@@ -288,7 +288,7 @@ export default function PortfolioPage() {
                 <Link key={v.id} href={`/strategy/${v.id}`}>
                   <div className="flex items-center justify-between rounded-md border border-[var(--rule)] p-4 transition-all hover:border-[var(--outline-hover)]">
                     <div>
-                      <p className="text-sm font-medium text-[#0f172a]">{v.name}</p>
+                      <p className="text-sm font-medium text-[var(--fg)]">{v.name}</p>
                       <p className="font-mono text-[10px] text-[var(--text-accent)]">
                         {v.strategy} · {v.receiptToken}
                       </p>

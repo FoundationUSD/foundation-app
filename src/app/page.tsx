@@ -143,15 +143,15 @@ export default function HomePage() {
       ) : (
         <>
           {/* Source Filter — glass pill container */}
-          <div className="bg-white/40 dark:bg-white/05 inline-flex items-center gap-0 rounded-xl border border-[var(--rule)] bg-[#f0f4ff] p-0.5">
+          <div className="mb-8 inline-flex items-center gap-1 rounded-xl border border-[var(--rule)] bg-[var(--surface-strong)] p-1 shadow-[inset_0_1px_3px_rgba(0,0,0,0.02)]">
             {(["all", "foundation", "partner"] as const).map((filter) => (
               <button
                 key={filter}
                 onClick={() => setActiveFilter(filter)}
-                className={`cursor-pointer rounded-lg px-3 py-2 text-xs font-medium transition-colors sm:text-sm ${
+                className={`cursor-pointer rounded-lg px-4 py-2 text-xs font-semibold transition-all sm:text-sm ${
                   activeFilter === filter
-                    ? "rounded-lg bg-[#ffffff] px-3 py-2 text-xs font-medium text-[#0c2340] shadow-sm"
-                    : "cursor-pointer rounded-lg px-3 py-2 text-xs font-medium transition-colors text-[var(--text-accent)] hover:text-[#0f172a] hover:bg-white/50"
+                    ? "bg-[var(--surface)] text-[var(--fg)] shadow-sm ring-1 ring-[var(--rule)]"
+                    : "text-[var(--muted)] hover:text-[var(--fg)] hover:bg-[var(--surface)]/50"
                 }`}
               >
                 {filter === "all" ? "All Vaults" : filter === "foundation" ? "Foundation" : "Partner"}
@@ -161,7 +161,7 @@ export default function HomePage() {
 
           {activeFilter === "foundation" ? (
             <div className="infra-card mx-auto max-w-md p-10 text-center">
-              <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full border border-[var(--rule)] bg-white shadow-sm">
+              <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full border border-[var(--rule)] bg-[var(--surface-strong)] shadow-sm">
                 <Image
                   src="/partners/rounded-bg.png"
                   alt="Foundation"
@@ -174,7 +174,7 @@ export default function HomePage() {
                   alt="Foundation"
                   width={52}
                   height={52}
-                  className="h-13 w-13 rounded-full fdn-logo-dark"
+                  className="h-13 w-13 rounded-full fdn-logo-dark dark:invert opacity-80"
                 />
               </div>
               <h3 className="mb-2 font-serif text-2xl font-light text-[var(--fg)]">Foundation Vaults</h3>
@@ -214,54 +214,59 @@ function VaultCard({ vault, onSelect }: { vault: FoundationVault; onSelect: () =
   return (
     <div
       onClick={onSelect}
-      className="strategy-card cursor-pointer transition-all hover:-translate-y-0.5 overflow-hidden"
+      className="strategy-card cursor-pointer transition-all hover:-translate-y-0.5 overflow-hidden border border-[var(--rule)] bg-[var(--surface-strong)] rounded-xl divide-y divide-[var(--rule)]"
       data-glow
     >
       {/* Header */}
-      <div className="strategy-card__header flex items-center justify-between">
-        <div className="min-w-0 flex-1 items-center gap-3 flex">
-          {logo && <Image src={logo} alt={vault.protocol} width={32} height={32} className="h-8 w-8 flex-shrink-0" />}
-          <span className="truncate font-mono text-base font-bold tracking-[-0.02em] text-[var(--fg)]">
-            {vault.name}
-          </span>
-        </div>
-        <span className={`risk-badge ${risk.label.toLowerCase()}`}>{risk.label}</span>
+      <div className="flex items-center gap-3 px-5 py-4">
+        {logo ? (
+          <Image src={logo} alt={vault.protocol} width={36} height={36} className="h-9 w-9 flex-shrink-0 object-contain" />
+        ) : (
+          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-600 text-[9px] font-bold text-white">
+            {vault.receiptToken.slice(0,4).toUpperCase()}
+          </div>
+        )}
+        <span className="truncate font-mono text-xl font-bold tracking-[-0.02em] text-[var(--fg)]">
+          {vault.name}
+        </span>
       </div>
 
       {/* Description */}
-      <div className="strategy-card__body">
-        <p className="line-clamp-2 text-[13px]">{vault.description}</p>
+      <div className="px-5 py-4">
+        <p className="line-clamp-2 text-sm text-[var(--muted)] leading-relaxed">
+          {vault.description}
+        </p>
       </div>
 
       {/* Data Grid */}
-      <div className="divide-y divide-[var(--rule)] ">
+      <div className="divide-y divide-[var(--rule)]">
         {/* Row 1: APY + TVL */}
-        <div className="grid grid-cols-2 divide-x divide-[var(--rule)] ">
-          <div className="px-5 py-4">
-            <span className="section-label mb-1.5 block">TARGET APY</span>
-            <span className="font-mono text-2xl font-bold tracking-[-0.03em] text-emerald-500">
+        <div className="grid grid-cols-2 divide-x divide-[var(--rule)]">
+          <div className="flex flex-col items-start px-5 py-4">
+            <span className="section-label mb-1.5 font-mono text-[10px] font-semibold tracking-[0.15em] text-[var(--gold)]">TARGET APY</span>
+            <span className="font-mono text-3xl font-bold tracking-[-0.03em] text-emerald-500">
               {formatAPY(vault.apy)}
             </span>
           </div>
-          <div className="px-5 py-4">
-            <span className="section-label mb-1.5 block">STATUS</span>
-            <span className={`font-mono text-sm font-semibold ${vault.status === "live" ? "text-emerald-600" : "text-[var(--text-accent)]"}`}>
-              {vault.status === "live" ? "Live" : "Coming Soon"}
+          <div className="flex flex-col items-start px-5 py-4">
+            <span className="section-label mb-1.5 font-mono text-[10px] font-semibold tracking-[0.15em] text-[var(--gold)]">TVL</span>
+            <span className="font-mono text-[1.4rem] font-bold tracking-wide text-[#334155] dark:text-[var(--fg)]">
+              $12.50M
             </span>
           </div>
         </div>
 
         {/* Row 2: Curator + Type */}
-        <div className="grid grid-cols-2 divide-x divide-[var(--rule)] ">
-          <div className="px-5 py-4">
-            <span className="section-label mb-1.5 block">CURATOR</span>
-            <span className="font-mono text-sm font-semibold text-[var(--fg)]">
-              {vault.protocol.charAt(0).toUpperCase() + vault.protocol.slice(1)}
+        <div className="grid grid-cols-2 divide-x divide-[var(--rule)]">
+          <div className="flex flex-col items-start px-5 py-4">
+            <span className="section-label mb-1.5 font-mono text-[10px] font-semibold tracking-[0.15em] text-[var(--gold)]">CURATOR</span>
+            <span className="font-mono text-sm font-bold text-[#334155] dark:text-[var(--fg)]">
+              {vault.protocol === "solomon" ? "Solomon" : vault.protocol.charAt(0).toUpperCase() + vault.protocol.slice(1)}
             </span>
           </div>
-          <div className="px-5 py-4">
-            <span className="section-label mb-1.5 block">TYPE</span>
-            <span className="font-mono text-sm font-semibold text-[var(--fg)] uppercase">
+          <div className="flex flex-col items-start px-5 py-4">
+            <span className="section-label mb-1.5 font-mono text-[10px] font-semibold tracking-[0.15em] text-[var(--gold)]">TYPE</span>
+            <span className="font-mono text-xs font-bold leading-snug tracking-wide text-[#334155] dark:text-[var(--fg)] uppercase line-clamp-2">
               {vault.strategy}
             </span>
           </div>
@@ -269,10 +274,10 @@ function VaultCard({ vault, onSelect }: { vault: FoundationVault; onSelect: () =
       </div>
 
       {/* CTA */}
-      <div className="strategy-card__footer flex items-center justify-between">
-        <span className="text-[11px] font-mono tracking-wide text-[var(--text-accent)]">USDC</span>
-        <span className="text-[11px] font-mono font-semibold tracking-[0.1em] uppercase text-[var(--gold)] transition-colors">
-          View Strategy →
+      <div className="flex items-center justify-between px-5 py-4">
+        <span className="text-xs font-mono tracking-wide text-[var(--muted)]">USDC</span>
+        <span className="text-xs font-mono font-bold tracking-[0.1em] uppercase text-[#0f172a] dark:text-[var(--fg)] transition-colors">
+          View Details →
         </span>
       </div>
     </div>
@@ -348,7 +353,7 @@ function VaultActions({ vault }: { vault: FoundationVault }) {
   return (
     <div className="infra-card">
       <div className="mb-4 flex items-center justify-between border-b border-[var(--rule)] px-5 py-4">
-        <h4 className="font-mono text-xs font-medium uppercase tracking-wider text-[#0c2340]">Vault Actions</h4>
+        <h4 className="font-mono text-xs font-medium uppercase tracking-wider text-[var(--primary)]">Vault Actions</h4>
         <div className="aw-toggle">
           {(["deposit", "withdraw"] as const).map((t) => (
             <button
@@ -520,7 +525,7 @@ function WithdrawForm({ vault }: { vault: FoundationVault }) {
           Burn {vault.receiptToken} · receive USDC
         </span>
         {balance > 0 && (
-          <span className="font-mono text-[10px] font-medium text-[#0c2340] bg-[#dde5f0] border border-[#94a3b8] rounded px-2 py-0.5">
+          <span className="font-mono text-[10px] font-medium text-[var(--fg)] bg-[var(--surface-strong)] border border-[var(--rule)] rounded px-2 py-0.5">
             Bal: {balance.toFixed(2)}
           </span>
         )}
