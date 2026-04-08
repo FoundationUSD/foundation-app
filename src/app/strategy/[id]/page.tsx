@@ -240,7 +240,7 @@ export default function StrategyPage() {
                                 alt={vault.protocol}
                                 width={40}
                                 height={40}
-                                className="h-full w-full object-cover"
+                                className="h-7 w-7 object-contain"
                               />
                             </div>
                           )}
@@ -321,7 +321,7 @@ export default function StrategyPage() {
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           {PROTOCOL_LOGO[vault.protocol] && (
-                            <Image src={PROTOCOL_LOGO[vault.protocol]} alt={vault.protocol} width={20} height={20} className="h-5 w-5 rounded-md" />
+                            <Image src={PROTOCOL_LOGO[vault.protocol]} alt={vault.protocol} width={20} height={20} className="h-5 w-5 rounded-md object-contain" />
                           )}
                           <span className="text-xs font-medium text-[var(--fg)]">{vault.protocol}</span>
                         </div>
@@ -466,8 +466,8 @@ function ActionWidget({
         <div className="aw-connect-icon">
           <Wallet style={{ width: 20, height: 20, color: "#b8960c" }} />
         </div>
-        <p style={{ fontFamily: "var(--font-serif)", fontSize: 18, fontWeight: 300, color: "#0f172a", marginBottom: 4 }}>Connect Wallet</p>
-        <p style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "#94a3b8" }}>Connect to deposit into this vault</p>
+        <p style={{ fontFamily: "var(--font-serif)", fontSize: 18, fontWeight: 300, color: "var(--fg)", marginBottom: 4 }}>Connect Wallet</p>
+        <p style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--muted)" }}>Connect to deposit into this vault</p>
       </div>
     );
   }

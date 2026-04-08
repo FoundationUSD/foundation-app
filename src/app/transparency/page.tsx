@@ -1,5 +1,6 @@
 import { ExternalLink, Shield, Lock, FileText, BarChart3 } from "lucide-react";
 import { FOUNDATION_VAULTS } from "@/lib/vaults";
+import { getAccountUrl } from "@/lib/constants";
 
 const MULTISIGS = FOUNDATION_VAULTS.filter((v) => v.status === "live").map((v) => ({
   name: v.name,
@@ -94,13 +95,13 @@ export default function TransparencyPage() {
               </div>
               <span className="font-mono text-xs font-medium text-gold-500">{v.apy}% APY</span>
               <a
-                href={`https://solscan.io/account/${v.multisig}`}
+                href={getAccountUrl(v.multisig)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-1 font-mono text-[10px] text-[var(--muted)] transition-colors hover:text-[var(--fg)]"
               >
                 <ExternalLink className="h-3 w-3" />
-                <span className="hidden sm:inline">Solscan</span>
+                <span className="hidden sm:inline">Orbmarkets</span>
               </a>
             </div>
           ))}

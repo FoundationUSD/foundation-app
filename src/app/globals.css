@@ -638,20 +638,23 @@ html:not(.light) .fdn-input-label {
    VAULT ACTION WIDGET — DARK MODE OVERRIDES
    ============================================================ */
 html:not(.light) .aw-widget {
-  background: rgba(13, 18, 30, 0.95);
-  border-color: rgba(255, 255, 255, 0.08);
-  box-shadow: 0 2px 24px rgba(0, 0, 0, 0.4);
+  background: var(--surface-strong);
+  border-color: var(--rule);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
 }
 html:not(.light) .aw-header {
-  border-bottom-color: rgba(255, 255, 255, 0.06);
+  border-bottom-color: var(--rule);
 }
-html:not(.light) .aw-label { color: rgba(255, 255, 255, 0.9); }
-html:not(.light) .aw-toggle { background: rgba(255, 255, 255, 0.06); }
+html:not(.light) .aw-label { color: var(--primary); }
+html:not(.light) .aw-toggle { background: var(--surface); border: 1px solid var(--rule); }
 html:not(.light) .aw-tab { color: #94a3b8; }
 html:not(.light) .aw-tab-active {
   background: #b8960c;
   color: #fff;
   box-shadow: 0 1px 6px rgba(184, 150, 12, 0.35);
+}
+html:not(.light) .aw-tab:hover:not(.aw-tab-active) {
+  color: #f8fafc;
 }
 html:not(.light) .aw-info-text { color: #94a3b8; }
 html:not(.light) .aw-badge-navy {
