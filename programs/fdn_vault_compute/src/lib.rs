@@ -21,11 +21,15 @@ use anchor_lang::prelude::*;
 
 declare_id!("Fv1tComputE111111111111111111111111111111111");
 
+pub mod access;
 pub mod constants;
 pub mod errors;
 pub mod events;
-pub mod state;
 pub mod instructions;
+pub mod invariants;
+pub mod math;
+pub mod rate_limit;
+pub mod state;
 
 use instructions::*;
 

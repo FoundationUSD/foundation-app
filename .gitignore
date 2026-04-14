@@ -52,4 +52,28 @@ vault-config.json
 temp
 # kdo
 .kdo/
-TODO.md
+
+# rust / anchor (programs/)
+# NOTE: Cargo.lock is INTENTIONALLY committed for programs — reproducible builds
+# are a security requirement for on-chain programs (audit + solana-verify).
+target/
+**/target/
+.anchor/
+*.so
+test-ledger/
+.test-ledger/
+
+# foundry (contracts/)
+contracts/out/
+contracts/cache/
+contracts/broadcast/
+contracts/lib/
+
+# keepers / sdk build artifacts
+keepers/**/dist/
+sdk/dist/
+tests-integration/dist/
+
+# anchor idl output (commit the program's IDL only if explicitly intended)
+programs/target/idl/
+programs/target/types/
