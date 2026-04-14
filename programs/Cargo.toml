@@ -13,15 +13,41 @@ license = "UNLICENSED"
 repository = "https://github.com/foundation/foundation-app"
 
 [workspace.dependencies]
-anchor-lang        = { version = "0.31.1", features = ["init-if-needed"] }
-anchor-spl         = { version = "0.31.1", features = ["token_2022", "token_2022_extensions"] }
+# SECURITY: `init-if-needed` is a known Anchor footgun enabling re-initialization
+# attacks when account seeds are reused. Do NOT enable it workspace-wide. If a
+# specific instruction genuinely needs it, enable per-crate with an explicit
+# audit note.
+# Anchor pinned exact — this is our primary attack surface.
+anchor-lang        = { version = "=0.31.1" }
+anchor-spl         = { version = "=0.31.1", features = ["token_2022", "token_2022_extensions"] }
+# SPL / Solana / Pyth crates allow patch updates within audited minor range.
 spl-token-2022     = { version = "7", features = ["no-entrypoint"] }
 spl-transfer-hook-interface = "0.10"
-pyth-solana-receiver-sdk   = "0.6"
-solana-program     = "2.1"
-bytemuck           = { version = "1.19", features = ["derive"] }
+# Pyth pull-oracle SDK — re-add when `update_nav` is implemented in Week 2.
+# Needs a version compatible with Anchor 0.31; check pyth-crosschain/pyth-sdk-solana
+# releases before reintroducing.
+# pyth-solana-receiver-sdk = "0.x"
+solana-program     = "2"
+bytemuck           = { version = "1", features = ["derive"] }
+
+[profile.dev]
+overflow-checks = true
 
 [profile.release]
 overflow-checks = true
 lto = "fat"
 codegen-units = 1
+panic = "abort"
+
+[workspace.lints.rust]
+unsafe_code = "deny"
+
+[workspace.lints.clippy]
+arithmetic_side_effects = "deny"
+unwrap_used             = "deny"
+expect_used             = "deny"
+indexing_slicing        = "deny"
+panic                   = "deny"
+cast_possible_truncation = "warn"
+cast_possible_wrap       = "warn"
+cast_sign_loss           = "warn"

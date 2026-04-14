@@ -21,5 +21,4 @@ anchor-lang = { workspace = true }
 anchor-spl  = { workspace = true }
 spl-token-2022 = { workspace = true }
 spl-transfer-hook-interface = { workspace = true }
-pyth-solana-receiver-sdk = { workspace = true }
 bytemuck = { workspace = true }
