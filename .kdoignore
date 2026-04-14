@@ -5,4 +5,12 @@ build/
 __pycache__/
 .git/
 .kdo/
+.next/
+.anchor/
+.test-ledger/
+test-ledger/
+out/
+cache/
+broadcast/
 *.lock
+*.so

@@ -1,0 +1,17 @@
+{
+  "name": "@foundation/nav-keeper",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Pulls Pyth sAID/USD price every 6h, falls back to sAID.convertToAssets on ETH, submits update_nav (ADR-004 §Keeper Infrastructure).",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "bun run --watch src/index.ts",
+    "build": "bun build src/index.ts --outdir dist --target node",
+    "start": "bun run dist/index.js",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@foundation/sdk": "workspace:*"
+  }
+}

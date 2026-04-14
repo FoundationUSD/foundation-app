@@ -1,60 +1,112 @@
-# kdo workspace configuration
-# https://github.com/vivekpal1/kdo
-#
-# Projects: foundation-app
+# kdo workspace — Foundation polyglot monorepo
+# Projects: web (Next.js), programs/* (Anchor/Rust), contracts (Foundry/Solidity), keepers/* (TS), sdk (TS)
+# Source of truth for vault infra: ../dataroom/solana/ADR-004-vault-architecture.md
 
 [workspace]
-name = "foundation-app"
-# Restrict project discovery to specific globs (optional — default scans everything):
-# projects = ["apps/*", "packages/*", "crates/*"]
-# exclude  = ["legacy/**", "archive/**"]
+name = "foundation"
 
-# Short aliases: `kdo run b` → `kdo run build`.
 [aliases]
-b = "build"
-t = "test"
-l = "lint"
+b  = "build"
+t  = "test"
+l  = "lint"
+f  = "fmt"
+d  = "dev"
 
-# Workspace-wide environment (merged into every task invocation).
-# Loaded before `[env]`; keys here win over env_files.
-# [env]
-# RUST_BACKTRACE = "1"
-# env_files = [".env", ".env.local"]
-
-# ─────────────────────────── TASKS ───────────────────────────
-# Tasks can be declared two ways:
-#
-#   1. Bare command:
-#        build = "cargo build"
-#
-#   2. Full spec with pipeline semantics:
-#        [tasks.build]
-#        command     = "cargo build"
-#        depends_on  = ["^build"]          # "^task" = run `task` in every
-#                                          #          upstream dep project first
-#                                          # "task"  = same project, earlier step
-#                                          # "//task"= workspace-wide task first
-#        inputs      = ["src/**", "Cargo.toml"]
-#        outputs     = ["target/debug/"]
-#        cache       = true                # reserved for future cache backend
-#        persistent  = false               # long-running (dev server) — don't block
-#        env         = { RUST_LOG = "info" }
-
+# Workspace-wide tasks fan out to every project that implements the same task name.
 [tasks]
-build = "npm run build"
-test  = "npm test"
-lint  = "npm run lint"
-fmt   = "npm run format"
-dev   = "npm run dev"
+build = "bun run build"
+test  = "bun test"
+lint  = "bun run lint"
+fmt   = "bun run format"
+dev   = "bun run dev"
 
-# Example pipeline (uncomment to use):
-# [tasks.ci]
-# depends_on = ["lint", "test", "build"]
+# Aggregate gates
+[tasks.ci]
+depends_on = ["^lint", "^test", "^build"]
 
-# ────────────────────── PER-PROJECT OVERRIDES ─────────────────
-# Override tasks or env for a specific project:
-# [projects.my-service]
-# env = { DATABASE_URL = "postgres://localhost/myservice_dev" }
-#
-# [projects.my-service.tasks]
-# build = "cargo build --release --features prod"
+# ─────────────────────── web (Next.js) ───────────────────────
+# The existing Next.js app at repo root. Kept at root so Vercel/Fly deploy is unchanged.
+[projects.foundation-app]
+[projects.foundation-app.tasks]
+build = "bun run build"
+test  = "bun test"
+lint  = "bun run lint"
+dev   = "bun run dev"
+
+# ─────────────────────── programs (Anchor) ───────────────────
+[projects.fdn_vault_compute]
+[projects.fdn_vault_compute.tasks]
+build = "cd programs && anchor build -p fdn_vault_compute"
+test  = "cd programs && anchor test -p fdn_vault_compute"
+lint  = "cd programs && cargo clippy -p fdn_vault_compute --all-targets -- -D warnings"
+fmt   = "cd programs && cargo fmt -p fdn_vault_compute"
+
+[projects.fdn_transfer_hook]
+[projects.fdn_transfer_hook.tasks]
+build = "cd programs && anchor build -p fdn_transfer_hook"
+test  = "cd programs && anchor test -p fdn_transfer_hook"
+lint  = "cd programs && cargo clippy -p fdn_transfer_hook --all-targets -- -D warnings"
+fmt   = "cd programs && cargo fmt -p fdn_transfer_hook"
+
+# Devnet / mainnet deploys are explicit — not part of default build pipeline.
+[tasks.deploy-devnet]
+command = "cd programs && anchor deploy --provider.cluster devnet"
+
+[tasks.deploy-mainnet]
+command = "cd programs && anchor deploy --provider.cluster mainnet"
+
+[tasks.idl]
+command = "cd programs && anchor idl build"
+
+[tasks.verify]
+command = "cd programs && solana-verify verify-from-repo ."
+
+# ───────────────────── contracts (Foundry) ───────────────────
+[projects.fdn-spc-vault]
+[projects.fdn-spc-vault.tasks]
+build = "cd contracts && forge build"
+test  = "cd contracts && forge test"
+fmt   = "cd contracts && forge fmt"
+lint  = "cd contracts && forge fmt --check"
+
+# ───────────────────── keepers (TS) ──────────────────────────
+[projects.nav-keeper]
+[projects.nav-keeper.tasks]
+build = "cd keepers/nav-keeper && bun run build"
+test  = "cd keepers/nav-keeper && bun test"
+dev   = "cd keepers/nav-keeper && bun run dev"
+
+[projects.batch-keeper]
+[projects.batch-keeper.tasks]
+build = "cd keepers/batch-keeper && bun run build"
+test  = "cd keepers/batch-keeper && bun test"
+dev   = "cd keepers/batch-keeper && bun run dev"
+
+[projects.queue-keeper]
+[projects.queue-keeper.tasks]
+build = "cd keepers/queue-keeper && bun run build"
+test  = "cd keepers/queue-keeper && bun test"
+dev   = "cd keepers/queue-keeper && bun run dev"
+
+[projects.monitor]
+[projects.monitor.tasks]
+build = "cd keepers/monitor && bun run build"
+test  = "cd keepers/monitor && bun test"
+dev   = "cd keepers/monitor && bun run dev"
+
+# ───────────────────── sdk (TS) ──────────────────────────────
+[projects.sdk]
+[projects.sdk.tasks]
+build = "cd sdk && bun run build"
+test  = "cd sdk && bun test"
+
+# ────────────── integration tests (cross-chain E2E) ──────────
+[tasks.test-integration]
+command = "bun run --cwd tests-integration test"
+
+# ────────────── security + invariant gates ───────────────────
+[tasks.invariants]
+command = "cd programs && cargo test --test invariants -- --nocapture"
+
+[tasks.audit-diff]
+command = "git diff --name-only $(git merge-base HEAD main) HEAD -- 'programs/**' 'contracts/**' 'Anchor.toml'"

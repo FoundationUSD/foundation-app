@@ -1,0 +1,17 @@
+{
+  "name": "@foundation/queue-keeper",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Processes queue-mode redemptions — unstakeAndRedeem → CCTP bridge-back → process_withdrawals. SLA 15min (ADR-004).",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "bun run --watch src/index.ts",
+    "build": "bun build src/index.ts --outdir dist --target node",
+    "start": "bun run dist/index.js",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@foundation/sdk": "workspace:*"
+  }
+}

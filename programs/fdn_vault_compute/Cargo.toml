@@ -1,0 +1,25 @@
+[package]
+name = "fdn_vault_compute"
+version.workspace = true
+edition.workspace = true
+description = "Foundation vault — Token-2022 wrapper for compute RWA assets (ADR-004)"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "fdn_vault_compute"
+
+[features]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+cpi = ["no-entrypoint"]
+default = []
+idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
+
+[dependencies]
+anchor-lang = { workspace = true }
+anchor-spl  = { workspace = true }
+spl-token-2022 = { workspace = true }
+spl-transfer-hook-interface = { workspace = true }
+pyth-solana-receiver-sdk = { workspace = true }
+bytemuck = { workspace = true }
