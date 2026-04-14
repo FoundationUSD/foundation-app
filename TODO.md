@@ -57,16 +57,19 @@ Applied during scaffolding pass. Every finding below links to a mitigation or an
 ### Week 1 — Build everything in parallel (Days 1–7)
 
 **Track A — Solana programs (Days 1–4)**
-- [ ] Implement `initialize` ix (VaultState + Token-2022 share mint with 4 extensions + 3 PDAs + HWM at NAV_FLOOR + virtual offset)
-- [ ] Implement `deposit` ix (virtual-offset shares → split → mint → lockup → invariants)
-- [ ] Implement `redeem` ix (lockup check → rate limit → burn → transfer from buffer → invariants)
-- [ ] Implement `request_redeem` + `process_withdrawals` + `claim_redeem` (queue path end-to-end)
-- [ ] Implement `update_nav` (inline Pyth proof validation + TWAP + bounds + floor + harvest)
-- [ ] Implement `harvest_fees` (mgmt + perf → mint to treasury → update HWM)
-- [ ] Implement `drain_managed` + `pause` + `unpause`
-- [ ] Implement `fdn_transfer_hook` (minimal, read-only, immutable deploy)
-- [ ] 50+ Anchor tests + fuzz harness on math (1 wei → max u64)
-- [ ] Deploy to Solana devnet; `anchor keys sync`; pin IDs in Anchor.toml
+- [~] `initialize` ix — VaultState creation + HWM at NAV_FLOOR + virtual offset **done**. Token-2022 share mint with 4 extensions + buffer/managed/fee_treasury PDAs **pending** (deferred to Token-2022 CPI pass)
+- [ ] `deposit` ix (virtual-offset shares → split → mint → lockup → invariants) — Accounts context done, handler pending
+- [ ] `redeem` ix (lockup check → rate limit → burn → transfer from buffer → invariants) — Accounts context done, handler pending
+- [ ] `request_redeem` + `process_withdrawals` + `claim_redeem` (queue path end-to-end) — Accounts contexts done, handlers pending
+- [ ] `update_nav` (inline Pyth proof validation + TWAP + bounds + floor + harvest) — Accounts context done, handler pending, Pyth SDK blocked on Anchor 0.31 compat
+- [ ] `harvest_fees` (mgmt + perf → mint to treasury → update HWM) — Accounts context done, handler pending
+- [ ] `drain_managed` — Accounts context + operator gate done, token CPI pending
+- [x] `pause` + `unpause` — **fully implemented** with access control, events, idempotent pause
+- [ ] `fdn_transfer_hook` (minimal, read-only, immutable deploy)
+- [ ] Token-2022 share mint creation helper (CPI Guard + MetadataPointer + Immutable Owner + TransferHook extensions) — unblocks initialize/deposit/redeem token CPI
+- [ ] 50+ Anchor tests + fuzz harness on math (1 wei → max u64) — 17 unit tests green today
+- [ ] Devnet keypairs generated ✓ (`2PLMStk5...`, `3hBtJLsk...`, deployer `ABQADtDr...`)
+- [ ] `anchor build && anchor deploy --provider.cluster devnet` — awaiting deployer SOL funding
 
 **Track B — Ethereum SPC (Days 1–3)**
 - [ ] Write `FdnSpcVault.sol` (~250 lines) with pre-committed `EMERGENCY_RECIPIENT` constant
@@ -306,7 +309,23 @@ Applied during scaffolding pass. Every finding below links to a mitigation or an
 - [x] `dev` + `release` profiles: `overflow-checks = true`
 - [ ] `anchor keys sync` on first devnet deploy — pin real program IDs per cluster
 
-## Core vault modules (implemented this session)
+## Instruction Accounts contexts (implemented this session)
+All 11 ix split into `src/instructions/{name}.rs` with proper Anchor `Accounts` validation:
+- [x] `initialize` — full handler + Accounts with `init` one-shot-per-asset_symbol via seeds
+- [x] `pause` — full handler + `require_pause_guardian` check; idempotent
+- [x] `unpause` — full handler + `require_admin` check
+- [x] `deposit` — Accounts w/ `init_if_needed` ShareLockup; handler stubbed with ADR-cited TODO steps
+- [x] `redeem` — Accounts w/ ShareLockup validation; handler stubbed
+- [x] `request_redeem` — Accounts w/ monotonic-counter-seeded RedeemRequest; handler stubbed
+- [x] `process_withdrawals` — Accounts + operator gate + batch cap enforced; handler stubbed
+- [x] `claim_redeem` — Accounts w/ `has_one` user check; handler stubbed
+- [x] `update_nav` — Accounts + operator gate; handler stubbed pending Pyth 0.31 compat
+- [x] `harvest_fees` — Accounts (permissionless caller); handler stubbed
+- [x] `drain_managed` — Accounts + operator gate; handler stubbed
+- [x] `VaultState::SPACE` / `ShareLockup::SPACE` / `RedeemRequest::SPACE` — hand-computed on-chain size constants
+- [x] `init-if-needed` scoped to `fdn_vault_compute` crate only (safety note in Cargo.toml: ShareLockup is per-user-seeded, no cross-user attack vector)
+
+## Core vault modules (implemented earlier)
 - [x] `math.rs` — `assets_to_shares` / `shares_to_assets` / `compute_nav_per_share` with virtual offset 1e6/1e6, `apply_twap` (70/30), `check_nav_bounds` (+5%/-2%), `check_nav_floor`, `compute_management_fee_shares`, `compute_performance_fee_shares`, `split_deposit_to_buffer`. All u128-intermediate, checked, round-down. 10 unit tests.
 - [x] `invariants.rs` — `check_all` (I1 supply, I2 asset-backing, I3 NAV floor) + `enforce` helper that pauses + emits on violation
 - [x] `access.rs` — `require_admin` / `require_operator` / `require_pause_guardian` / `require_not_paused`

@@ -2,6 +2,33 @@
 
 use anchor_lang::prelude::*;
 
+impl VaultState {
+    /// Fixed on-chain size: 8 (Anchor discriminator) + sum of all fields.
+    /// Hand-computed because `#[derive(InitSpace)]` doesn't support `[Pubkey; 3]`.
+    /// If fields are added/removed, update this AND add a migration path for existing accounts.
+    pub const SPACE: usize = 8   // discriminator
+        + 32 + 32 + 16 + 1       // admin, operator, asset_symbol, underlying_kind
+        + 32 + 32 + 32 + 32      // usdc_mint, share_mint, buffer_usdc, managed_usdc
+        + 8 + 8 + 8 + 8 + 8      // total_assets, total_supply, nav_per_share, nav_twap, last_nav_update
+        + 8 + 8                  // virtual_assets, virtual_shares
+        + 2 + 2 + 1              // buffer_target_bps, buffer_minimum_bps, queue_mode
+        + 8 + 2 + 8 + 8 + 1      // lockup, epoch params, paused
+        + 32 * 3 + 8             // pause_authorities[3], deposit_cap
+        + 2 + 2 + 8 + 32 + 8 + 8 + 8  // fee fields
+        + 32 + 8                 // upgrade_authority, timelock_seconds
+        + 1 + 32 + 32            // SAS fields
+        + 6                      // 6 bumps
+        + 8;                     // next_request_id
+}
+
+impl ShareLockup {
+    pub const SPACE: usize = 8 + 32 + 32 + 8 + 1;
+}
+
+impl RedeemRequest {
+    pub const SPACE: usize = 8 + 32 + 32 + 8 + 8 + 8 + 1 + 8 + 1;
+}
+
 #[account]
 #[derive(Default)]
 pub struct VaultState {
