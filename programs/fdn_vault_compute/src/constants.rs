@@ -43,6 +43,8 @@ pub const MANAGED_USDC_SEED: &[u8] = b"managed_usdc";
 pub const SHARE_LOCKUP_SEED: &[u8] = b"share_lockup";
 pub const REDEEM_REQUEST_SEED: &[u8] = b"redeem_request";
 pub const FEE_TREASURY_SEED: &[u8] = b"fee_treasury";
+pub const REDEEM_ESCROW_SEED: &[u8] = b"redeem_escrow";
+pub const PENDING_CLAIMS_SEED: &[u8] = b"pending_claims";
 
 /// USDC decimals — 6 on both mainnet and devnet.
 pub const USDC_DECIMALS: u8 = 6;

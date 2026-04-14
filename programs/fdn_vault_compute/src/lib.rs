@@ -48,9 +48,9 @@ pub mod fdn_vault_compute {
 
     pub fn process_withdrawals(
         ctx: Context<ProcessWithdrawals>,
-        request_ids: Vec<u64>,
+        request_id: u64,
     ) -> Result<()> {
-        instructions::process_withdrawals::handler(ctx, request_ids)
+        instructions::process_withdrawals::handler(ctx, request_id)
     }
 
     pub fn claim_redeem(ctx: Context<ClaimRedeem>, request_id: u64) -> Result<()> {

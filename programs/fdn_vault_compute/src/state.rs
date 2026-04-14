@@ -17,7 +17,8 @@ impl VaultState {
         + 2 + 2 + 8 + 32 + 8 + 8 + 8  // fee fields
         + 32 + 8                 // upgrade_authority, timelock_seconds
         + 1 + 32 + 32            // SAS fields
-        + 6                      // 6 bumps
+        + 32 + 32                // redeem_escrow + pending_claims_usdc
+        + 8                      // 8 bumps (was 6)
         + 8;                     // next_request_id
 }
 
@@ -87,6 +88,10 @@ pub struct VaultState {
     pub attestation_schema: Pubkey,
     pub attestation_issuer: Pubkey,
 
+    // Queue-path token accounts
+    pub redeem_escrow: Pubkey,        // PDA share account, holds escrowed shares
+    pub pending_claims_usdc: Pubkey,  // PDA USDC account, holds fulfilled redemptions
+
     // Bumps
     pub bump: u8,
     pub share_mint_bump: u8,
@@ -94,6 +99,8 @@ pub struct VaultState {
     pub buffer_bump: u8,
     pub managed_bump: u8,
     pub fee_treasury_bump: u8,
+    pub redeem_escrow_bump: u8,
+    pub pending_claims_bump: u8,
 
     // Monotonic counter for RedeemRequest seeds
     pub next_request_id: u64,
