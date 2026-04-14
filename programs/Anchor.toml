@@ -6,19 +6,19 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-fdn_vault_compute = "Fv1tComputE111111111111111111111111111111111"
-fdn_transfer_hook = "Fv1tHooK1111111111111111111111111111111111"
+fdn_vault_compute = "2PLMStk5P2GNKMH3ciK7N62wifwZZL9fmjcef4S7Ezop"
+fdn_transfer_hook = "3hBtJLskNbhbdzjA8imqiR9uaWMKrvUEiwseenAwgCTs"
 
 [programs.devnet]
-fdn_vault_compute = "Fv1tComputE111111111111111111111111111111111"
-fdn_transfer_hook = "Fv1tHooK1111111111111111111111111111111111"
+fdn_vault_compute = "2PLMStk5P2GNKMH3ciK7N62wifwZZL9fmjcef4S7Ezop"
+fdn_transfer_hook = "3hBtJLskNbhbdzjA8imqiR9uaWMKrvUEiwseenAwgCTs"
 
 [registry]
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "localnet"
-wallet  = "~/.config/solana/id.json"
+cluster = "devnet"
+wallet  = "../.keys_vaults/fdn_programs/deployer.json"
 
 [scripts]
 test = "bun run --cwd tests test"
