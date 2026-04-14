@@ -1,0 +1,19 @@
+{
+  "name": "@foundation/sdk",
+  "version": "0.1.0",
+  "private": true,
+  "description": "TS client SDK for Foundation vaults — shared by web app, keepers, and tests.",
+  "type": "module",
+  "main": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./vault": "./src/vault/index.ts",
+    "./cctp": "./src/cctp/index.ts",
+    "./sas": "./src/sas/index.ts",
+    "./layerzero": "./src/layerzero/index.ts"
+  },
+  "scripts": {
+    "build": "bun build src/index.ts --outdir dist --target node",
+    "test": "bun test"
+  }
+}

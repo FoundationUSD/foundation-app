@@ -1,0 +1,30 @@
+[toolchain]
+anchor_version = "0.31.1"
+
+[features]
+resolution = true
+skip-lint = false
+
+[programs.localnet]
+fdn_vault_compute = "Fv1tComputE111111111111111111111111111111111"
+fdn_transfer_hook = "Fv1tHooK1111111111111111111111111111111111"
+
+[programs.devnet]
+fdn_vault_compute = "Fv1tComputE111111111111111111111111111111111"
+fdn_transfer_hook = "Fv1tHooK1111111111111111111111111111111111"
+
+[registry]
+url = "https://api.apr.dev"
+
+[provider]
+cluster = "localnet"
+wallet  = "~/.config/solana/id.json"
+
+[scripts]
+test = "bun run --cwd tests test"
+
+[workspace]
+members = [
+    "fdn_vault_compute",
+    "fdn_transfer_hook",
+]
