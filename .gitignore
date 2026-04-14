@@ -50,3 +50,6 @@ vault-config.json
 .idea/
 
 temp
+# kdo
+.kdo/
+TODO.md
