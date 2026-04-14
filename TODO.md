@@ -39,47 +39,95 @@ Applied during scaffolding pass. Every finding below links to a mitigation or an
 
 ---
 
-## Milestones (ADR-003 §10)
+## Milestones — Compressed 2-Week Plan (supersedes ADR-003 §10)
 
-### Week 1 — Contracts
-- [ ] `fdn_vault_compute` Anchor program (~400 lines, 9 instructions)
-- [ ] `fdn_transfer_hook` Anchor program (~80 lines, immutable)
-- [ ] `FdnSpcVault.sol` Ethereum contract (~250 lines)
-- [ ] Deploy all three to Solana devnet + Sepolia
-- [ ] Anchor.toml wired to devnet; program IDs pinned
+**Compression rationale:** ADR-003 spec'd 6 weeks. We're doing 2. This requires:
+- Parallel tracks (contracts + keepers + frontend run concurrently, not sequentially)
+- Neodyme office hours scheduled in parallel with build — not after
+- OtterSec compressed scope (vault + hook only, ~3-day turnaround) instead of full-system review
+- Tighter post-deploy watch (24h instead of 72h) before first cap ramp
+- GAIB whitelist + Pyth feed must close by end of Week 1 or Week 2 slips
+- SAS gating deferred (post-MVP); institutional tier lands after launch
+- Stargate V2 fallback deferred; CCTP V2 only at launch (accept Circle single-point-of-failure for v0)
 
-### Week 2 — Cross-chain wiring
-- [ ] Integrate LayerZero V2 OFT SDK (operational messaging only)
-- [ ] Integrate CCTP V2 USDC bridge (primary) via `@circlefin/cctp-sdk`
-- [ ] Integrate Stargate V2 as fallback
-- [ ] Configure Solana ↔ Sepolia LZ peer
-- [ ] Close GAIB whitelist confirmation in writing (Eugene → Ramon)
+**Risk:** If any external blocker (GAIB whitelist, Pyth feed, P0 listing) doesn't close in Week 1, Week 2 mainnet slips by that duration.
 
-### Week 3 — P0 + Titan + Frontend
-- [ ] Titan mint/redeem adapter wired to `redeem` / `request_redeem`
-- [ ] P0 devnet liquidation dry-run (required before mainnet)
-- [ ] Extend existing frontend (Kamino/Solomon/Oro/Drift aggregator) to show fdnGAIB
-- [ ] Deposit/redeem UX with 24h lockup countdown and queue-mode disclosure
+---
 
-### Week 4 — Testing + security review
-- [ ] 50+ Anchor tests covering all invariants (§Invariants below)
-- [ ] Fuzz testing on share math (1 wei → max u64)
-- [ ] Neodyme office hours review (free)
-- [ ] OtterSec code review ($3–5K) — vault + transfer hook
-- [ ] Load test on devnet
-- [ ] Immunefi bug bounty page drafted ($50K–$250K tiers)
+### Week 1 — Build everything in parallel (Days 1–7)
 
-### Week 5 — Mainnet beta
-- [ ] Deploy programs immutable (renounce upgrade auth) OR set Squads as upgrade auth with 48h timelock per ADR-004 decision
-- [ ] Initialize fdnGAIB VaultState with $10K seed, deposit cap $10K
-- [ ] 72h clean-ops watch; all keepers running
-- [ ] Ramp to $50K on clean signal
+**Track A — Solana programs (Days 1–4)**
+- [ ] Implement `initialize` ix (VaultState + Token-2022 share mint with 4 extensions + 3 PDAs + HWM at NAV_FLOOR + virtual offset)
+- [ ] Implement `deposit` ix (virtual-offset shares → split → mint → lockup → invariants)
+- [ ] Implement `redeem` ix (lockup check → rate limit → burn → transfer from buffer → invariants)
+- [ ] Implement `request_redeem` + `process_withdrawals` + `claim_redeem` (queue path end-to-end)
+- [ ] Implement `update_nav` (inline Pyth proof validation + TWAP + bounds + floor + harvest)
+- [ ] Implement `harvest_fees` (mgmt + perf → mint to treasury → update HWM)
+- [ ] Implement `drain_managed` + `pause` + `unpause`
+- [ ] Implement `fdn_transfer_hook` (minimal, read-only, immutable deploy)
+- [ ] 50+ Anchor tests + fuzz harness on math (1 wei → max u64)
+- [ ] Deploy to Solana devnet; `anchor keys sync`; pin IDs in Anchor.toml
 
-### Week 6 — Ship + pitch
+**Track B — Ethereum SPC (Days 1–3)**
+- [ ] Write `FdnSpcVault.sol` (~250 lines) with pre-committed `EMERGENCY_RECIPIENT` constant
+- [ ] Foundry test suite (subscribe/unstake/bridge paths)
+- [ ] Deploy to Sepolia; Gnosis Safe 3-of-5 set as admin
+- [ ] GAIB whitelist confirmation in writing (Eugene → Ramon) — **hard blocker for Week 2**
+
+**Track C — Cross-chain + Keepers (Days 3–6)**
+- [ ] CCTP V2 integration via `@circlefin/cctp-sdk` (burn on Solana, mint on ETH, reverse path)
+- [ ] LayerZero V2 peer config (Solana ↔ Sepolia) for operational messaging only
+- [ ] NAV keeper (Pyth pull primary, `convertToAssets` fallback) — cron every 6h
+- [ ] Batch keeper (daily 1PM UTC drain → CCTP burn → subscribeToSAID)
+- [ ] Queue keeper (on-demand unstake → CCTP bridge-back → process_withdrawals)
+- [ ] Monitor with all alerts from ADR-004 alert table
+
+**Track D — Frontend + P0 (Days 4–7)**
+- [ ] Extend existing aggregator UI to show fdnGAIB (deposit, redeem, queue status, 24h lockup countdown)
+- [ ] Queue-mode disclosure in redeem UX
+- [ ] Titan mint/redeem adapter wired
+- [ ] P0 devnet liquidation dry-run — required pre-mainnet
+
+**Track E — Security (parallel, Days 1–7)**
+- [ ] Neodyme office hours scheduled for Day 3–4 (free; feedback informs Days 5–7)
+- [ ] OtterSec compressed-scope engagement booked for Day 5–7 (vault + hook only, $3–5K)
+- [ ] Pyth sAID/USD feed request submitted to contributors Day 1
+
+### Week 2 — Test, audit-fix, ship mainnet (Days 8–14)
+
+**Days 8–9 — Audit-fix + load test**
+- [ ] OtterSec findings addressed; re-run full test suite
+- [ ] Neodyme follow-up items closed
+- [ ] Devnet load test: 100 concurrent deposits, queue-mode cycle, invariant stress
+- [ ] Cross-chain E2E on devnet+Sepolia end-to-end proven green
+
+**Days 10–11 — Mainnet beta**
+- [ ] Deploy vault + hook + SPC immutable (hook upgrade-auth revoked in same tx)
+- [ ] Squads 3-of-5 wired as vault upgrade authority with 48h timelock
+- [ ] Pause guardians verified as keys **separate from Squads signers**
+- [ ] Initialize fdnGAIB with $10K seed, deposit cap $10K
+- [ ] All 4 keepers live on production infra (dedicated server, not laptop)
+- [ ] Monitor + alerting wired to PagerDuty / Slack
+
+**Day 12 — Clean-ops watch**
+- [ ] 24h continuous observation (reduced from ADR's 72h) — NAV stable, buffer healthy, no invariant flags
+- [ ] Ramp deposit cap to $50K if clean
+
+**Days 13–14 — Ship + pitch**
 - [ ] Ramp deposit cap to $100K
-- [ ] Submit to Colosseum hackathon
-- [ ] Investor update with live mainnet metrics
+- [ ] Submit to Colosseum hackathon with live mainnet metrics
+- [ ] Immunefi bug bounty page goes live ($50K–$250K tiers)
+- [ ] Investor update broadcast
 - [ ] Eugene opens USD.AI conversation using live product as proof
+
+### Exit criteria (end of Week 2)
+
+- fdnGAIB vault live on Solana mainnet with >= $100K TVL cap
+- All 3 invariants checked on every ix, auto-pause proven on devnet
+- OtterSec review closed out, no critical findings open
+- 4 keepers running on production infra
+- Frontend deposit/redeem/queue UX live at production URL
+- Colosseum submission complete
 
 ---
 

@@ -15,7 +15,7 @@
 
 use anchor_lang::prelude::*;
 
-declare_id!("Fv1tHooK1111111111111111111111111111111111");
+declare_id!("3hBtJLskNbhbdzjA8imqiR9uaWMKrvUEiwseenAwgCTs");
 
 #[program]
 pub mod fdn_transfer_hook {
