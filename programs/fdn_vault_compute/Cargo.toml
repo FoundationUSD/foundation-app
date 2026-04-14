@@ -17,7 +17,15 @@ default = []
 idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
 
 [dependencies]
-anchor-lang = { workspace = true }
+# SECURITY: `init-if-needed` is enabled ONLY for this crate — not workspace-wide.
+# Narrow use case: ShareLockup PDA seeded by [vault, user], so re-init is isolated
+# to the caller's own account. No other PDA in this program uses init_if_needed.
+# Auditor checklist:
+#   - `init_if_needed` must only appear on ShareLockup; grep this crate and reject any
+#     other occurrence in review
+#   - ShareLockup fields are overwritten deterministically in deposit handler; there
+#     is no state an attacker can influence cross-user
+anchor-lang = { workspace = true, features = ["init-if-needed"] }
 anchor-spl  = { workspace = true }
 spl-token-2022 = { workspace = true }
 spl-transfer-hook-interface = { workspace = true }
