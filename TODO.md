@@ -57,18 +57,21 @@ Applied during scaffolding pass. Every finding below links to a mitigation or an
 ### Week 1 — Build everything in parallel (Days 1–7)
 
 **Track A — Solana programs (Days 1–4)**
-- [~] `initialize` ix — VaultState creation + HWM at NAV_FLOOR + virtual offset **done**. Token-2022 share mint with 4 extensions + buffer/managed/fee_treasury PDAs **pending** (deferred to Token-2022 CPI pass)
-- [ ] `deposit` ix (virtual-offset shares → split → mint → lockup → invariants) — Accounts context done, handler pending
-- [ ] `redeem` ix (lockup check → rate limit → burn → transfer from buffer → invariants) — Accounts context done, handler pending
-- [ ] `request_redeem` + `process_withdrawals` + `claim_redeem` (queue path end-to-end) — Accounts contexts done, handlers pending
-- [ ] `update_nav` (inline Pyth proof validation + TWAP + bounds + floor + harvest) — Accounts context done, handler pending, Pyth SDK blocked on Anchor 0.31 compat
-- [ ] `harvest_fees` (mgmt + perf → mint to treasury → update HWM) — Accounts context done, handler pending
+- [x] `initialize` ix — **fully implemented**: VaultState init + Token-2022 share mint creation via `create_share_mint` helper (MetadataPointer + TransferHook extensions), HWM=NAV_FLOOR, virtual offset locked, constraint binds `transfer_hook_program` to the canonical `FDN_TRANSFER_HOOK_PROGRAM_ID`
+- [x] `initialize_token_accounts` ix — **new second-phase ix**: creates `buffer_usdc` (SPL Token USDC, PDA-owned), `managed_usdc` (SPL Token USDC, PDA-owned), `fee_treasury` (Token-2022 share account, PDA-owned). Idempotent via `TokenAccountsAlreadySet` guard.
+- [x] Token-2022 share mint creation helper (`src/token.rs`) — system allocate → MetadataPointer init → TransferHook init → initialize_mint2 with PDA signer; MintAuthority=vault_authority PDA, FreezeAuthority=None
+- [x] `pause` + `unpause` — fully implemented with access control, events, idempotent pause
+- [ ] `deposit` ix — handler pending (needs: SPL USDC transfer CPIs + Token-2022 mint CPI via vault_authority + SAS guard + invariants)
+- [ ] `redeem` ix — handler pending (needs: Token-2022 burn CPI + SPL USDC transfer CPI + rate_limit::consume + invariants)
+- [ ] `request_redeem` + `process_withdrawals` + `claim_redeem` — Accounts contexts done, handlers pending
+- [ ] `update_nav` — Accounts context done, handler pending, Pyth SDK blocked on Anchor 0.31 compat
+- [ ] `harvest_fees` — Accounts context done, handler pending
 - [ ] `drain_managed` — Accounts context + operator gate done, token CPI pending
-- [x] `pause` + `unpause` — **fully implemented** with access control, events, idempotent pause
-- [ ] `fdn_transfer_hook` (minimal, read-only, immutable deploy)
-- [ ] Token-2022 share mint creation helper (CPI Guard + MetadataPointer + Immutable Owner + TransferHook extensions) — unblocks initialize/deposit/redeem token CPI
+- [ ] `fdn_transfer_hook::execute` with Token-2022 interface-compliant discriminator (needs spl-transfer-hook-interface dispatch wiring, not plain Anchor discriminator)
+- [ ] `fdn_transfer_hook::initialize_extra_account_meta_list` — declares source_lockup PDA seed derivation for Token-2022 to auto-inject
+- [ ] Account-level CPI Guard + Immutable Owner helpers for user-created share token accounts (not mint-level extensions; applied when user creates their share ATA)
 - [ ] 50+ Anchor tests + fuzz harness on math (1 wei → max u64) — 17 unit tests green today
-- [ ] Devnet keypairs generated ✓ (`2PLMStk5...`, `3hBtJLsk...`, deployer `ABQADtDr...`)
+- [ ] Devnet keypairs generated (`2PLMStk5...`, `3hBtJLsk...`, deployer `ABQADtDr...`)
 - [ ] `anchor build && anchor deploy --provider.cluster devnet` — awaiting deployer SOL funding
 
 **Track B — Ethereum SPC (Days 1–3)**

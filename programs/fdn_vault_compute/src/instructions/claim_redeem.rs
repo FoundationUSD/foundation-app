@@ -25,7 +25,7 @@ pub struct ClaimRedeem<'info> {
             &request_id.to_le_bytes(),
         ],
         bump = redeem_request.bump,
-        has_one = user @ VaultError::UnauthorizedAdmin, // placeholder; swap to dedicated error
+        has_one = user @ VaultError::AccountMismatch,
     )]
     pub redeem_request: Account<'info, RedeemRequest>,
 

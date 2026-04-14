@@ -44,4 +44,12 @@ pub enum VaultError {
     RequestNotClaimable,
     #[msg("Queue mode active — use request_redeem")]
     QueueModeActive,
+    #[msg("Transfer hook program mismatch — not the canonical fdn_transfer_hook")]
+    TransferHookMismatch,
+    #[msg("Share mint already initialized on this vault")]
+    ShareMintAlreadySet,
+    #[msg("Vault token accounts already initialized")]
+    TokenAccountsAlreadySet,
+    #[msg("has_one constraint violated — account ownership mismatch")]
+    AccountMismatch,
 }

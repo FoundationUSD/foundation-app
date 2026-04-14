@@ -1,6 +1,6 @@
 //! Constants — ADR-004 defaults. Changes require Squads 3-of-5 + 48h timelock.
 
-use anchor_lang::prelude::*;
+use anchor_lang::prelude::Pubkey;
 
 /// Virtual offset — OpenZeppelin pattern, ADR-004 §Inflation Attack Protection.
 pub const VIRTUAL_ASSETS: u64 = 1_000_000; // +1 USDC virtual
@@ -49,3 +49,10 @@ pub const USDC_DECIMALS: u8 = 6;
 pub const SHARE_DECIMALS: u8 = 6;
 pub const BPS_DENOMINATOR: u64 = 10_000;
 pub const SECONDS_PER_YEAR: u64 = 31_536_000;
+
+/// Pinned program ID for `fdn_transfer_hook`. Must match `declare_id!` in that crate
+/// AND the entry in `programs/Anchor.toml`. Enforced at runtime by the `Initialize`
+/// Accounts constraint so a malicious transfer_hook_program arg cannot bypass the
+/// 24h lockup via a no-op hook.
+pub const FDN_TRANSFER_HOOK_PROGRAM_ID: Pubkey =
+    anchor_lang::solana_program::pubkey!("3hBtJLskNbhbdzjA8imqiR9uaWMKrvUEiwseenAwgCTs");

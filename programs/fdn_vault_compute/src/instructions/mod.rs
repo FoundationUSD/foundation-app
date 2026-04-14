@@ -16,6 +16,7 @@ pub mod deposit;
 pub mod drain_managed;
 pub mod harvest_fees;
 pub mod initialize;
+pub mod initialize_token_accounts;
 pub mod pause;
 pub mod process_withdrawals;
 pub mod redeem;
@@ -33,6 +34,8 @@ pub use drain_managed::*;
 pub use harvest_fees::*;
 #[allow(ambiguous_glob_reexports)]
 pub use initialize::*;
+#[allow(ambiguous_glob_reexports)]
+pub use initialize_token_accounts::*;
 #[allow(ambiguous_glob_reexports)]
 pub use pause::*;
 #[allow(ambiguous_glob_reexports)]

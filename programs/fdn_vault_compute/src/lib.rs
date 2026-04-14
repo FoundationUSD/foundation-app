@@ -18,6 +18,7 @@ pub mod invariants;
 pub mod math;
 pub mod rate_limit;
 pub mod state;
+pub mod token;
 
 pub use instructions::*;
 
@@ -27,6 +28,10 @@ pub mod fdn_vault_compute {
 
     pub fn initialize(ctx: Context<Initialize>, params: InitializeParams) -> Result<()> {
         instructions::initialize::handler(ctx, params)
+    }
+
+    pub fn initialize_token_accounts(ctx: Context<InitializeTokenAccounts>) -> Result<()> {
+        instructions::initialize_token_accounts::handler(ctx)
     }
 
     pub fn deposit(ctx: Context<Deposit>, amount: u64) -> Result<()> {
