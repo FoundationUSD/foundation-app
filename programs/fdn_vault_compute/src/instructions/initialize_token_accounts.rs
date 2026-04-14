@@ -1,18 +1,23 @@
-//! `initialize_token_accounts` — phase 2 of vault init. Creates the three PDA-owned
-//! token accounts that hold vault capital and fees. Must be called AFTER `initialize`
-//! because Anchor's `init` on token accounts validates `token::mint` during its
-//! pre-handler phase, and the share mint doesn't exist until `initialize` runs.
+//! `initialize_token_accounts` — phase 2 of vault init. Creates all PDA-owned token
+//! accounts that hold vault capital, fees, escrowed shares, and pending claim USDC.
+//! Must be called AFTER `initialize` because Anchor's `init` on token accounts
+//! validates `token::mint` pre-handler; the share mint doesn't exist until `initialize`
+//! has run.
 //!
-//! Accounts created:
-//!   - `buffer_usdc`   — SPL Token (legacy) USDC, instant-redemption reserve
-//!   - `managed_usdc`  — SPL Token (legacy) USDC, pending cross-chain deployment
-//!   - `fee_treasury`  — Token-2022 share account, accumulates mgmt + perf fees
+//! Accounts created (5 total):
+//!   - `buffer_usdc`         — SPL Token USDC, instant-redemption reserve
+//!   - `managed_usdc`        — SPL Token USDC, pending cross-chain deployment
+//!   - `fee_treasury`        — Token-2022 share account, accumulates mgmt + perf fees
+//!   - `redeem_escrow`       — Token-2022 share account, holds escrowed shares
+//!                             awaiting burn in `process_withdrawals`
+//!   - `pending_claims_usdc` — SPL Token USDC, holds fulfilled redemption USDC
+//!                             awaiting user `claim_redeem` pickup
 //!
-//! Permissionless: anyone can pay rent. Idempotent: re-running reverts via
-//! `TokenAccountsAlreadySet` (checked on `vault.buffer_usdc != Pubkey::default()`).
+//! Permissionless + idempotent.
 
 use crate::constants::{
-    BUFFER_USDC_SEED, FEE_TREASURY_SEED, MANAGED_USDC_SEED, VAULT_AUTHORITY_SEED, VAULT_SEED,
+    BUFFER_USDC_SEED, FEE_TREASURY_SEED, MANAGED_USDC_SEED, PENDING_CLAIMS_SEED,
+    REDEEM_ESCROW_SEED, VAULT_AUTHORITY_SEED, VAULT_SEED,
 };
 use crate::errors::VaultError;
 use crate::state::VaultState;
@@ -37,10 +42,8 @@ pub struct InitializeTokenAccounts<'info> {
 
     pub usdc_mint: Account<'info, Mint>,
 
-    /// Share mint (Token-2022), already created by `initialize`. Read-only here.
     pub share_mint: InterfaceAccount<'info, MintInterface>,
 
-    /// Mint authority / token-account authority PDA. Used as `token::authority` below.
     /// CHECK: signer-only PDA; seed-validated.
     #[account(
         seeds = [VAULT_AUTHORITY_SEED, vault.key().as_ref()],
@@ -48,7 +51,6 @@ pub struct InitializeTokenAccounts<'info> {
     )]
     pub vault_authority: UncheckedAccount<'info>,
 
-    /// Buffer USDC — instant redemption reserve. Target 15% of TVL.
     #[account(
         init,
         payer = payer,
@@ -59,7 +61,6 @@ pub struct InitializeTokenAccounts<'info> {
     )]
     pub buffer_usdc: Account<'info, TokenAccount>,
 
-    /// Managed USDC — pending cross-chain deployment. Drained daily by batch keeper.
     #[account(
         init,
         payer = payer,
@@ -70,7 +71,6 @@ pub struct InitializeTokenAccounts<'info> {
     )]
     pub managed_usdc: Account<'info, TokenAccount>,
 
-    /// Fee treasury — Token-2022 share account. Accumulates mgmt + perf fees.
     #[account(
         init,
         payer = payer,
@@ -82,6 +82,31 @@ pub struct InitializeTokenAccounts<'info> {
     )]
     pub fee_treasury: InterfaceAccount<'info, TokenAccountInterface>,
 
+    /// Shares escrowed during `request_redeem`, burned during `process_withdrawals`.
+    #[account(
+        init,
+        payer = payer,
+        token::mint = share_mint,
+        token::authority = vault_authority,
+        token::token_program = token_2022,
+        seeds = [REDEEM_ESCROW_SEED, vault.key().as_ref()],
+        bump,
+    )]
+    pub redeem_escrow: InterfaceAccount<'info, TokenAccountInterface>,
+
+    /// USDC set aside during `process_withdrawals`, withdrawn in `claim_redeem`.
+    /// Separating this from `buffer_usdc` ensures fulfilled redemptions can't be
+    /// front-run-drained by subsequent instant redeems.
+    #[account(
+        init,
+        payer = payer,
+        token::mint = usdc_mint,
+        token::authority = vault_authority,
+        seeds = [PENDING_CLAIMS_SEED, vault.key().as_ref()],
+        bump,
+    )]
+    pub pending_claims_usdc: Account<'info, TokenAccount>,
+
     pub token_program: Program<'info, Token>,
     pub token_2022: Program<'info, Token2022>,
     pub system_program: Program<'info, System>,
@@ -91,22 +116,21 @@ pub struct InitializeTokenAccounts<'info> {
 pub fn handler(ctx: Context<InitializeTokenAccounts>) -> Result<()> {
     let vault = &mut ctx.accounts.vault;
 
-    if vault.buffer_usdc != Pubkey::default()
-        || vault.managed_usdc != Pubkey::default()
-    {
+    if vault.buffer_usdc != Pubkey::default() || vault.managed_usdc != Pubkey::default() {
         return err!(VaultError::TokenAccountsAlreadySet);
     }
 
     vault.buffer_usdc = ctx.accounts.buffer_usdc.key();
     vault.managed_usdc = ctx.accounts.managed_usdc.key();
-    // fee_treasury pubkey was set during `initialize` from params; we re-pin it here to
-    // the actual PDA now that it exists, so off-chain consumers read the PDA that holds
-    // shares rather than a forward-declared address.
     vault.fee_treasury = ctx.accounts.fee_treasury.key();
+    vault.redeem_escrow = ctx.accounts.redeem_escrow.key();
+    vault.pending_claims_usdc = ctx.accounts.pending_claims_usdc.key();
 
     vault.buffer_bump = ctx.bumps.buffer_usdc;
     vault.managed_bump = ctx.bumps.managed_usdc;
     vault.fee_treasury_bump = ctx.bumps.fee_treasury;
+    vault.redeem_escrow_bump = ctx.bumps.redeem_escrow;
+    vault.pending_claims_bump = ctx.bumps.pending_claims_usdc;
 
     Ok(())
 }

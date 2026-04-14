@@ -65,10 +65,14 @@ Applied during scaffolding pass. Every finding below links to a mitigation or an
 - [x] `redeem` ix — **fully wired**: not-paused + queue-mode + lockup check + `rate_limit::consume` + buffer sufficiency + Token-2022 burn + SPL USDC transfer with PDA signer + nav recompute + invariant enforcement
 - [x] `fdn_transfer_hook::execute` — **fully wired via Anchor `fallback` dispatch**: unpacks Token-2022 interface-compliant discriminator, reads source `ShareLockup` by offset (avoids circular dep), enforces `now >= locked_until`. ~100 LOC total.
 - [x] `fdn_transfer_hook::initialize_extra_account_meta_list` — declares 1 extra: source lockup PDA derived via `[b"share_lockup", vault_literal, owner_key]` seeds. Vault pubkey baked in as Seed::Literal at init time.
-- [ ] `request_redeem` + `process_withdrawals` + `claim_redeem` — Accounts contexts done, handlers pending
+- [x] `request_redeem` — **fully wired**: lockup check + Token-2022 `transfer_checked` (redeemer→redeem_escrow, hook fires) + RedeemRequest PDA init with monotonic request_id + `next_request_id` increment
+- [x] `process_withdrawals` — **fully wired**: operator gate + status Pending check + `shares_to_assets` + buffer sufficiency + Token-2022 burn from escrow (PDA signs) + SPL USDC transfer buffer→pending_claims (PDA signs) + mark Claimable + NAV recompute + invariants. Note: v0 processes 1 req/ix (keeper batches client-side; simpler to audit)
+- [x] `claim_redeem` — **fully wired**: status Claimable check + SPL USDC transfer pending_claims→redeemer (PDA signs) + mark Completed (idempotent)
+- [x] `harvest_fees` — **fully wired**: `compute_management_fee_shares` + `compute_performance_fee_shares` + Token-2022 `mint_to` fee_treasury (PDA signs) + HWM update on upward NAV only + `last_fee_harvest` timestamp
+- [x] `drain_managed` — **fully wired**: operator gate + not-paused + amount-sufficiency + SPL USDC transfer managed→destination (PDA signs) + event. total_assets NOT decremented (funds still Foundation-owned post-bridge)
+- [x] `initialize_token_accounts` — **extended** to create `redeem_escrow` (Token-2022 share) + `pending_claims_usdc` (SPL USDC) PDAs; 5 accounts total per one tx
+- [x] VaultState — added `redeem_escrow`, `pending_claims_usdc`, `redeem_escrow_bump`, `pending_claims_bump` fields; SPACE updated
 - [ ] `update_nav` — Accounts context done, handler pending, Pyth SDK blocked on Anchor 0.31 compat
-- [ ] `harvest_fees` — Accounts context done, handler pending
-- [ ] `drain_managed` — Accounts context + operator gate done, token CPI pending
 - [ ] Destination lockup propagation in transfer hook (v1 — v0 enforces source-only, which blocks the primary "deposit → transfer → redeem" arb)
 - [ ] Account-level CPI Guard + Immutable Owner helpers for user-created share token accounts (not mint-level extensions; applied when user creates their share ATA)
 - [ ] 50+ Anchor tests + fuzz harness on math (1 wei → max u64) — 17 unit tests green today
