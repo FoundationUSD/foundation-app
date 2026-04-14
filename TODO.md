@@ -72,7 +72,7 @@ Applied during scaffolding pass. Every finding below links to a mitigation or an
 - [x] `drain_managed` — **fully wired**: operator gate + not-paused + amount-sufficiency + SPL USDC transfer managed→destination (PDA signs) + event. total_assets NOT decremented (funds still Foundation-owned post-bridge)
 - [x] `initialize_token_accounts` — **extended** to create `redeem_escrow` (Token-2022 share) + `pending_claims_usdc` (SPL USDC) PDAs; 5 accounts total per one tx
 - [x] VaultState — added `redeem_escrow`, `pending_claims_usdc`, `redeem_escrow_bump`, `pending_claims_bump` fields; SPACE updated
-- [ ] `update_nav` — Accounts context done, handler pending, Pyth SDK blocked on Anchor 0.31 compat
+- [x] `update_nav` — **fully wired, operator-only path**: operator gate + non-empty oracle_proof + 26h staleness cap + `check_nav_bounds` (±5%/-2% TWAP) + inline fee harvest using PRE-update NAV (HWM compared against old price, not new) + `apply_twap` (70/30) + `check_nav_floor` auto-pause w/ `InvariantViolation` event + commit. `oracle_source = 1` (operator). **Pyth cross-check deferred** to v1 when `pyth-solana-receiver-sdk` gets Anchor 0.31 compat — wire shape stable (oracle_proof arg accepted, v1 will verify signature + confidence ≤0.5% + staleness ≤60s without accounts-context change)
 - [ ] Destination lockup propagation in transfer hook (v1 — v0 enforces source-only, which blocks the primary "deposit → transfer → redeem" arb)
 - [ ] Account-level CPI Guard + Immutable Owner helpers for user-created share token accounts (not mint-level extensions; applied when user creates their share ATA)
 - [ ] 50+ Anchor tests + fuzz harness on math (1 wei → max u64) — 17 unit tests green today
@@ -365,6 +365,29 @@ Priority order — each must call `invariants::enforce` as the last step before 
 - [!] Pyth contributors add sAID/USD feed — fallback to operator-only with tighter bounds if unavailable
 - [!] Squads v4 production readiness — fall back to v3 same 3-of-5 if needed
 - [!] P0 listing agreement — if slips past Week 6, list on Kamino/Drift as interim loop venue
+
+---
+
+## Post-MVP — UX & distribution enablers
+
+### Circle User-Controlled Wallets (email / social / PIN login) — post-MVP
+**Why:** removes Phantom/Solflare friction that blocks SEA retail onboarding (ADR-003 distribution thesis). Email/Google/Apple/PIN → MPC-backed Solana wallet → deposit USDC without touching seed phrases. Single biggest retail UX unlock.
+
+**Stack:**
+- Server SDK: `@circle-fin/user-controlled-wallets` — user/wallet/transaction/webhook management
+- Client SDK: `@circle-fin/w3s-pw-web-sdk` — login flows, challenge execution, theme/localization
+- Solana support confirmed: `listWallets` accepts `SOL`, `signTransaction` takes base64-encoded tx
+- Auth: PIN (no console setup), Email OTP (console config), Social (Google/Apple/Facebook — console config)
+
+**Integration points (future session):**
+- [ ] Add `/auth` route to Next.js app with Circle login UI
+- [ ] Server route: `POST /api/circle/user` — create user + issue `userToken` (JWT, 60min)
+- [ ] Create SOL wallet via `createUserPinWithWallets({ blockchains: ['SOL'] })` (PIN for v0; add email/social later)
+- [ ] On deposit: build the Anchor `deposit` tx client-side, encode base64, pass to `signTransaction` → execute via `w3s-pw-web-sdk`
+- [ ] Webhook: subscribe to transaction notifications → update Supabase user state
+- [ ] Fallback: keep Phantom/Solflare wallet adapter as alternate flow (power users keep direct wallets)
+
+**Deferred:** Developer-Controlled Wallets for keeper hot wallets — the `.keys_vaults/` JSON pattern works fine for v0; revisit once we're scaling keeper infra or have multiple operator keys to rotate.
 
 ---
 
