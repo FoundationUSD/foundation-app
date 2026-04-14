@@ -61,14 +61,15 @@ Applied during scaffolding pass. Every finding below links to a mitigation or an
 - [x] `initialize_token_accounts` ix — **new second-phase ix**: creates `buffer_usdc` (SPL Token USDC, PDA-owned), `managed_usdc` (SPL Token USDC, PDA-owned), `fee_treasury` (Token-2022 share account, PDA-owned). Idempotent via `TokenAccountsAlreadySet` guard.
 - [x] Token-2022 share mint creation helper (`src/token.rs`) — system allocate → MetadataPointer init → TransferHook init → initialize_mint2 with PDA signer; MintAuthority=vault_authority PDA, FreezeAuthority=None
 - [x] `pause` + `unpause` — fully implemented with access control, events, idempotent pause
-- [ ] `deposit` ix — handler pending (needs: SPL USDC transfer CPIs + Token-2022 mint CPI via vault_authority + SAS guard + invariants)
-- [ ] `redeem` ix — handler pending (needs: Token-2022 burn CPI + SPL USDC transfer CPI + rate_limit::consume + invariants)
+- [x] `deposit` ix — **fully wired**: SAS guard + virtual-offset math + buffer/managed split + SPL USDC transfers + Token-2022 `mint_to` with vault_authority PDA signer + lockup refresh + invariant enforcement at end
+- [x] `redeem` ix — **fully wired**: not-paused + queue-mode + lockup check + `rate_limit::consume` + buffer sufficiency + Token-2022 burn + SPL USDC transfer with PDA signer + nav recompute + invariant enforcement
+- [x] `fdn_transfer_hook::execute` — **fully wired via Anchor `fallback` dispatch**: unpacks Token-2022 interface-compliant discriminator, reads source `ShareLockup` by offset (avoids circular dep), enforces `now >= locked_until`. ~100 LOC total.
+- [x] `fdn_transfer_hook::initialize_extra_account_meta_list` — declares 1 extra: source lockup PDA derived via `[b"share_lockup", vault_literal, owner_key]` seeds. Vault pubkey baked in as Seed::Literal at init time.
 - [ ] `request_redeem` + `process_withdrawals` + `claim_redeem` — Accounts contexts done, handlers pending
 - [ ] `update_nav` — Accounts context done, handler pending, Pyth SDK blocked on Anchor 0.31 compat
 - [ ] `harvest_fees` — Accounts context done, handler pending
 - [ ] `drain_managed` — Accounts context + operator gate done, token CPI pending
-- [ ] `fdn_transfer_hook::execute` with Token-2022 interface-compliant discriminator (needs spl-transfer-hook-interface dispatch wiring, not plain Anchor discriminator)
-- [ ] `fdn_transfer_hook::initialize_extra_account_meta_list` — declares source_lockup PDA seed derivation for Token-2022 to auto-inject
+- [ ] Destination lockup propagation in transfer hook (v1 — v0 enforces source-only, which blocks the primary "deposit → transfer → redeem" arb)
 - [ ] Account-level CPI Guard + Immutable Owner helpers for user-created share token accounts (not mint-level extensions; applied when user creates their share ATA)
 - [ ] 50+ Anchor tests + fuzz harness on math (1 wei → max u64) — 17 unit tests green today
 - [ ] Devnet keypairs generated (`2PLMStk5...`, `3hBtJLsk...`, deployer `ABQADtDr...`)
