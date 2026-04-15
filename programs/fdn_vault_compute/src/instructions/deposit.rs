@@ -34,6 +34,11 @@ use anchor_spl::token_interface::{
     self, Mint as MintInterface, TokenAccount as TokenAccountInterface,
 };
 
+/// SECURITY / ENG NOTE: `Box<>` every heavy account to keep each stack frame under
+/// Solana's 4KB limit. Without Box, Anchor's inline validation code for all these
+/// token accounts overflows the stack at runtime ("Access violation in stack frame").
+/// This was caught by the devnet smoke test — unit tests and `cargo check` pass
+/// regardless since the overflow only happens in the SBF VM.
 #[derive(Accounts)]
 pub struct Deposit<'info> {
     #[account(mut)]
@@ -48,7 +53,7 @@ pub struct Deposit<'info> {
         has_one = buffer_usdc @ VaultError::AccountMismatch,
         has_one = managed_usdc @ VaultError::AccountMismatch,
     )]
-    pub vault: Account<'info, VaultState>,
+    pub vault: Box<Account<'info, VaultState>>,
 
     /// Per-user 24h lockup. `init_if_needed` is scoped to this crate only (see Cargo.toml
     /// security note). Safe here because seeds bind the PDA to a single (vault, user).
@@ -59,12 +64,12 @@ pub struct Deposit<'info> {
         seeds = [SHARE_LOCKUP_SEED, vault.key().as_ref(), depositor.key().as_ref()],
         bump,
     )]
-    pub share_lockup: Account<'info, ShareLockup>,
+    pub share_lockup: Box<Account<'info, ShareLockup>>,
 
-    pub usdc_mint: Account<'info, SplMint>,
+    pub usdc_mint: Box<Account<'info, SplMint>>,
 
     #[account(mut)]
-    pub share_mint: InterfaceAccount<'info, MintInterface>,
+    pub share_mint: Box<InterfaceAccount<'info, MintInterface>>,
 
     /// Vault authority PDA — signs the Token-2022 `mint_to` CPI.
     /// CHECK: signer-only PDA; seed-validated below.
@@ -80,7 +85,7 @@ pub struct Deposit<'info> {
         token::mint = usdc_mint,
         token::authority = depositor,
     )]
-    pub depositor_usdc: Account<'info, SplTokenAccount>,
+    pub depositor_usdc: Box<Account<'info, SplTokenAccount>>,
 
     /// Buffer USDC — PDA-owned by vault_authority. Target 15% of TVL.
     #[account(
@@ -90,7 +95,7 @@ pub struct Deposit<'info> {
         token::mint = usdc_mint,
         token::authority = vault_authority,
     )]
-    pub buffer_usdc: Account<'info, SplTokenAccount>,
+    pub buffer_usdc: Box<Account<'info, SplTokenAccount>>,
 
     /// Managed USDC — PDA-owned by vault_authority. Drained daily to Ethereum.
     #[account(
@@ -100,7 +105,7 @@ pub struct Deposit<'info> {
         token::mint = usdc_mint,
         token::authority = vault_authority,
     )]
-    pub managed_usdc: Account<'info, SplTokenAccount>,
+    pub managed_usdc: Box<Account<'info, SplTokenAccount>>,
 
     /// Depositor's share receipt (Token-2022). Must be pre-created by the depositor.
     /// Account-level CPI Guard + Immutable Owner should be set by the client when
@@ -111,7 +116,7 @@ pub struct Deposit<'info> {
         token::mint = share_mint,
         token::authority = depositor,
     )]
-    pub depositor_share_acct: InterfaceAccount<'info, TokenAccountInterface>,
+    pub depositor_share_acct: Box<InterfaceAccount<'info, TokenAccountInterface>>,
 
     pub token_program: Program<'info, Token>,
     pub token_2022: Program<'info, Token2022>,

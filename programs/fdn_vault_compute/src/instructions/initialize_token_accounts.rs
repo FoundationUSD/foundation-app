@@ -26,6 +26,10 @@ use anchor_spl::token::{Mint, Token, TokenAccount};
 use anchor_spl::token_2022::Token2022;
 use anchor_spl::token_interface::{Mint as MintInterface, TokenAccount as TokenAccountInterface};
 
+/// SECURITY / ENG NOTE: the token-account `init` constraints generate a lot of
+/// inline validation code that can overflow Solana's 4KB stack frame. We `Box`
+/// every heavy account so Anchor stores it on the heap instead — a well-known
+/// Anchor idiom for this exact issue.
 #[derive(Accounts)]
 pub struct InitializeTokenAccounts<'info> {
     #[account(mut)]
@@ -38,11 +42,11 @@ pub struct InitializeTokenAccounts<'info> {
         has_one = usdc_mint @ VaultError::AccountMismatch,
         has_one = share_mint @ VaultError::AccountMismatch,
     )]
-    pub vault: Account<'info, VaultState>,
+    pub vault: Box<Account<'info, VaultState>>,
 
-    pub usdc_mint: Account<'info, Mint>,
+    pub usdc_mint: Box<Account<'info, Mint>>,
 
-    pub share_mint: InterfaceAccount<'info, MintInterface>,
+    pub share_mint: Box<InterfaceAccount<'info, MintInterface>>,
 
     /// CHECK: signer-only PDA; seed-validated.
     #[account(
@@ -59,7 +63,7 @@ pub struct InitializeTokenAccounts<'info> {
         seeds = [BUFFER_USDC_SEED, vault.key().as_ref()],
         bump,
     )]
-    pub buffer_usdc: Account<'info, TokenAccount>,
+    pub buffer_usdc: Box<Account<'info, TokenAccount>>,
 
     #[account(
         init,
@@ -69,7 +73,7 @@ pub struct InitializeTokenAccounts<'info> {
         seeds = [MANAGED_USDC_SEED, vault.key().as_ref()],
         bump,
     )]
-    pub managed_usdc: Account<'info, TokenAccount>,
+    pub managed_usdc: Box<Account<'info, TokenAccount>>,
 
     #[account(
         init,
@@ -80,7 +84,7 @@ pub struct InitializeTokenAccounts<'info> {
         seeds = [FEE_TREASURY_SEED, vault.key().as_ref()],
         bump,
     )]
-    pub fee_treasury: InterfaceAccount<'info, TokenAccountInterface>,
+    pub fee_treasury: Box<InterfaceAccount<'info, TokenAccountInterface>>,
 
     /// Shares escrowed during `request_redeem`, burned during `process_withdrawals`.
     #[account(
@@ -92,7 +96,7 @@ pub struct InitializeTokenAccounts<'info> {
         seeds = [REDEEM_ESCROW_SEED, vault.key().as_ref()],
         bump,
     )]
-    pub redeem_escrow: InterfaceAccount<'info, TokenAccountInterface>,
+    pub redeem_escrow: Box<InterfaceAccount<'info, TokenAccountInterface>>,
 
     /// USDC set aside during `process_withdrawals`, withdrawn in `claim_redeem`.
     /// Separating this from `buffer_usdc` ensures fulfilled redemptions can't be
@@ -105,7 +109,7 @@ pub struct InitializeTokenAccounts<'info> {
         seeds = [PENDING_CLAIMS_SEED, vault.key().as_ref()],
         bump,
     )]
-    pub pending_claims_usdc: Account<'info, TokenAccount>,
+    pub pending_claims_usdc: Box<Account<'info, TokenAccount>>,
 
     pub token_program: Program<'info, Token>,
     pub token_2022: Program<'info, Token2022>,

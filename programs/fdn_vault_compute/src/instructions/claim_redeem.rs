@@ -30,7 +30,7 @@ pub struct ClaimRedeem<'info> {
         has_one = usdc_mint @ VaultError::AccountMismatch,
         has_one = pending_claims_usdc @ VaultError::AccountMismatch,
     )]
-    pub vault: Account<'info, VaultState>,
+    pub vault: Box<Account<'info, VaultState>>,
 
     #[account(
         mut,
@@ -43,9 +43,9 @@ pub struct ClaimRedeem<'info> {
         bump = redeem_request.bump,
         constraint = redeem_request.user == redeemer.key() @ VaultError::AccountMismatch,
     )]
-    pub redeem_request: Account<'info, RedeemRequest>,
+    pub redeem_request: Box<Account<'info, RedeemRequest>>,
 
-    pub usdc_mint: Account<'info, SplMint>,
+    pub usdc_mint: Box<Account<'info, SplMint>>,
 
     /// CHECK: signer-only PDA; seed-validated.
     #[account(
@@ -59,14 +59,14 @@ pub struct ClaimRedeem<'info> {
         seeds = [PENDING_CLAIMS_SEED, vault.key().as_ref()],
         bump = vault.pending_claims_bump,
     )]
-    pub pending_claims_usdc: Account<'info, SplTokenAccount>,
+    pub pending_claims_usdc: Box<Account<'info, SplTokenAccount>>,
 
     #[account(
         mut,
         token::mint = usdc_mint,
         token::authority = redeemer,
     )]
-    pub redeemer_usdc: Account<'info, SplTokenAccount>,
+    pub redeemer_usdc: Box<Account<'info, SplTokenAccount>>,
 
     pub token_program: Program<'info, Token>,
 }
