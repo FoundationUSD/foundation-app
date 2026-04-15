@@ -47,18 +47,18 @@ pub struct Redeem<'info> {
         has_one = buffer_usdc @ VaultError::AccountMismatch,
         has_one = managed_usdc @ VaultError::AccountMismatch,
     )]
-    pub vault: Account<'info, VaultState>,
+    pub vault: Box<Account<'info, VaultState>>,
 
     #[account(
         seeds = [SHARE_LOCKUP_SEED, vault.key().as_ref(), redeemer.key().as_ref()],
         bump = share_lockup.bump,
     )]
-    pub share_lockup: Account<'info, ShareLockup>,
+    pub share_lockup: Box<Account<'info, ShareLockup>>,
 
-    pub usdc_mint: Account<'info, SplMint>,
+    pub usdc_mint: Box<Account<'info, SplMint>>,
 
     #[account(mut)]
-    pub share_mint: InterfaceAccount<'info, MintInterface>,
+    pub share_mint: Box<InterfaceAccount<'info, MintInterface>>,
 
     /// CHECK: signer-only PDA; seed-validated.
     #[account(
@@ -73,24 +73,24 @@ pub struct Redeem<'info> {
         token::mint = share_mint,
         token::authority = redeemer,
     )]
-    pub redeemer_share_acct: InterfaceAccount<'info, TokenAccountInterface>,
+    pub redeemer_share_acct: Box<InterfaceAccount<'info, TokenAccountInterface>>,
 
     #[account(
         mut,
         token::mint = usdc_mint,
         token::authority = redeemer,
     )]
-    pub redeemer_usdc: Account<'info, SplTokenAccount>,
+    pub redeemer_usdc: Box<Account<'info, SplTokenAccount>>,
 
     #[account(
         mut,
         seeds = [BUFFER_USDC_SEED, vault.key().as_ref()],
         bump = vault.buffer_bump,
     )]
-    pub buffer_usdc: Account<'info, SplTokenAccount>,
+    pub buffer_usdc: Box<Account<'info, SplTokenAccount>>,
 
     /// Read-only; needed for invariant I2 check (buffer + managed <= total_assets).
-    pub managed_usdc: Account<'info, SplTokenAccount>,
+    pub managed_usdc: Box<Account<'info, SplTokenAccount>>,
 
     pub token_program: Program<'info, Token>,
     pub token_2022: Program<'info, Token2022>,

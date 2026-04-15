@@ -38,17 +38,17 @@ pub struct HarvestFees<'info> {
         has_one = share_mint @ VaultError::AccountMismatch,
         has_one = fee_treasury @ VaultError::AccountMismatch,
     )]
-    pub vault: Account<'info, VaultState>,
+    pub vault: Box<Account<'info, VaultState>>,
 
     #[account(mut)]
-    pub share_mint: InterfaceAccount<'info, MintInterface>,
+    pub share_mint: Box<InterfaceAccount<'info, MintInterface>>,
 
     #[account(
         mut,
         seeds = [FEE_TREASURY_SEED, vault.key().as_ref()],
         bump = vault.fee_treasury_bump,
     )]
-    pub fee_treasury: InterfaceAccount<'info, TokenAccountInterface>,
+    pub fee_treasury: Box<InterfaceAccount<'info, TokenAccountInterface>>,
 
     /// CHECK: signer-only PDA; seed-validated.
     #[account(

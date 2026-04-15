@@ -31,9 +31,9 @@ pub struct DrainManaged<'info> {
         has_one = usdc_mint @ VaultError::AccountMismatch,
         has_one = managed_usdc @ VaultError::AccountMismatch,
     )]
-    pub vault: Account<'info, VaultState>,
+    pub vault: Box<Account<'info, VaultState>>,
 
-    pub usdc_mint: Account<'info, SplMint>,
+    pub usdc_mint: Box<Account<'info, SplMint>>,
 
     /// CHECK: signer-only PDA; seed-validated.
     #[account(
@@ -47,7 +47,7 @@ pub struct DrainManaged<'info> {
         seeds = [MANAGED_USDC_SEED, vault.key().as_ref()],
         bump = vault.managed_bump,
     )]
-    pub managed_usdc: Account<'info, SplTokenAccount>,
+    pub managed_usdc: Box<Account<'info, SplTokenAccount>>,
 
     /// Destination USDC account — typically the CCTP V2 TokenMessenger burn account
     /// or a Stargate pool account. Operator responsible for supplying the right target.
@@ -55,7 +55,7 @@ pub struct DrainManaged<'info> {
         mut,
         token::mint = usdc_mint,
     )]
-    pub destination: Account<'info, SplTokenAccount>,
+    pub destination: Box<Account<'info, SplTokenAccount>>,
 
     pub token_program: Program<'info, Token>,
 }

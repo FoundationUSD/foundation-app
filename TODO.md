@@ -76,8 +76,26 @@ Applied during scaffolding pass. Every finding below links to a mitigation or an
 - [ ] Destination lockup propagation in transfer hook (v1 — v0 enforces source-only, which blocks the primary "deposit → transfer → redeem" arb)
 - [ ] Account-level CPI Guard + Immutable Owner helpers for user-created share token accounts (not mint-level extensions; applied when user creates their share ATA)
 - [ ] 50+ Anchor tests + fuzz harness on math (1 wei → max u64) — 17 unit tests green today
-- [ ] Devnet keypairs generated (`2PLMStk5...`, `3hBtJLsk...`, deployer `ABQADtDr...`)
-- [ ] `anchor build && anchor deploy --provider.cluster devnet` — awaiting deployer SOL funding
+- [x] Devnet keypairs generated (`2PLMStk5...`, `3hBtJLsk...`, deployer `ABQADtDr...`)
+- [x] **Devnet deployment live + smoke test passed** (2026-04-15):
+  - `fdn_vault_compute` → `2PLMStk5P2GNKMH3ciK7N62wifwZZL9fmjcef4S7Ezop` (upgraded with Box-heap fix for stack frame overflow)
+  - `fdn_transfer_hook` → `3hBtJLskNbhbdzjA8imqiR9uaWMKrvUEiwseenAwgCTs`
+  - Mock USDC mint: `9dsc8YzHtcEMVPRiKeVj3BXcFgUBeHkm7MYRGrEJ6HSg` (SPL Token legacy, 6 decimals)
+  - Smoke vault `fdnSMOKE`: `5XXkck1uRmz2QUYg3Ta69ptS7tZa1fo1dbeY33RpANSc`
+  - Share mint PDA: `2L44XLVE8d6eH2m3tUz8keYotft88K5T2zyVzBbP5tmp` (Token-2022 w/ MetadataPointer + TransferHook)
+- [x] **Ixs verified on devnet:** `initialize`, `initialize_token_accounts`, `deposit`, `pause`, `unpause`
+- [x] **On-chain invariants verified:** `nav_per_share = 1_000_000` ($1.00), `high_water_mark = 1_000_000` (S3 fix confirmed), `virtual_assets = virtual_shares = 1_000_000` (inflation protection)
+- [x] **Deposit flow verified end-to-end (devnet tx `4gDgbRUHcs7S...`):**
+  - 50 USDC deposit → exactly 50M shares minted (first-depositor 1:1 with virtual offset)
+  - Buffer split: 7.5 USDC to buffer (15%) + 42.5 USDC to managed (85%) — matches `BUFFER_TARGET_BPS` exactly
+  - NAV held at $1.00, lockup set to `now + 86399s` (~24h)
+  - total_assets = total_supply = 50M (invariant preserved)
+- [x] **Negative paths verified on live devnet:**
+  - Redeem during 24h lockup → **blocked** with `LockupActive` (arb shield enforced)
+  - Deposit while vault paused → **blocked** with `VaultPaused` (pause gate enforced)
+- [x] Devnet SECURITY FINDING FIXED (second round): stack frame overflow also hit `deposit` — applied `Box<>` preemptively to ALL heavy handlers (`deposit`, `redeem`, `request_redeem`, `process_withdrawals`, `claim_redeem`, `harvest_fees`, `drain_managed`, `update_nav`). Auditor note added in-code.
+- [x] Smoke test script with idempotent re-runs: `tests-integration/scripts/devnet-smoke.ts` (`bun run tests-integration/scripts/devnet-smoke.ts`)
+- [ ] Extend smoke: transfer hook `initialize_extra_account_meta_list`, redeem after 24h wait, request_redeem + process_withdrawals + claim_redeem queue cycle, harvest_fees, drain_managed, update_nav
 
 **Track B — Ethereum SPC (Days 1–3)**
 - [ ] Write `FdnSpcVault.sol` (~250 lines) with pre-committed `EMERGENCY_RECIPIENT` constant

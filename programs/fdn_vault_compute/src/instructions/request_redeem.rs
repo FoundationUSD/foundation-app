@@ -45,13 +45,13 @@ pub struct RequestRedeem<'info> {
         has_one = share_mint @ VaultError::AccountMismatch,
         has_one = redeem_escrow @ VaultError::AccountMismatch,
     )]
-    pub vault: Account<'info, VaultState>,
+    pub vault: Box<Account<'info, VaultState>>,
 
     #[account(
         seeds = [SHARE_LOCKUP_SEED, vault.key().as_ref(), redeemer.key().as_ref()],
         bump = share_lockup.bump,
     )]
-    pub share_lockup: Account<'info, ShareLockup>,
+    pub share_lockup: Box<Account<'info, ShareLockup>>,
 
     /// Fresh RedeemRequest at seeds [b"redeem_request", vault, user, next_request_id].
     /// Monotonic request_id means each request gets a unique PDA.
@@ -67,10 +67,10 @@ pub struct RequestRedeem<'info> {
         ],
         bump,
     )]
-    pub redeem_request: Account<'info, RedeemRequest>,
+    pub redeem_request: Box<Account<'info, RedeemRequest>>,
 
     #[account(mut)]
-    pub share_mint: InterfaceAccount<'info, MintInterface>,
+    pub share_mint: Box<InterfaceAccount<'info, MintInterface>>,
 
     #[account(
         mut,
@@ -78,14 +78,14 @@ pub struct RequestRedeem<'info> {
         token::mint = share_mint,
         token::authority = redeemer,
     )]
-    pub redeemer_share_acct: InterfaceAccount<'info, TokenAccountInterface>,
+    pub redeemer_share_acct: Box<InterfaceAccount<'info, TokenAccountInterface>>,
 
     #[account(
         mut,
         seeds = [REDEEM_ESCROW_SEED, vault.key().as_ref()],
         bump = vault.redeem_escrow_bump,
     )]
-    pub redeem_escrow: InterfaceAccount<'info, TokenAccountInterface>,
+    pub redeem_escrow: Box<InterfaceAccount<'info, TokenAccountInterface>>,
 
     pub token_2022: Program<'info, Token2022>,
     pub system_program: Program<'info, System>,

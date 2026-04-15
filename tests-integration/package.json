@@ -1,0 +1,11 @@
+{
+  "name": "@foundation/tests-integration",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Cross-chain E2E tests for Foundation vaults (ADR-004 §Testing).",
+  "type": "module",
+  "scripts": {
+    "test": "bun test",
+    "smoke:devnet": "bun run scripts/devnet-smoke.ts"
+  }
+}

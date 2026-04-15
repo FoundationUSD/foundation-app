@@ -51,7 +51,7 @@ pub struct ProcessWithdrawals<'info> {
         has_one = redeem_escrow @ VaultError::AccountMismatch,
         has_one = pending_claims_usdc @ VaultError::AccountMismatch,
     )]
-    pub vault: Account<'info, VaultState>,
+    pub vault: Box<Account<'info, VaultState>>,
 
     #[account(
         mut,
@@ -63,12 +63,12 @@ pub struct ProcessWithdrawals<'info> {
         ],
         bump = redeem_request.bump,
     )]
-    pub redeem_request: Account<'info, RedeemRequest>,
+    pub redeem_request: Box<Account<'info, RedeemRequest>>,
 
-    pub usdc_mint: Account<'info, SplMint>,
+    pub usdc_mint: Box<Account<'info, SplMint>>,
 
     #[account(mut)]
-    pub share_mint: InterfaceAccount<'info, MintInterface>,
+    pub share_mint: Box<InterfaceAccount<'info, MintInterface>>,
 
     /// CHECK: signer-only PDA; seed-validated.
     #[account(
@@ -82,24 +82,24 @@ pub struct ProcessWithdrawals<'info> {
         seeds = [REDEEM_ESCROW_SEED, vault.key().as_ref()],
         bump = vault.redeem_escrow_bump,
     )]
-    pub redeem_escrow: InterfaceAccount<'info, TokenAccountInterface>,
+    pub redeem_escrow: Box<InterfaceAccount<'info, TokenAccountInterface>>,
 
     #[account(
         mut,
         seeds = [BUFFER_USDC_SEED, vault.key().as_ref()],
         bump = vault.buffer_bump,
     )]
-    pub buffer_usdc: Account<'info, SplTokenAccount>,
+    pub buffer_usdc: Box<Account<'info, SplTokenAccount>>,
 
     /// Read-only — needed for invariant I2 (asset backing).
-    pub managed_usdc: Account<'info, SplTokenAccount>,
+    pub managed_usdc: Box<Account<'info, SplTokenAccount>>,
 
     #[account(
         mut,
         seeds = [PENDING_CLAIMS_SEED, vault.key().as_ref()],
         bump = vault.pending_claims_bump,
     )]
-    pub pending_claims_usdc: Account<'info, SplTokenAccount>,
+    pub pending_claims_usdc: Box<Account<'info, SplTokenAccount>>,
 
     pub token_program: Program<'info, Token>,
     pub token_2022: Program<'info, Token2022>,

@@ -62,10 +62,10 @@ pub struct UpdateNav<'info> {
         has_one = buffer_usdc @ VaultError::AccountMismatch,
         has_one = managed_usdc @ VaultError::AccountMismatch,
     )]
-    pub vault: Account<'info, VaultState>,
+    pub vault: Box<Account<'info, VaultState>>,
 
     #[account(mut)]
-    pub share_mint: InterfaceAccount<'info, MintInterface>,
+    pub share_mint: Box<InterfaceAccount<'info, MintInterface>>,
 
     /// CHECK: signer-only PDA; seed-validated.
     #[account(
@@ -79,14 +79,14 @@ pub struct UpdateNav<'info> {
         seeds = [FEE_TREASURY_SEED, vault.key().as_ref()],
         bump = vault.fee_treasury_bump,
     )]
-    pub fee_treasury: InterfaceAccount<'info, TokenAccountInterface>,
+    pub fee_treasury: Box<InterfaceAccount<'info, TokenAccountInterface>>,
 
     /// Invariant I2 (asset backing) input. Read-only.
-    pub buffer_usdc: Account<'info, SplTokenAccount>,
-    pub managed_usdc: Account<'info, SplTokenAccount>,
+    pub buffer_usdc: Box<Account<'info, SplTokenAccount>>,
+    pub managed_usdc: Box<Account<'info, SplTokenAccount>>,
 
     /// CHECK: USDC mint key stored on vault; used for type anchoring invariant reads.
-    pub usdc_mint: Account<'info, SplMint>,
+    pub usdc_mint: Box<Account<'info, SplMint>>,
 
     pub token_2022: Program<'info, Token2022>,
 }
