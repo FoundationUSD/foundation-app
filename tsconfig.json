@@ -30,5 +30,13 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules"]
+  "exclude": [
+    "node_modules",
+    "keepers",
+    "sdk",
+    "programs",
+    "contracts",
+    "tests-integration",
+    "scripts"
+  ]
 }
