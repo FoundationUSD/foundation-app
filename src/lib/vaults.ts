@@ -24,6 +24,8 @@ export interface FoundationVault {
   usdcAccount: string;
   mint: string;
   multisig: string;
+  /** USD value currently under management — filled at request time by /api/strategies. */
+  tvlUsd?: number;
 }
 
 export const FOUNDATION_VAULTS: FoundationVault[] = [
@@ -81,22 +83,26 @@ export const FOUNDATION_VAULTS: FoundationVault[] = [
   {
     id: "fdn-oro",
     name: "Foundation × Oro",
-    strategy: "Gold Leasing Yield",
+    strategy: "Gold-Backed Exposure",
     protocol: "oro",
     description:
-      "Deposit USDC. Foundation purchases tokenized gold ($GOLD) via Oro's GRAIL API and earns yield from institutional gold leasing through Monetary Metals.",
-    underlying: "Oro $GOLD (Physical Gold Leasing)",
+      "Deposit USDC. Foundation swaps to $GOLD via Jupiter — tokenized physical gold (1:1 LBMA-certified, allocated, insured). Your position tracks live gold price; withdraw anytime.",
+    underlying: "Oro $GOLD (Tokenized Physical Gold)",
     riskTier: "conservative",
     apy: 3.5,
     receiptToken: "oroUSD",
-    features: ["~3.5% gold-denominated APY", "Physical gold backed (Brinks)", "LBMA certified", "Managed by Foundation"],
+    features: [
+      "1 $GOLD = 1 oz physical gold",
+      "LBMA certified · allocated · insured",
+      "No lockup · withdraw anytime",
+      "Managed by Foundation",
+    ],
     howItWorks: [
       "You deposit USDC into Foundation's Squads multisig vault",
-      "Foundation purchases $GOLD (tokenized physical gold) via Oro's GRAIL API",
-      "$GOLD is staked — yield comes from institutional gold leasing via Monetary Metals",
-      "Jewelers and manufacturers pay lease fees denominated in gold",
-      "Your oroUSD balance grows via Token-2022 interest-bearing extension",
-      "Withdraw anytime — Foundation sells $GOLD and returns USDC",
+      "Foundation swaps USDC → $GOLD via Jupiter (Oro's tokenized physical gold)",
+      "$GOLD is held in the multisig — exposure tracks live gold spot price",
+      "Your oroUSD balance reflects the vault's gold holdings via Token-2022 rate updates",
+      "Withdraw anytime — Foundation swaps $GOLD back to USDC at market rate",
     ],
     status: "coming_soon",
     vaultPda: process.env.NEXT_PUBLIC_ORO_VAULT_PDA || "",

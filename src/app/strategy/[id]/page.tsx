@@ -15,7 +15,7 @@ import { ArrowLeft, Loader2, Check, ExternalLink, Shield, TrendingUp, BarChart3,
 import Image from "next/image";
 import Link from "next/link";
 import { WalletModal } from "@/components/WalletModal";
-import { formatAPY } from "@/lib/utils";
+import { formatAPY, formatUsdCompact } from "@/lib/utils";
 import { getTxUrl, PROTOCOL_FEE_SOL, VAULT_AUTHORITY_PUBKEY } from "@/lib/constants";
 import type { FoundationVault } from "@/lib/vaults";
 // aw-* styles live in globals.css
@@ -179,7 +179,7 @@ export default function StrategyPage() {
                 <div>
                   <div className="mb-1 text-xs text-[var(--text-accent)]">TVL (USD)</div>
                   <div className="text-xl font-semibold text-[var(--fg)]">
-                    --
+                    {formatUsdCompact(vault.tvlUsd)}
                   </div>
                 </div>
                 <div>

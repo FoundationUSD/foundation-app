@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { useStrategies } from "@/hooks/useStrategies";
 import { WalletModal } from "@/components/WalletModal";
-import { formatAPY } from "@/lib/utils";
+import { formatAPY, formatUsdCompact } from "@/lib/utils";
 import { getTxUrl, PROTOCOL_FEE_SOL, VAULT_AUTHORITY_PUBKEY } from "@/lib/constants";
 import type { FoundationVault } from "@/lib/vaults";
 import { PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL } from "@solana/web3.js";
@@ -50,8 +50,10 @@ export default function HomePage() {
   const [activeFilter, setActiveFilter] = useState<"all" | "foundation" | "partner">("all");
 
   // All vaults are "partner" vaults; Foundation tab = coming soon
-  const availableStrategies =
+  const visibleStrategies =
     activeFilter === "foundation" ? [] : strategies;
+  const activeStrategies = visibleStrategies.filter((v) => v.status === "live");
+  const comingSoonStrategies = visibleStrategies.filter((v) => v.status === "coming_soon");
 
   // Not connected — landing
   if (!wallet.connected) {
@@ -189,14 +191,42 @@ export default function HomePage() {
                 <div key={i} className="skeleton h-64" />
               ))}
             </div>
-          ) : availableStrategies.length === 0 ? (
+          ) : activeStrategies.length === 0 && comingSoonStrategies.length === 0 ? (
             <p className="py-12 text-center font-mono text-sm text-[var(--text-accent)]">No vaults found</p>
           ) : (
-            <div className="stagger-children grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {availableStrategies.map((v) => (
-                <VaultCard key={v.id} vault={v} onSelect={() => setSelectedVault(v)} />
-              ))}
-            </div>
+            <>
+              {activeStrategies.length > 0 && (
+                <section className="mb-10">
+                  <div className="mb-4 flex items-baseline justify-between">
+                    <h2 className="section-label">Active Vaults</h2>
+                    <span className="font-mono text-[10px] text-[var(--text-accent)]">
+                      {activeStrategies.length} live
+                    </span>
+                  </div>
+                  <div className="stagger-children grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    {activeStrategies.map((v) => (
+                      <VaultCard key={v.id} vault={v} onSelect={() => setSelectedVault(v)} />
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              {comingSoonStrategies.length > 0 && (
+                <section>
+                  <div className="mb-4 flex items-baseline justify-between">
+                    <h2 className="section-label">Coming Soon</h2>
+                    <span className="font-mono text-[10px] text-[var(--text-accent)]">
+                      {comingSoonStrategies.length} queued
+                    </span>
+                  </div>
+                  <div className="stagger-children grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    {comingSoonStrategies.map((v) => (
+                      <VaultCard key={v.id} vault={v} onSelect={() => setSelectedVault(v)} />
+                    ))}
+                  </div>
+                </section>
+              )}
+            </>
           )}
         </>
       )}
@@ -210,11 +240,14 @@ export default function HomePage() {
 function VaultCard({ vault, onSelect }: { vault: FoundationVault; onSelect: () => void }) {
   const risk = RISK_CONFIG[vault.riskTier];
   const logo = PROTOCOL_LOGO[vault.protocol];
+  const isLive = vault.status === "live";
 
   return (
     <div
-      onClick={onSelect}
-      className="strategy-card cursor-pointer transition-all hover:-translate-y-0.5 overflow-hidden border border-[var(--rule)] bg-[var(--surface-strong)] rounded-xl divide-y divide-[var(--rule)]"
+      onClick={isLive ? onSelect : undefined}
+      className={`strategy-card overflow-hidden border border-[var(--rule)] bg-[var(--surface-strong)] rounded-xl divide-y divide-[var(--rule)] transition-all ${
+        isLive ? "cursor-pointer hover:-translate-y-0.5" : "cursor-not-allowed opacity-70"
+      }`}
       data-glow
     >
       {/* Header */}
@@ -229,6 +262,11 @@ function VaultCard({ vault, onSelect }: { vault: FoundationVault; onSelect: () =
         <span className="truncate font-mono text-xl font-bold tracking-[-0.02em] text-[var(--fg)]">
           {vault.name}
         </span>
+        {!isLive && (
+          <span className="ml-auto rounded-full border border-[var(--rule)] bg-[var(--surface)] px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider text-gold-500">
+            Soon
+          </span>
+        )}
       </div>
 
       {/* Description */}
@@ -251,7 +289,7 @@ function VaultCard({ vault, onSelect }: { vault: FoundationVault; onSelect: () =
           <div className="flex flex-col items-start px-5 py-4">
             <span className="section-label mb-1.5 font-mono text-[10px] font-semibold tracking-[0.15em] text-[var(--gold)]">TVL</span>
             <span className="font-mono text-[1.4rem] font-bold tracking-wide text-[#334155] dark:text-[var(--fg)]">
-              $12.50M
+              {formatUsdCompact(vault.tvlUsd)}
             </span>
           </div>
         </div>
@@ -276,8 +314,10 @@ function VaultCard({ vault, onSelect }: { vault: FoundationVault; onSelect: () =
       {/* CTA */}
       <div className="flex items-center justify-between px-5 py-4">
         <span className="text-xs font-mono tracking-wide text-[var(--muted)]">USDC</span>
-        <span className="text-xs font-mono font-bold tracking-[0.1em] uppercase text-[#0f172a] dark:text-[var(--fg)] transition-colors">
-          View Details →
+        <span className={`text-xs font-mono font-bold tracking-[0.1em] uppercase transition-colors ${
+          isLive ? "text-[#0f172a] dark:text-[var(--fg)]" : "text-[var(--muted)]"
+        }`}>
+          {isLive ? "View Details →" : "Coming Soon"}
         </span>
       </div>
     </div>

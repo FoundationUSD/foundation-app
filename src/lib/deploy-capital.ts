@@ -40,6 +40,8 @@ function getAuthority(): Keypair {
 
 const USDC_MINT = new PublicKey("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
 const USDV_MINT = new PublicKey("Ex5DaKYMCN6QWFA4n67TmMwsH8MJV68RX6YXTmVM532C");
+// ORO $GOLD — SPL Token, 6 decimals. 1 GOLD ≈ 1 oz physical gold.
+const ORO_GOLD_MINT = new PublicKey("GoLDppdjB1vDTPSGxyMJFqdnj134yH6Prg9eqsGDiw6A");
 
 const KAMINO_API = "https://api.kamino.finance";
 const KAMINO_PRIME_MARKET = "CqAoLuqWtavaVE8deBjMKe8ZfSt9ghR6Vb8nfsyabyHA";
@@ -82,9 +84,7 @@ export async function deployCapital(
       case "solomon":
         return await deployToSolomon(usdcAmount);
       case "oro":
-        // Oro integration not built yet — USDC stays in vault
-        console.warn("Oro deployment not implemented — USDC stays idle in vault");
-        return { success: true, tx: "skipped-oro" };
+        return await deployToOro(usdcAmount);
       case "drift":
         // Drift is coming_soon
         console.warn("Drift deployment not implemented — USDC stays idle in vault");
@@ -113,8 +113,7 @@ export async function withdrawCapital(
       case "solomon":
         return await withdrawFromSolomon(usdcAmount);
       case "oro":
-        console.warn("Oro withdrawal not implemented");
-        return { success: true, tx: "skipped-oro" };
+        return await withdrawFromOro(usdcAmount);
       case "drift":
         console.warn("Drift withdrawal not implemented");
         return { success: true, tx: "skipped-drift" };
@@ -268,6 +267,89 @@ async function withdrawFromSolomon(usdcAmount: number): Promise<{ success: boole
   });
 
   console.log(`Solomon: swapped USDv → USDC, tx: ${swapSig}`);
+  return { success: true, tx: swapSig };
+}
+
+// ============================================================
+// ORO — Jupiter swap USDC ↔ $GOLD (tokenized physical gold)
+// ============================================================
+//
+// v0: "just hold" — swap USDC → GOLD on Jupiter, multisig holds GOLD. Withdraw
+// reverses the swap at the prevailing gold price. No lockup, no on-chain staking.
+//
+// Why not stake: ORO docs (April 2026) state sORO/stGOLD is "not currently issued"
+// and staking requires a 12-month lockup via their off-chain GRAIL API. That
+// conflicts with the "Withdraw anytime" UX every other Foundation vault guarantees.
+// When ORO ships a no-lockup or API-based staking path, add a separate fdn-oro-staked
+// vault tier instead of rewriting this one.
+//
+// User-facing implication: oroUSD tracks GOLD price, not a clean monotonic APY.
+// Upside: gold price appreciation flows through. Downside: gold price drops flow
+// through too (disclose in UI copy).
+
+async function deployToOro(usdcAmount: number): Promise<{ success: boolean; tx?: string; error?: string }> {
+  const vault = getVaultAddresses("oro");
+  // Slippage: 50 bps (same as Solomon). ORO liquidity is ~$3M market cap in Apr 2026
+  // so large deposits may see higher impact — client-side APIs should surface this.
+  const swapSig = await jupiterSwap({
+    vaultName: "oro",
+    vaultPda: vault.vaultPda,
+    inputMint: USDC_MINT,
+    outputMint: ORO_GOLD_MINT,
+    amount: usdcAmount,
+    slippageBps: 50,
+  });
+  console.log(`Oro: swapped ${usdcAmount / 1e6} USDC → $GOLD, tx: ${swapSig}`);
+  return { success: true, tx: swapSig };
+}
+
+async function withdrawFromOro(usdcAmount: number): Promise<{ success: boolean; tx?: string; error?: string }> {
+  const vault = getVaultAddresses("oro");
+  const connection = getConnection();
+
+  // Convert target USDC amount to an estimated GOLD amount to sell, via a live
+  // Jupiter reverse-quote. Then sell exactly that much GOLD back to USDC.
+  // If the vault holds less GOLD than needed, sell everything available — Foundation
+  // will top up the shortfall from reserves or mark as insufficient-liquidity.
+  const vaultGoldAta = getAssociatedTokenAddressSync(ORO_GOLD_MINT, vault.vaultPda, true, TOKEN_PROGRAM_ID);
+  const goldBalRes = await connection.getTokenAccountBalance(vaultGoldAta).catch(() => null);
+  const goldBalance = goldBalRes ? Number(goldBalRes.value.amount) : 0;
+
+  if (goldBalance <= 0) {
+    return { success: false, error: "Vault holds no $GOLD — cannot service withdrawal" };
+  }
+
+  // Reverse-quote: how much GOLD does Jupiter want for `usdcAmount` USDC?
+  const quoteRes = await fetch(
+    `${JUPITER_API}/quote?` +
+    `inputMint=${ORO_GOLD_MINT.toBase58()}` +
+    `&outputMint=${USDC_MINT.toBase58()}` +
+    `&amount=${goldBalance}` + // quote full balance — we'll scale proportionally
+    `&slippageBps=50`,
+  );
+  if (!quoteRes.ok) throw new Error(`Jupiter quote failed ${quoteRes.status}`);
+  const quote = await quoteRes.json();
+  const usdcPerFullGold = Number(quote.outAmount);
+
+  if (usdcPerFullGold <= 0) {
+    throw new Error("Jupiter returned zero USDC output — no liquidity");
+  }
+
+  // goldToSell = goldBalance * (usdcAmount / usdcPerFullGold), clamped to goldBalance
+  const goldToSell = Math.min(
+    Math.ceil((goldBalance * usdcAmount) / usdcPerFullGold),
+    goldBalance,
+  );
+
+  const swapSig = await jupiterSwap({
+    vaultName: "oro",
+    vaultPda: vault.vaultPda,
+    inputMint: ORO_GOLD_MINT,
+    outputMint: USDC_MINT,
+    amount: goldToSell,
+    slippageBps: 50,
+  });
+  console.log(`Oro: swapped ${goldToSell / 1e6} $GOLD → USDC, tx: ${swapSig}`);
   return { success: true, tx: swapSig };
 }
 

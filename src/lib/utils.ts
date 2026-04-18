@@ -17,6 +17,13 @@ export function formatUSDCCompact(lamports: number): string {
   return `$${val.toFixed(2)}`;
 }
 
+export function formatUsdCompact(val: number | undefined | null): string {
+  if (val == null || !Number.isFinite(val) || val <= 0) return "--";
+  if (val >= 1_000_000) return `$${(val / 1_000_000).toFixed(2)}M`;
+  if (val >= 1_000) return `$${(val / 1_000).toFixed(1)}K`;
+  return `$${val.toFixed(2)}`;
+}
+
 export function formatAPY(apy: number | string): string {
   const num = Number(apy);
   if (isNaN(num) || num <= 0) return "--";
