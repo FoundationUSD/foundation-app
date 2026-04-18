@@ -16,3 +16,30 @@ coverage
 .prettierrc
 .prettierignore
 eslint.config.mjs
+
+# Heavy, non-Next workspaces (not needed for the webapp build)
+programs/
+contracts/
+scripts/
+# Note: sdk/, keepers/, and tests-integration/ are declared as bun workspaces
+# in package.json, so they must be present for `bun install` to resolve.
+# Their source is small; target/ and .anchor/ artifacts are excluded below.
+
+# Rust / Anchor build artifacts anywhere
+target/
+**/target/
+**/.anchor/
+**/*.rs.bk
+
+# Bun / Node caches
+.turbo
+.cache
+tsconfig.tsbuildinfo
+*.log
+
+# Misc
+Dockerfile
+docker-compose.yml
+fly.toml
+kdo.toml
+TODO.md
