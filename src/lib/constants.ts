@@ -57,6 +57,13 @@ export const VAULT_AUTHORITY_PUBKEY = process.env.NEXT_PUBLIC_VAULT_AUTHORITY ||
 export const SOLOMON_USDV_MINT = address("Ex5DaKYMCN6QWFA4n67TmMwsH8MJV68RX6YXTmVM532C");
 export const SOLOMON_SUSDV_MINT = address("pTA4St7D5WshfLUPBXoaxn5m8e3k2ort2DVt3gUTa17");
 
+// ORO — tokenized physical gold (1 $GOLD = 1 oz LBMA-certified, allocated, insured).
+// Mint verified on-chain 2026-04-15. SPL Token (legacy), 6 decimals, ~608 supply.
+// Tradeable on Jupiter/Meteora with no KYC.
+// Docs: https://orogold-1.gitbook.io/oro
+export const ORO_GOLD_MINT = address("GoLDppdjB1vDTPSGxyMJFqdnj134yH6Prg9eqsGDiw6A");
+export const ORO_GOLD_DECIMALS = 6;
+
 // Explorer — orbmarkets.io
 export const EXPLORER_URL = "https://orbmarkets.io";
 
