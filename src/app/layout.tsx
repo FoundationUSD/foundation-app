@@ -29,7 +29,7 @@ export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "https://fdnusd.com"),
   title: "Foundation — Managed RWA Yield on Solana",
   description:
-    "Deposit USDC into managed RWA vaults. Earn yield from Solomon basis trades, Kamino PRIME lending, and Drift levered credit. All on Solana via Squads multisig.",
+    "Deposit USDC into managed RWA vaults. Earn yield from Solomon basis trades, Kamino PRIME lending, and Oro tokenized gold. All on Solana via Squads multisig.",
   icons: {
     icon: "/favicon.png",
     apple: "/favicon.png",
@@ -37,7 +37,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Foundation — Managed RWA Yield on Solana",
     description:
-      "Deposit USDC into managed RWA vaults. Solomon, Kamino, Drift strategies on Solana.",
+      "Deposit USDC into managed RWA vaults. Solomon, Kamino, Oro strategies on Solana.",
     type: "website",
     siteName: "Foundation",
   },
@@ -45,7 +45,7 @@ export const metadata: Metadata = {
     card: "summary",
     title: "Foundation — Managed RWA Yield on Solana",
     description:
-      "Deposit USDC into managed RWA vaults. Solomon, Kamino, Drift strategies on Solana.",
+      "Deposit USDC into managed RWA vaults. Solomon, Kamino, Oro strategies on Solana.",
   },
 };
 

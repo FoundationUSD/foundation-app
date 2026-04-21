@@ -25,7 +25,6 @@ const USDC_MINT_PK = new PublicKey("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v
 const PROTOCOL_LOGO: Record<string, string> = {
   solomon: "/partners/solomon-circle.png",
   kamino: "/partners/kamino.png",
-  drift: "/partners/drift.png",
   oro: "/partners/oro.png",
 };
 
@@ -247,7 +246,7 @@ export default function StrategyPage() {
                           <div>
                             <div className="mb-0.5 flex items-center gap-1.5">
                               <span className="text-xs font-semibold text-[var(--fg)]">
-                                Managed by {vault.protocol === "solomon" ? "Solomon" : vault.protocol === "kamino" ? "Kamino" : vault.protocol === "drift" ? "Drift" : vault.protocol === "oro" ? "Oro" : "Foundation"}
+                                Managed by {vault.protocol === "solomon" ? "Solomon" : vault.protocol === "kamino" ? "Kamino" : vault.protocol === "oro" ? "Oro" : "Foundation"}
                               </span>
                             </div>
                             <div className="text-[9px] text-[var(--text-accent)]">Vault Manager / Curator</div>

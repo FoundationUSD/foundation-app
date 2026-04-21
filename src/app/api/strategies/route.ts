@@ -53,33 +53,6 @@ async function fetchKaminoApy(): Promise<number> {
   }
 }
 
-async function fetchDriftApy(): Promise<number> {
-  try {
-    const res = await fetch("https://app.drift.trade/api/vaults", {
-      next: { revalidate: 300 },
-      headers: {
-        "User-Agent": "Mozilla/5.0 (compatible; FoundationApp/1.0)",
-        Accept: "application/json",
-      },
-    });
-    if (!res.ok) return 0;
-    const data = await res.json();
-    const rwaAddresses = [
-      "G3RT2wdEYCphzcvXEHb8u4Yc4ZRscsQ1KRYywdBjgUZp",
-      "5otPTvEkpk9CQGqnSfgo7QSYXYPAyf76sUgzVzhvNSQk",
-    ];
-    for (const addr of rwaAddresses) {
-      const v = data[addr];
-      if (v?.apys?.["30d"] && v.apys["30d"] > 0 && v.apys["30d"] < 100) {
-        return v.apys["30d"];
-      }
-    }
-    return 0;
-  } catch {
-    return 0;
-  }
-}
-
 /**
  * Gold price from ORO's authoritative tradebook (source of truth for their pricing).
  * Returns USD per oz. Falls back to 0 on failure; callers decide how to degrade.
@@ -101,9 +74,8 @@ async function fetchOroGoldPrice(): Promise<number> {
 
 export async function GET() {
   try {
-    const [kaminoApy, driftApy, oroGoldPrice, oroData, tvlMap] = await Promise.all([
+    const [kaminoApy, oroGoldPrice, oroData, tvlMap] = await Promise.all([
       fetchKaminoApy(),
-      fetchDriftApy(),
       fetchOroGoldPrice(),
       getOroData(),
       fetchVaultTvlMap(),
@@ -112,7 +84,6 @@ export async function GET() {
     const vaults = FOUNDATION_VAULTS.map((v) => {
       const tvlUsd = tvlMap[v.id] ?? 0;
       if (v.protocol === "kamino" && kaminoApy > 0) return { ...v, apy: kaminoApy, tvlUsd };
-      if (v.protocol === "drift" && driftApy > 0) return { ...v, apy: driftApy, tvlUsd };
       if (v.protocol === "oro") {
         // Prefer ORO's authoritative API; fall back to Jupiter-derived price.
         const spot = oroGoldPrice || oroData.pricePerGoldUsd;

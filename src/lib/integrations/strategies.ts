@@ -10,7 +10,7 @@ export interface RWAStrategy {
   name: string;
   underlying: string;
   description: string;
-  protocol: "kamino" | "drift" | "solomon";
+  protocol: "kamino" | "solomon";
   riskTier: "conservative" | "moderate" | "growth";
   depositAsset: string;
   apy: number;
@@ -20,19 +20,6 @@ export interface RWAStrategy {
   // Protocol-specific config for deposit routing
   config: Record<string, string>;
 }
-
-// Known RWA vault addresses on Drift (Gauntlet levered strategies)
-const DRIFT_RWA_VAULTS: Record<string, { name: string; underlying: string }> = {
-  // Gauntlet levered sACRED vaults
-  G3RT2wdEYCphzcvXEHb8u4Yc4ZRscsQ1KRYywdBjgUZp: {
-    name: "Gauntlet sACRED Leverage",
-    underlying: "Apollo Diversified Credit (ACRED)",
-  },
-  "5otPTvEkpk9CQGqnSfgo7QSYXYPAyf76sUgzVzhvNSQk": {
-    name: "Gauntlet RWA Yield",
-    underlying: "Apollo Credit + USDC Lending",
-  },
-};
 
 /**
  * Fetch Kamino PRIME market USDC supply APY
@@ -60,40 +47,10 @@ async function fetchKaminoPrimeApy(): Promise<{ apy: number; tvl: number }> {
 }
 
 /**
- * Fetch Drift RWA vault APYs
- */
-async function fetchDriftRwaApys(): Promise<Record<string, { apy30d: number }>> {
-  try {
-    const res = await fetch("https://app.drift.trade/api/vaults", {
-      next: { revalidate: 300 },
-      headers: {
-        "User-Agent": "Mozilla/5.0 (compatible; FoundationApp/1.0)",
-        Accept: "application/json",
-      },
-    });
-    if (!res.ok) return {};
-    const data = await res.json();
-
-    const result: Record<string, { apy30d: number }> = {};
-    for (const addr of Object.keys(DRIFT_RWA_VAULTS)) {
-      if (data[addr]?.apys?.["30d"]) {
-        result[addr] = { apy30d: data[addr].apys["30d"] };
-      }
-    }
-    return result;
-  } catch {
-    return {};
-  }
-}
-
-/**
  * Get all curated RWA strategies with live data
  */
 export async function getStrategies(): Promise<RWAStrategy[]> {
-  const [kaminoPrime, driftApys] = await Promise.all([
-    fetchKaminoPrimeApy(),
-    fetchDriftRwaApys(),
-  ]);
+  const kaminoPrime = await fetchKaminoPrimeApy();
 
   const strategies: RWAStrategy[] = [];
 
@@ -137,28 +94,6 @@ export async function getStrategies(): Promise<RWAStrategy[]> {
       susdvMint: "pTA4St7D5WshfLUPBXoaxn5m8e3k2ort2DVt3gUTa17",
     },
   });
-
-  // 3. Drift RWA vaults (Gauntlet levered)
-  for (const [addr, meta] of Object.entries(DRIFT_RWA_VAULTS)) {
-    const apyData = driftApys[addr];
-    if (!apyData || apyData.apy30d <= 0) continue;
-
-    strategies.push({
-      id: `drift-${addr.slice(0, 8)}`,
-      name: meta.name,
-      underlying: meta.underlying,
-      description:
-        "Levered RWA strategy by Gauntlet — deposit USDC, vault manager loops sACRED collateral for enhanced yield. 2-step withdrawal with redemption period.",
-      protocol: "drift",
-      riskTier: "growth",
-      depositAsset: "USDC",
-      apy: apyData.apy30d,
-      tvl: 0,
-      minDeposit: 50,
-      features: ["Gauntlet managed", "Levered RWA", "Redemption period"],
-      config: { vault: addr },
-    });
-  }
 
   return strategies.sort((a, b) => b.apy - a.apy);
 }

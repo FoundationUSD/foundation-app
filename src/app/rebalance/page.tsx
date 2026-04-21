@@ -21,7 +21,6 @@ const USDC_MINT_PK = new PublicKey("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v
 const VAULT_ICONS: Record<string, string> = {
   solomon: "/partners/solomon-circle.png",
   kamino: "/partners/kamino.png",
-  drift: "/partners/drift.png",
   oro: "/partners/oro.png",
 };
 
