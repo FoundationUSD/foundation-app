@@ -85,10 +85,6 @@ export async function deployCapital(
         return await deployToSolomon(usdcAmount);
       case "oro":
         return await deployToOro(usdcAmount);
-      case "drift":
-        // Drift is coming_soon
-        console.warn("Drift deployment not implemented — USDC stays idle in vault");
-        return { success: true, tx: "skipped-drift" };
       default:
         return { success: false, error: `Unknown vault: ${vaultName}` };
     }
@@ -114,9 +110,6 @@ export async function withdrawCapital(
         return await withdrawFromSolomon(usdcAmount);
       case "oro":
         return await withdrawFromOro(usdcAmount);
-      case "drift":
-        console.warn("Drift withdrawal not implemented");
-        return { success: true, tx: "skipped-drift" };
       default:
         return { success: false, error: `Unknown vault: ${vaultName}` };
     }

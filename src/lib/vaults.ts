@@ -1,17 +1,16 @@
 /**
- * Foundation Managed Vaults — 4 Squads multisigs, 4 receipt tokens.
+ * Foundation Managed Vaults — 3 Squads multisigs, 3 receipt tokens.
  *
  * Solomon:  LIVE — soloUSD
  * Kamino:   LIVE — kmnoUSD
  * Oro:      LIVE — oroUSD
- * Drift:    Coming Soon — driftUSD
  */
 
 export interface FoundationVault {
   id: string;
   name: string;
   strategy: string;
-  protocol: "solomon" | "kamino" | "drift" | "oro";
+  protocol: "solomon" | "kamino" | "oro";
   description: string;
   underlying: string;
   riskTier: "conservative" | "moderate" | "growth";
@@ -109,30 +108,5 @@ export const FOUNDATION_VAULTS: FoundationVault[] = [
     usdcAccount: process.env.NEXT_PUBLIC_ORO_USDC_ATA || "",
     mint: process.env.NEXT_PUBLIC_ORO_MINT || "",
     multisig: process.env.VAULT_ORO_MULTISIG || "",
-  },
-  {
-    id: "fdn-drift",
-    name: "Foundation × Drift",
-    strategy: "Levered RWA Yield",
-    protocol: "drift",
-    description:
-      "Deposit USDC. Foundation deposits into Gauntlet's levered RWA vault on Drift — loops sACRED (Apollo credit) collateral for enhanced yield.",
-    underlying: "Drift/Gauntlet sACRED (Apollo Credit)",
-    riskTier: "growth",
-    apy: 0,
-    receiptToken: "driftUSD",
-    features: ["Gauntlet managed", "Levered RWA strategy", "Redemption period", "Managed by Foundation"],
-    howItWorks: [
-      "You deposit USDC into Foundation's Squads multisig vault",
-      "Foundation deposits USDC into Gauntlet's levered RWA vault on Drift",
-      "Vault manager loops sACRED collateral to amplify yield",
-      "Your driftUSD balance grows via Token-2022 interest-bearing extension",
-      "Withdraw anytime — Foundation requests Drift withdrawal (redemption period applies)",
-    ],
-    status: "coming_soon",
-    vaultPda: process.env.NEXT_PUBLIC_DRIFT_VAULT_PDA || "",
-    usdcAccount: process.env.NEXT_PUBLIC_DRIFT_USDC_ATA || "",
-    mint: process.env.NEXT_PUBLIC_DRIFT_MINT || "",
-    multisig: process.env.VAULT_DRIFT_MULTISIG || "",
   },
 ];
