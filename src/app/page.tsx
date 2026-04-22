@@ -79,6 +79,15 @@ export default function HomePage() {
           </button>
         </div>
 
+        {/* Flagship — All-Weather Yield */}
+        <div className="mb-14 sm:mb-20">
+          <div className="mb-4 flex items-baseline justify-between">
+            <h2 className="section-label">Flagship Strategy</h2>
+            <span className="font-mono text-[9px] uppercase tracking-[0.25em] text-gold-500">Coming Soon</span>
+          </div>
+          <AwyHighlight />
+        </div>
+
         {/* How It Works */}
         <div className="mb-14 sm:mb-20">
           <h2 className="section-label mb-6 sm:mb-10">How It Works</h2>
@@ -143,6 +152,15 @@ export default function HomePage() {
         <VaultDetail vault={selectedVault} onBack={() => setSelectedVault(null)} />
       ) : (
         <>
+          {/* Flagship — All-Weather Yield */}
+          <section className="mb-10">
+            <div className="mb-4 flex items-baseline justify-between">
+              <h2 className="section-label">Flagship Strategy</h2>
+              <span className="font-mono text-[9px] uppercase tracking-[0.25em] text-gold-500">Coming Soon</span>
+            </div>
+            <AwyHighlight />
+          </section>
+
           {/* Source Filter — glass pill container */}
           <div className="mb-8 inline-flex items-center gap-1 rounded-xl border border-[var(--rule)] bg-[var(--surface-strong)] p-1 shadow-[inset_0_1px_3px_rgba(0,0,0,0.02)]">
             {(["all", "foundation", "partner"] as const).map((filter) => (
@@ -629,6 +647,90 @@ function TxSuccess({ sig, label, sub, onReset }: { sig: string; label: string; s
 
         Continue
       </button>
+    </div>
+  );
+}
+
+/* ============================================================
+   All-Weather Yield — flagship highlight (coming soon)
+   ============================================================ */
+const AWY_LEGS: Array<{ pct: string; asset: string; source: string; apy: string }> = [
+  { pct: "35%", asset: "ONyc",       source: "Reinsurance premiums",        apy: "11.0%" },
+  { pct: "30%", asset: "PRIME",      source: "Tokenized HELOCs",            apy: "7.5%"  },
+  { pct: "25%", asset: "syrupUSDC",  source: "Overcollateralized lending",  apy: "6.5%"  },
+  { pct: "10%", asset: "USDY",       source: "Short-term US Treasuries",    apy: "3.7%"  },
+];
+
+function AwyHighlight() {
+  return (
+    <div className="infra-card p-6 sm:p-8">
+      {/* Header */}
+      <div className="mb-6 flex flex-col gap-5 border-b border-[var(--rule)] pb-6 sm:flex-row sm:items-start sm:justify-between sm:gap-8">
+        <div className="max-w-xl">
+          <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.2em] text-gold-500">
+            All-Weather Yield · AWY
+          </p>
+          <h3 className="page-heading mb-3 text-xl sm:text-[1.75rem]">
+            Four yield engines. <em>One deposit.</em>
+          </h3>
+          <p className="text-[13px] leading-relaxed text-[var(--text-accent)] sm:text-sm">
+            A blended RWA basket engineered so no single macro regime — rate cycle,
+            crypto drawdown, credit event, or catastrophe — compresses every leg at once.
+          </p>
+        </div>
+        <div className="flex shrink-0 flex-row gap-8 sm:flex-col sm:items-end sm:gap-1 sm:text-right">
+          <div>
+            <p className="mb-1 font-mono text-[9px] uppercase tracking-[0.2em] text-gold-500">
+              Blended Base APY
+            </p>
+            <span className="font-mono text-3xl font-bold tracking-[-0.03em] text-emerald-500 sm:text-[2.5rem]">
+              ~8.1%
+            </span>
+          </div>
+          <div className="sm:mt-2">
+            <span className="rounded-full border border-[var(--rule)] bg-[var(--surface)] px-2.5 py-1 font-mono text-[9px] uppercase tracking-[0.2em] text-gold-500">
+              Coming Soon
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Composition */}
+      <div className="grid grid-cols-1 divide-y divide-[var(--rule)] sm:grid-cols-2 sm:divide-y-0 md:grid-cols-4 md:divide-x">
+        {AWY_LEGS.map((leg, i) => (
+          <div
+            key={leg.asset}
+            className={`px-0 py-4 sm:px-5 ${i === 1 ? "sm:border-l sm:border-[var(--rule)] md:border-0" : ""} ${
+              i >= 2 ? "sm:border-t sm:border-[var(--rule)] md:border-0" : ""
+            }`}
+          >
+            <div className="mb-2 flex items-baseline justify-between">
+              <span className="font-mono text-sm font-bold tracking-tight text-[var(--fg)]">
+                {leg.asset}
+              </span>
+              <span className="font-mono text-[10px] tracking-wider text-gold-500">
+                {leg.pct}
+              </span>
+            </div>
+            <p className="mb-2 text-[11px] leading-snug text-[var(--text-accent)]">
+              {leg.source}
+            </p>
+            <span className="font-mono text-[11px] font-medium text-emerald-500">
+              {leg.apy} base
+            </span>
+          </div>
+        ))}
+      </div>
+
+      {/* Footer */}
+      <div className="mt-6 flex flex-col gap-3 border-t border-[var(--rule)] pt-5 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-[11px] leading-relaxed text-[var(--text-accent)]">
+          Four independent drivers · actuarial events · US rate cycle · crypto borrowing demand · Fed funds
+        </p>
+        <span className="font-mono text-[9px] uppercase tracking-[0.25em] text-[var(--text-accent)]">
+          Quarterly rebalance · No leverage · Base rates only
+        </span>
+      </div>
     </div>
   );
 }
