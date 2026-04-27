@@ -104,3 +104,57 @@ pub struct InvariantViolation {
     pub invariant: u8, // 1=Supply, 2=AssetBacking, 3=SharePrice
     pub timestamp: i64,
 }
+
+// ── AWY basket events ─────────────────────────────────────────────────────────
+
+#[event]
+pub struct BasketEnabled {
+    pub vault: Pubkey,
+    pub underlyings: [Pubkey; 4],
+    pub weights_bps: [u16; 4],
+    pub rebalance_interval_seconds: i64,
+    pub max_slippage_bps: u16,
+    pub timestamp: i64,
+}
+
+#[event]
+pub struct BasketDeposited {
+    pub vault: Pubkey,
+    pub user: Pubkey,
+    pub usdc_in: u64,
+    pub shares_out: u64,
+    pub per_leg_delta: [u64; 4],
+    pub nav_per_share: u64,
+    pub timestamp: i64,
+}
+
+#[event]
+pub struct BasketRedeemed {
+    pub vault: Pubkey,
+    pub user: Pubkey,
+    pub shares_in: u64,
+    pub usdc_out: u64,
+    pub per_leg_delta: [u64; 4],
+    pub nav_per_share: u64,
+    pub timestamp: i64,
+}
+
+#[event]
+pub struct Rebalanced {
+    pub vault: Pubkey,
+    pub old_weights_bps: [u16; 4],
+    pub new_weights_bps: [u16; 4],
+    pub per_leg_swap_in: [u64; 4],
+    pub per_leg_swap_out: [u64; 4],
+    pub timestamp: i64,
+}
+
+#[event]
+pub struct BasketNavUpdated {
+    pub vault: Pubkey,
+    pub old_nav: u64,
+    pub new_nav: u64,
+    pub nav_twap: u64,
+    pub per_leg_nav: [u64; 4],
+    pub timestamp: i64,
+}

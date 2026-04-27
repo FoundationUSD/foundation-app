@@ -186,6 +186,18 @@ pub fn handler(ctx: Context<Initialize>, params: InitializeParams) -> Result<()>
 
     vault.next_request_id = 0;
 
+    // AWY basket fields — disabled by default. Enabled via `enable_basket` ix
+    // which validates weights, mints the 4 leg-token accounts, and seeds per-leg NAVs.
+    vault.basket_enabled = false;
+    vault.basket_underlyings = [Pubkey::default(); 4];
+    vault.basket_weights_bps = [0u16; 4];
+    vault.basket_nav_per_leg = [0u64; 4];
+    vault.basket_twap_per_leg = [0u64; 4];
+    vault.basket_last_nav_update_per_leg = [0i64; 4];
+    vault.last_rebalance = 0;
+    vault.rebalance_interval_seconds = 0;
+    vault.max_slippage_bps = 0;
+
     emit!(VaultInitialized {
         vault: vault_key,
         asset_symbol: vault.asset_symbol,
