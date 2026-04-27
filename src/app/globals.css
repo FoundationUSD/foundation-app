@@ -1835,6 +1835,158 @@ html:not(.light) .theme-toggle-btn:hover {
 }
 
 /* ============================================================
+   ANCIENT GREEK ART TREATMENT SYSTEM
+   Reusable wrappers for layering classical art assets behind UI surfaces.
+   Every art layer goes through the same recipe so the whole app reads as
+   one design system: blur, gradient mask for typography legibility, and a
+   noise overlay that kills the AI-image sheen.
+   ============================================================ */
+
+/* Base layer: positions an image behind content with cover sizing. */
+.art-layer {
+  position: absolute;
+  inset: 0;
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Hero treatment: dramatic, full-bleed, content lives on top with full
+   typographic priority. Typography mask diagonal so the upper-left has
+   a clear "stage" and the art breathes on the right. */
+.art-hero {
+  filter: brightness(0.55) contrast(1.05) saturate(0.65) blur(0.5px);
+}
+.art-hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    rgba(8, 12, 24, 0.92) 0%,
+    rgba(8, 12, 24, 0.65) 45%,
+    rgba(8, 12, 24, 0.35) 75%,
+    rgba(8, 12, 24, 0.15) 100%
+  );
+  pointer-events: none;
+}
+html.light .art-hero {
+  filter: brightness(0.85) contrast(1.02) saturate(0.55) blur(0.5px);
+}
+html.light .art-hero::after {
+  background: linear-gradient(
+    105deg,
+    rgba(248, 246, 240, 0.95) 0%,
+    rgba(248, 246, 240, 0.7) 50%,
+    rgba(248, 246, 240, 0.35) 80%,
+    rgba(248, 246, 240, 0.1) 100%
+  );
+}
+
+/* Card thumbnail treatment: subdued, lets the data dominate the card.
+   Used on small art crops at the top of vault cards. */
+.art-thumb {
+  filter: brightness(0.5) contrast(1.05) saturate(0.6) blur(1px);
+  mix-blend-mode: luminosity;
+}
+.art-thumb::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(8, 12, 24, 0.55) 0%,
+    rgba(8, 12, 24, 0.85) 100%
+  );
+  pointer-events: none;
+}
+html.light .art-thumb {
+  filter: brightness(0.92) contrast(1) saturate(0.5) blur(1px);
+  mix-blend-mode: multiply;
+  opacity: 0.6;
+}
+html.light .art-thumb::after {
+  background: linear-gradient(
+    180deg,
+    rgba(248, 246, 240, 0.55) 0%,
+    rgba(248, 246, 240, 0.9) 100%
+  );
+}
+
+/* Strip treatment: ultra-subtle horizontal band, used as section dividers
+   and behind page headers. Heavy blur and low opacity so it reads as
+   atmosphere rather than a feature. */
+.art-strip {
+  filter: blur(3px) brightness(0.6) contrast(1.05) saturate(0.4);
+  opacity: 0.35;
+  mask-image: linear-gradient(90deg, transparent 0%, black 15%, black 85%, transparent 100%);
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, black 15%, black 85%, transparent 100%);
+}
+html.light .art-strip {
+  filter: blur(3px) brightness(1.02) contrast(0.95) saturate(0.4);
+  opacity: 0.18;
+}
+
+/* Pattern fill: very subtle, used as repeating background on modal
+   backdrops and section-fillers. Apply via background-image directly. */
+.art-pattern {
+  filter: brightness(0.4) contrast(0.95) saturate(0.5);
+  opacity: 0.12;
+  mix-blend-mode: overlay;
+}
+html.light .art-pattern {
+  filter: brightness(1.05) contrast(0.95) saturate(0.4);
+  opacity: 0.08;
+  mix-blend-mode: multiply;
+}
+
+/* Noise overlay: the most important polish step. Drops on top of every
+   art layer to break up the smooth AI-generated gradient and give every
+   asset that physical-print feel. Inline SVG so no external request. */
+.art-noise {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch' seed='3'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.55 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  background-size: 180px 180px;
+  opacity: 0.22;
+  mix-blend-mode: overlay;
+  z-index: 1;
+}
+html.light .art-noise {
+  opacity: 0.12;
+  mix-blend-mode: multiply;
+}
+
+/* Antique gold hairline border: pairs with art layers for a "framed plate"
+   feel without the heavy borders of a typical card. */
+.art-frame {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+.art-frame::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 1px solid rgba(212, 175, 55, 0.18);
+  pointer-events: none;
+  z-index: 2;
+  border-radius: inherit;
+}
+html.light .art-frame::before {
+  border-color: rgba(170, 130, 40, 0.22);
+}
+
+/* Content layer: lifts above all art treatments. */
+.art-content {
+  position: relative;
+  z-index: 2;
+}
+
+/* ============================================================
    RESPONSIVE — header
    ============================================================ */
 @media (max-width: 1100px) {
