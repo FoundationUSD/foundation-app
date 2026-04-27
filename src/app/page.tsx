@@ -72,8 +72,9 @@ export default function HomePage() {
             <em>on Solana</em>
           </h1>
           <p className="mx-auto mb-8 max-w-lg text-sm leading-relaxed text-[var(--text-accent)] sm:mb-10 sm:text-[15px]">
-            Deposit USDC. Foundation deploys it into institutional credit strategies.
-            All managed via Squads multisig. Withdraw anytime.
+            Deposit USDC and Foundation routes it into curated real-world asset
+            strategies on Solana. Custody runs through Squads multisig. Withdrawals
+            are open at any time.
           </p>
           <button onClick={() => setWalletModalOpen(true)} className="btn-primary inline-flex items-center gap-2">
             Connect Wallet <ArrowRight className="h-3.5 w-3.5" />
@@ -133,7 +134,9 @@ export default function HomePage() {
           </h1>
           {!selectedVault && (
             <p className="mt-1 max-w-xl text-sm text-[var(--text-accent)]">
-              Institutional-grade yield vaults. Deposit USDC to access diversified real-world asset strategies on chain.
+              Institutional-grade yield vaults. Deposit USDC to access curated
+              real-world asset strategies, custodied on chain through Squads
+              multisig.
             </p>
           )}
         </div>
@@ -726,8 +729,9 @@ function AwyHighlight({ onSelect }: { onSelect?: () => void }) {
             Four yield engines. <em>One deposit.</em>
           </h3>
           <p className="text-[13px] leading-relaxed text-[var(--text-accent)] sm:text-sm">
-            A blended RWA basket engineered so no single macro regime — rate cycle,
-            crypto drawdown, credit event, or catastrophe — compresses every leg at once.
+            A blended real-world asset basket built so that no single macro regime
+            compresses every leg at once. Rate cycles, crypto drawdowns, credit
+            events, and catastrophe seasons each pressure a different driver.
           </p>
         </div>
         <div className="flex shrink-0 flex-row gap-8 sm:flex-col sm:items-end sm:gap-1 sm:text-right">
@@ -736,7 +740,7 @@ function AwyHighlight({ onSelect }: { onSelect?: () => void }) {
               Blended Base APY
             </p>
             <span className="font-mono text-3xl font-bold tracking-[-0.03em] text-emerald-500 sm:text-[2.5rem]">
-              {blendedApy != null ? `~${blendedApy.toFixed(2)}%` : "—"}
+              {blendedApy != null ? `~${blendedApy.toFixed(2)}%` : "…"}
             </span>
           </div>
           <div className="sm:mt-2">
@@ -777,7 +781,7 @@ function AwyHighlight({ onSelect }: { onSelect?: () => void }) {
       {/* Footer */}
       <div className="mt-6 flex flex-col gap-3 border-t border-[var(--rule)] pt-5 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-[11px] leading-relaxed text-[var(--text-accent)]">
-          Four independent drivers · actuarial events · US rate cycle · crypto borrowing demand · Fed funds
+          Four independent risk drivers: actuarial events, US rate cycle, crypto borrowing demand, and Fed funds.
         </p>
         <span className="inline-flex items-center gap-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--navy)] transition-colors group-hover:text-emerald-600">
           Deposit <ArrowUpRight className="h-3 w-3" />

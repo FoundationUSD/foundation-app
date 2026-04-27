@@ -6,12 +6,13 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { IconWalletMoney, IconCoin, IconNetwork, IconSafe } from "@/components/Icons";
+import { IconWalletMoney, IconCoin, IconNetwork, IconSafe, IconAmplify } from "@/components/Icons";
 import { WalletButton } from "@/components/WalletButton";
 
 const NAV_TABS = [
   { key: "portfolio", label: "Portfolio", Icon: IconWalletMoney, path: "/portfolio" },
   { key: "invest", label: "Invest", Icon: IconCoin, path: "/" },
+  { key: "amplify", label: "Amplify", Icon: IconAmplify, path: "/amplify" },
   { key: "rebalance", label: "Rebalance", Icon: IconNetwork, path: "/rebalance" },
   { key: "transparency", label: "Transparency", Icon: IconSafe, path: "/transparency" },
 ];
@@ -73,6 +74,7 @@ export function Navbar() {
               const isActive =
                 (tab.key === "portfolio" && pathname === "/portfolio") ||
                 (tab.key === "invest" && (pathname === "/" || pathname.startsWith("/strategy"))) ||
+                (tab.key === "amplify" && pathname.startsWith("/amplify")) ||
                 (tab.key === "rebalance" && pathname === "/rebalance") ||
                 (tab.key === "transparency" && pathname === "/transparency");
               return (

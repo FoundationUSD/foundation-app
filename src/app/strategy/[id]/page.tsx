@@ -428,7 +428,7 @@ export default function StrategyPage() {
                         <TrendingUp className="h-4 w-4 shrink-0 text-emerald-500 mt-0.5" />
                         <div>
                           <div className="text-xs font-medium text-[var(--fg)]">Token-2022 Receipt Tokens</div>
-                          <div className="text-xs text-[var(--text-accent)]">Deposits receive {vault.receiptToken} — a transfer-restricted SPL token</div>
+                          <div className="text-xs text-[var(--text-accent)]">Deposits receive {vault.receiptToken}, a transfer-restricted SPL token</div>
                         </div>
                       </div>
                       <div className="flex items-start gap-3">

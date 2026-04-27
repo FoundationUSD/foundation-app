@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, Cormorant_Garamond, DM_Mono } from "next/font/google";
+import Script from "next/script";
 import { WalletProvider } from "@/components/WalletProvider";
 import { Navbar } from "@/components/Navbar";
 import { NoiseBackground } from "@/components/NoiseBackground";
@@ -27,7 +28,7 @@ const dmMono = DM_Mono({
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "https://fdnusd.com"),
-  title: "Foundation — Managed RWA Yield on Solana",
+  title: "Foundation: Managed RWA Yield on Solana",
   description:
     "Deposit USDC into managed RWA vaults. Earn yield from Solomon basis trades, Kamino PRIME lending, and Oro tokenized gold. All on Solana via Squads multisig.",
   icons: {
@@ -35,7 +36,7 @@ export const metadata: Metadata = {
     apple: "/favicon.png",
   },
   openGraph: {
-    title: "Foundation — Managed RWA Yield on Solana",
+    title: "Foundation: Managed RWA Yield on Solana",
     description:
       "Deposit USDC into managed RWA vaults. Solomon, Kamino, Oro strategies on Solana.",
     type: "website",
@@ -43,7 +44,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary",
-    title: "Foundation — Managed RWA Yield on Solana",
+    title: "Foundation: Managed RWA Yield on Solana",
     description:
       "Deposit USDC into managed RWA vaults. Solomon, Kamino, Oro strategies on Solana.",
   },
@@ -56,16 +57,18 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${inter.variable} ${cormorant.variable} ${dmMono.variable}`} suppressHydrationWarning>
-      <head>
-        {/* Prevent flash: apply saved theme before paint */}
-        <script dangerouslySetInnerHTML={{ __html: `try{const d=document.documentElement,m=localStorage.getItem('darkMode');if(m==='true'){d.classList.remove('light')}else{d.classList.add('light')}}catch(e){d.classList.add('light')}` }} />
-      </head>
       <body className="min-h-screen antialiased">
+        {/* Prevent FOUC: apply saved theme before paint. next/script with
+            beforeInteractive ensures it runs in <head> before React hydrates. */}
+        <Script
+          id="theme-init"
+          strategy="beforeInteractive"
+        >{`try{var d=document.documentElement,m=localStorage.getItem('darkMode');if(m==='true'){d.classList.remove('light')}else{d.classList.add('light')}}catch(e){document.documentElement.classList.add('light')}`}</Script>
         <NoiseBackground />
         {/* Alpha Banner */}
         <div className="fdn-alpha-banner">
           <span className="fdn-alpha-banner__dot" />
-          FOUNDATION ALPHA — THIS VERSION IS SOLELY FOR EDUCATIONAL PURPOSES.
+          FOUNDATION ALPHA · THIS VERSION IS FOR EDUCATIONAL PURPOSES ONLY
           <span className="fdn-alpha-banner__dot" />
         </div>
         <WalletProvider>

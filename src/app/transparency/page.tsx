@@ -33,7 +33,7 @@ export default function TransparencyPage() {
           Foundation <em>Transparency</em>
         </h1>
         <p className="mx-auto max-w-lg text-sm text-[var(--muted)]">
-          Every vault, every strategy, every transaction — fully verifiable on Solana. No black boxes.
+          Every vault, every strategy, every transaction is fully verifiable on Solana. No black boxes.
         </p>
       </div>
 
@@ -161,7 +161,7 @@ export default function TransparencyPage() {
           Educational Disclaimer
         </p>
         <p className="text-xs text-[var(--muted)]">
-          Foundation is currently in alpha. All vaults are for educational purposes only. Past yield figures are indicative and not guaranteed. Do not deposit funds you cannot afford to lose. Smart contract audits are pending — use at your own risk.
+          Foundation is currently in alpha. All vaults are for educational purposes only. Past yield figures are indicative and not guaranteed. Do not deposit funds you cannot afford to lose. Smart contract audits are pending. Use at your own risk.
         </p>
       </div>
     </div>
