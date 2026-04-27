@@ -1853,9 +1853,9 @@ html:not(.light) .theme-toggle-btn:hover {
   z-index: 0;
 }
 
-/* Hero treatment: dramatic, full-bleed, content lives on top with full
-   typographic priority. Typography mask diagonal so the upper-left has
-   a clear "stage" and the art breathes on the right. */
+/* ====== HERO TREATMENT ======
+   Dark mode: cinematic museum-at-night, dark navy mask diagonal.
+   Light mode: warm sepia ink-wash on aged vellum, like a museum catalog plate. */
 .art-hero {
   filter: brightness(0.55) contrast(1.05) saturate(0.65) blur(0.5px);
 }
@@ -1873,20 +1873,27 @@ html:not(.light) .theme-toggle-btn:hover {
   pointer-events: none;
 }
 html.light .art-hero {
-  filter: brightness(0.85) contrast(1.02) saturate(0.55) blur(0.5px);
+  /* Subtle grayscale watermark — neutral tone, heavily blurred so it reads
+     as a textural ghost behind the typography rather than a sepia photograph.
+     Multiply with a near-white surface keeps the card surface clean. */
+  filter: grayscale(1) brightness(1.05) contrast(0.95) blur(2px);
+  opacity: 0.14;
+  mix-blend-mode: multiply;
 }
 html.light .art-hero::after {
+  /* Near-opaque white wash so typography sits on a clean surface; the art
+     is only visible at the edges where the gradient is most transparent. */
   background: linear-gradient(
     105deg,
-    rgba(248, 246, 240, 0.95) 0%,
-    rgba(248, 246, 240, 0.7) 50%,
-    rgba(248, 246, 240, 0.35) 80%,
-    rgba(248, 246, 240, 0.1) 100%
+    rgba(255, 255, 255, 0.96) 0%,
+    rgba(255, 255, 255, 0.86) 50%,
+    rgba(255, 255, 255, 0.72) 80%,
+    rgba(255, 255, 255, 0.55) 100%
   );
 }
 
-/* Card thumbnail treatment: subdued, lets the data dominate the card.
-   Used on small art crops at the top of vault cards. */
+/* ====== CARD THUMBNAIL TREATMENT ======
+   Small art crops at the top of vault cards. Subdued so data dominates. */
 .art-thumb {
   filter: brightness(0.5) contrast(1.05) saturate(0.6) blur(1px);
   mix-blend-mode: luminosity;
@@ -1903,21 +1910,21 @@ html.light .art-hero::after {
   pointer-events: none;
 }
 html.light .art-thumb {
-  filter: brightness(0.92) contrast(1) saturate(0.5) blur(1px);
+  /* Grayscale watermark behind card content — visible only as embossed texture */
+  filter: grayscale(1) brightness(1.05) contrast(0.95) blur(2.5px);
+  opacity: 0.10;
   mix-blend-mode: multiply;
-  opacity: 0.6;
 }
 html.light .art-thumb::after {
   background: linear-gradient(
     180deg,
-    rgba(248, 246, 240, 0.55) 0%,
-    rgba(248, 246, 240, 0.9) 100%
+    rgba(255, 255, 255, 0.72) 0%,
+    rgba(255, 255, 255, 0.94) 100%
   );
 }
 
-/* Strip treatment: ultra-subtle horizontal band, used as section dividers
-   and behind page headers. Heavy blur and low opacity so it reads as
-   atmosphere rather than a feature. */
+/* ====== STRIP TREATMENT ======
+   Used as section dividers and behind page headers. Heavy blur, low opacity. */
 .art-strip {
   filter: blur(3px) brightness(0.6) contrast(1.05) saturate(0.4);
   opacity: 0.35;
@@ -1925,8 +1932,9 @@ html.light .art-thumb::after {
   -webkit-mask-image: linear-gradient(90deg, transparent 0%, black 15%, black 85%, transparent 100%);
 }
 html.light .art-strip {
-  filter: blur(3px) brightness(1.02) contrast(0.95) saturate(0.4);
-  opacity: 0.18;
+  filter: grayscale(1) brightness(1.05) contrast(0.9) blur(3px);
+  opacity: 0.10;
+  mix-blend-mode: multiply;
 }
 
 /* Pattern fill: very subtle, used as repeating background on modal
@@ -1942,9 +1950,12 @@ html.light .art-pattern {
   mix-blend-mode: multiply;
 }
 
-/* Noise overlay: the most important polish step. Drops on top of every
-   art layer to break up the smooth AI-generated gradient and give every
-   asset that physical-print feel. Inline SVG so no external request. */
+/* ====== NOISE OVERLAY ======
+   The single most important polish step. Drops on top of every art layer
+   to break up smooth AI-generated gradients and give every asset that
+   physical-print feel. Inline SVG so no external request.
+   Dark mode: cool monochrome speckle (museum-at-night).
+   Light mode: warm umber paper grain (aged vellum). */
 .art-noise {
   position: absolute;
   inset: 0;
@@ -1956,7 +1967,8 @@ html.light .art-pattern {
   z-index: 1;
 }
 html.light .art-noise {
-  opacity: 0.12;
+  /* Cool neutral grain to add print texture without warming the surface */
+  opacity: 0.10;
   mix-blend-mode: multiply;
 }
 
@@ -1986,18 +1998,6 @@ html.light .art-frame::before {
   z-index: 2;
 }
 
-/* ---- Light mode: hide all classical art layers ----
-   The Greek statuary backgrounds were tuned for the dark navy palette and
-   read as muddy on light backgrounds. Disable them entirely in light mode
-   until a light-mode treatment is designed. The wrapper containers stay
-   so layout stays identical; they just sit empty. */
-html.light .art-layer,
-html.light .art-noise,
-html.light .art-frame::before,
-html.light .art-hero::after,
-html.light .art-thumb::after {
-  display: none;
-}
 
 /* ============================================================
    RESPONSIVE — header
