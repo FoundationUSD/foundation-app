@@ -1,16 +1,17 @@
 /**
- * Foundation Managed Vaults — 3 Squads multisigs, 3 receipt tokens.
+ * Foundation Managed Vaults — Squads multisig + Token-2022 InterestBearing receipt mint.
  *
  * Solomon:  LIVE — soloUSD
  * Kamino:   LIVE — kmnoUSD
  * Oro:      LIVE — oroUSD
+ * AWY:      LIVE — awyUSD (4-leg blended RWA basket; flagship)
  */
 
 export interface FoundationVault {
   id: string;
   name: string;
   strategy: string;
-  protocol: "solomon" | "kamino" | "oro";
+  protocol: "solomon" | "kamino" | "oro" | "awy";
   description: string;
   underlying: string;
   riskTier: "conservative" | "moderate" | "growth";
@@ -25,6 +26,8 @@ export interface FoundationVault {
   multisig: string;
   /** USD value currently under management — filled at request time by /api/strategies. */
   tvlUsd?: number;
+  /** Per-protocol live metadata — see /api/strategies for shape per protocol. */
+  meta?: Record<string, unknown>;
 }
 
 export const FOUNDATION_VAULTS: FoundationVault[] = [
@@ -108,5 +111,35 @@ export const FOUNDATION_VAULTS: FoundationVault[] = [
     usdcAccount: process.env.NEXT_PUBLIC_ORO_USDC_ATA || "",
     mint: process.env.NEXT_PUBLIC_ORO_MINT || "",
     multisig: process.env.VAULT_ORO_MULTISIG || "",
+  },
+  {
+    id: "fdn-awy",
+    name: "Foundation × AWY",
+    strategy: "All-Weather Yield",
+    protocol: "awy",
+    description:
+      "Deposit USDC. Foundation splits across 4 RWA yield engines — reinsurance (ONyc), HELOC credit (PRIME), institutional crypto lending (syrupUSDC), and US Treasuries (USDY) — engineered so no single macro regime compresses every leg at once.",
+    underlying: "Blended: ONyc · PRIME · syrupUSDC · USDY",
+    riskTier: "moderate",
+    apy: 8.1,
+    receiptToken: "awyUSD",
+    features: [
+      "~8.1% blended base APY",
+      "4 independent risk drivers",
+      "Quarterly rebalance",
+      "Managed by Foundation",
+    ],
+    howItWorks: [
+      "You deposit USDC into Foundation's Squads multisig vault",
+      "Foundation splits 35/30/25/10 across ONyc, PRIME, syrupUSDC, and USDY",
+      "Each leg accrues yield from its own underlying source",
+      "Your awyUSD balance grows via Token-2022 interest-bearing extension",
+      "Withdraw anytime — Foundation unwinds proportional slices and returns USDC",
+    ],
+    status: "live",
+    vaultPda: process.env.NEXT_PUBLIC_AWY_VAULT_PDA || "",
+    usdcAccount: process.env.NEXT_PUBLIC_AWY_USDC_ATA || "",
+    mint: process.env.NEXT_PUBLIC_AWY_MINT || "",
+    multisig: process.env.VAULT_AWY_MULTISIG || "",
   },
 ];

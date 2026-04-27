@@ -26,7 +26,20 @@ const PROTOCOL_LOGO: Record<string, string> = {
   solomon: "/partners/solomon-circle.png",
   kamino: "/partners/kamino.png",
   oro: "/partners/oro.png",
+  awy: "/assets/awy.png",
 };
+
+interface AwyLegMeta {
+  id: string;
+  asset: string;
+  issuer: string;
+  weightBps: number;
+  specApy: number;
+  liveApy: number;
+  riskDriver: string;
+  source: string;
+  navUsd: number | null;
+}
 
 const RISK_LABELS: Record<string, string> = {
   conservative: "Conservative",
@@ -246,7 +259,7 @@ export default function StrategyPage() {
                           <div>
                             <div className="mb-0.5 flex items-center gap-1.5">
                               <span className="text-xs font-semibold text-[var(--fg)]">
-                                Managed by {vault.protocol === "solomon" ? "Solomon" : vault.protocol === "kamino" ? "Kamino" : vault.protocol === "oro" ? "Oro" : "Foundation"}
+                                Managed by {vault.protocol === "solomon" ? "Solomon" : vault.protocol === "kamino" ? "Kamino" : vault.protocol === "oro" ? "Oro" : vault.protocol === "awy" ? "Foundation (AWY basket)" : "Foundation"}
                               </span>
                             </div>
                             <div className="text-[9px] text-[var(--text-accent)]">Vault Manager / Curator</div>
@@ -315,23 +328,66 @@ export default function StrategyPage() {
               {activeTab === "strategy" && (
                 <div className="relative w-full space-y-3">
                   <div className="rounded-xl border border-[var(--rule)] bg-[var(--surface)] p-4">
-                    <h3 className="mb-3 text-sm font-semibold text-[var(--fg)]">Strategy Allocation</h3>
-                    <div className="rounded-lg border border-[var(--rule)] bg-[var(--surface-strong)] p-3">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          {PROTOCOL_LOGO[vault.protocol] && (
-                            <Image src={PROTOCOL_LOGO[vault.protocol]} alt={vault.protocol} width={20} height={20} className="h-5 w-5 rounded-md object-contain" />
-                          )}
-                          <span className="text-xs font-medium text-[var(--fg)]">{vault.protocol}</span>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <span className="text-xs text-[var(--text-accent)]">100%</span>
-                          <span className="text-xs font-medium text-emerald-600">
-                            {vault.apy > 0 ? `${formatAPY(vault.apy)} APY` : "--"}
-                          </span>
+                    <h3 className="mb-3 text-sm font-semibold text-[var(--fg)]">
+                      {vault.protocol === "awy" ? "Basket Composition" : "Strategy Allocation"}
+                    </h3>
+
+                    {vault.protocol === "awy" && Array.isArray((vault.meta as { composition?: AwyLegMeta[] } | undefined)?.composition) ? (
+                      <>
+                      <div className="mb-3 rounded-md border border-amber-500/30 bg-amber-50/50 p-2.5 dark:bg-amber-950/20">
+                        <p className="text-[10px] leading-relaxed text-[var(--text-accent)]">
+                          <span className="font-semibold text-amber-700 dark:text-amber-400">v1 routing:</span>{" "}
+                          ONyc and syrupUSDC slices are deployed via Kamino PRIME alongside the PRIME slice
+                          until OnRe and Maple publish dedicated Solana mints. USDY routes through Ondo on Jupiter.
+                          The composition shown is the target basket and the rebalance target once mints land.
+                        </p>
+                      </div>
+                      <div className="space-y-2">
+                        {((vault.meta as { composition: AwyLegMeta[] }).composition).map((leg) => (
+                          <div key={leg.id} className="rounded-lg border border-[var(--rule)] bg-[var(--surface-strong)] p-3">
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs font-semibold text-[var(--fg)]">{leg.asset}</span>
+                                  <span className="text-[10px] text-[var(--text-accent)]">{leg.issuer}</span>
+                                </div>
+                                <div className="mt-0.5 text-[10px] text-[var(--text-accent)]">
+                                  Risk driver: {leg.riskDriver}
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <div className="font-mono text-xs text-[var(--fg)]">{(leg.weightBps / 100).toFixed(0)}%</div>
+                                <div className="text-[10px] font-medium text-emerald-600">
+                                  {leg.liveApy > 0 ? `${formatAPY(leg.liveApy)} APY` : `${formatAPY(leg.specApy)} spec`}
+                                </div>
+                              </div>
+                            </div>
+                            {/* Weight bar */}
+                            <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-[var(--rule)]">
+                              <div className="h-full bg-[var(--navy)]" style={{ width: `${leg.weightBps / 100}%` }} />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      </>
+                    ) : (
+                      <div className="rounded-lg border border-[var(--rule)] bg-[var(--surface-strong)] p-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            {PROTOCOL_LOGO[vault.protocol] && (
+                              <Image src={PROTOCOL_LOGO[vault.protocol]} alt={vault.protocol} width={20} height={20} className="h-5 w-5 rounded-md object-contain" />
+                            )}
+                            <span className="text-xs font-medium text-[var(--fg)]">{vault.protocol}</span>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span className="text-xs text-[var(--text-accent)]">100%</span>
+                            <span className="text-xs font-medium text-emerald-600">
+                              {vault.apy > 0 ? `${formatAPY(vault.apy)} APY` : "--"}
+                            </span>
+                          </div>
                         </div>
                       </div>
-                    </div>
+                    )}
 
                     <div className="mt-4">
                       <h4 className="mb-2 text-xs font-medium text-[var(--text-accent)]">Features</h4>

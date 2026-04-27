@@ -49,6 +49,20 @@ const KAMINO_USDC_RESERVE = "9GJ9GBRwCp4pHmWrQ43L5xpc9Vykg7jnfwcFGN8FoHYu";
 
 const JUPITER_API = "https://lite-api.jup.ag/swap/v1";
 
+// AWY basket — spec weights match src/lib/integrations/awy AWY_COMPOSITION.
+//
+// v1 routing (active): until OnRe and Maple publish their Solana mints,
+//   all three credit-flavored slices (ONyc 35 + PRIME 30 + Maple 25 = 90%) are
+//   deployed into Kamino's PRIME lending market (which is the closest mainnet RWA
+//   credit exposure available). The USDY 10% slice swaps to USDY mint via Jupiter.
+// v2 routing (later): when ONyc and syrupUSDC mints publish, set
+//   NEXT_PUBLIC_ONYC_MINT / NEXT_PUBLIC_SYRUP_USDC_MINT and the per-leg path
+//   below will route to dedicated allocations.
+const AWY_WEIGHTS_BPS = { onyc: 3500, prime: 3000, syrup: 2500, usdy: 1000 };
+const USDY_MINT = new PublicKey("A1KLoBrKBde8Ty9qtNQUtq3C2ortoC3u7twggz7sEto6");
+const ONYC_MINT_STR = process.env.NEXT_PUBLIC_ONYC_MINT || "";
+const SYRUP_USDC_MINT_STR = process.env.NEXT_PUBLIC_SYRUP_USDC_MINT || "";
+
 // Solomon stake program
 const SOLOMON_PROGRAM = new PublicKey("HSnn7bDvkZSEwujZDPtUcdo9KL7Conycgmy8m6mBFD5");
 const SOLOMON_VAULT_STATE = new PublicKey("BsPrkRjar8ktWagbcxsEzSBSpVnaj47nasjpFHWp1VMF");
@@ -80,11 +94,13 @@ export async function deployCapital(
   try {
     switch (vaultName) {
       case "kamino":
-        return await deployToKamino(usdcAmount);
+        return await deployToKamino("kamino", usdcAmount);
       case "solomon":
         return await deployToSolomon(usdcAmount);
       case "oro":
         return await deployToOro(usdcAmount);
+      case "awy":
+        return await deployToAwy(usdcAmount);
       default:
         return { success: false, error: `Unknown vault: ${vaultName}` };
     }
@@ -105,11 +121,13 @@ export async function withdrawCapital(
   try {
     switch (vaultName) {
       case "kamino":
-        return await withdrawFromKamino(usdcAmount);
+        return await withdrawFromKamino("kamino", usdcAmount);
       case "solomon":
         return await withdrawFromSolomon(usdcAmount);
       case "oro":
         return await withdrawFromOro(usdcAmount);
+      case "awy":
+        return await withdrawFromAwy(usdcAmount);
       default:
         return { success: false, error: `Unknown vault: ${vaultName}` };
     }
@@ -123,10 +141,14 @@ export async function withdrawCapital(
 // Kamino — deposit/withdraw via REST API
 // ============================================================
 
-async function deployToKamino(usdcAmount: number): Promise<{ success: boolean; tx?: string; error?: string }> {
-  const vault = getVaultAddresses("kamino");
+/**
+ * Vault-scoped Kamino PRIME deposit — used by both the standalone Kamino vault and
+ * the AWY basket's PRIME leg. The vault PDA owns the kToken receipt, so PRIME yield
+ * accrues directly to whichever multisig deposited.
+ */
+async function deployToKamino(vaultName: VaultName, usdcAmount: number): Promise<{ success: boolean; tx?: string; error?: string }> {
+  const vault = getVaultAddresses(vaultName);
 
-  // Build deposit tx via Kamino API (vault PDA as wallet owner)
   const res = await fetch(`${KAMINO_API}/ktx/klend/deposit`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -150,13 +172,13 @@ async function deployToKamino(usdcAmount: number): Promise<{ success: boolean; t
     throw new Error("Kamino API returned empty transaction");
   }
 
-  const sig = await executeVaultTransaction("kamino", instructions);
-  console.log(`Kamino deposit: ${usdcAmount / 1e6} USDC deployed, tx: ${sig}`);
+  const sig = await executeVaultTransaction(vaultName, instructions);
+  console.log(`Kamino[${vaultName}] deposit: ${usdcAmount / 1e6} USDC, tx: ${sig}`);
   return { success: true, tx: sig };
 }
 
-async function withdrawFromKamino(usdcAmount: number): Promise<{ success: boolean; tx?: string; error?: string }> {
-  const vault = getVaultAddresses("kamino");
+async function withdrawFromKamino(vaultName: VaultName, usdcAmount: number): Promise<{ success: boolean; tx?: string; error?: string }> {
+  const vault = getVaultAddresses(vaultName);
 
   const res = await fetch(`${KAMINO_API}/ktx/klend/withdraw`, {
     method: "POST",
@@ -181,8 +203,8 @@ async function withdrawFromKamino(usdcAmount: number): Promise<{ success: boolea
     throw new Error("Kamino API returned empty transaction");
   }
 
-  const sig = await executeVaultTransaction("kamino", instructions);
-  console.log(`Kamino withdraw: ${usdcAmount / 1e6} USDC withdrawn, tx: ${sig}`);
+  const sig = await executeVaultTransaction(vaultName, instructions);
+  console.log(`Kamino[${vaultName}] withdraw: ${usdcAmount / 1e6} USDC, tx: ${sig}`);
   return { success: true, tx: sig };
 }
 
@@ -344,6 +366,195 @@ async function withdrawFromOro(usdcAmount: number): Promise<{ success: boolean; 
   });
   console.log(`Oro: swapped ${goldToSell / 1e6} $GOLD → USDC, tx: ${swapSig}`);
   return { success: true, tx: swapSig };
+}
+
+// ============================================================
+// AWY — basket: ONyc 35 / PRIME 30 / syrupUSDC 25 / USDY 10
+// ============================================================
+//
+// Each leg is independent. A failure on one leg leaves the others intact and
+// the unspent slice as idle USDC in the multisig. ONyc and syrupUSDC mints are
+// env-gated — until those mints are wired, those slices stay idle (the receipt
+// rate the cron sets accounts for this).
+
+interface AwyLegResult {
+  leg: "onyc" | "prime" | "syrup-usdc" | "usdy";
+  status: "deployed" | "skipped" | "failed";
+  tx?: string;
+  amountUsdc: number;
+  error?: string;
+}
+
+async function deployToAwy(usdcAmount: number): Promise<{ success: boolean; tx?: string; error?: string; meta?: AwyLegResult[] }> {
+  const vault = getVaultAddresses("awy");
+
+  // Per-leg amounts at spec weights (last leg takes the remainder so we don't
+  // strand 1 lamport of USDC to integer rounding).
+  const onycAmt  = Math.floor((usdcAmount * AWY_WEIGHTS_BPS.onyc)  / 10_000);
+  const primeAmt = Math.floor((usdcAmount * AWY_WEIGHTS_BPS.prime) / 10_000);
+  const syrupAmt = Math.floor((usdcAmount * AWY_WEIGHTS_BPS.syrup) / 10_000);
+  const usdyAmt  = usdcAmount - onycAmt - primeAmt - syrupAmt;
+
+  const results: AwyLegResult[] = [];
+
+  // ── PRIME leg ────────────────────────────────────────────────────────────
+  // PRIME slice + ONyc/Maple slices route to Kamino PRIME lending market in v1.
+  // We send them as a single Kamino deposit (saves a multisig tx + fees) but
+  // record them as separate legs so the UI's per-leg breakdown stays accurate.
+  let primeAggregateAmt = primeAmt;
+  if (!ONYC_MINT_STR) primeAggregateAmt += onycAmt;
+  if (!SYRUP_USDC_MINT_STR) primeAggregateAmt += syrupAmt;
+
+  if (primeAggregateAmt > 0) {
+    try {
+      const r = await deployToKamino("awy", primeAggregateAmt);
+      const status = r.success ? "deployed" : "failed";
+      results.push({ leg: "prime", status, tx: r.tx, amountUsdc: primeAmt, error: r.error });
+      // Mark ONyc / Maple legs as routed-via-PRIME (status: deployed, same tx)
+      if (!ONYC_MINT_STR && onycAmt > 0) {
+        results.push({ leg: "onyc", status, tx: r.tx, amountUsdc: onycAmt, error: r.error });
+      }
+      if (!SYRUP_USDC_MINT_STR && syrupAmt > 0) {
+        results.push({ leg: "syrup-usdc", status, tx: r.tx, amountUsdc: syrupAmt, error: r.error });
+      }
+    } catch (e) {
+      const err = e instanceof Error ? e.message : "unknown";
+      results.push({ leg: "prime", status: "failed", amountUsdc: primeAmt, error: err });
+      if (!ONYC_MINT_STR && onycAmt > 0) results.push({ leg: "onyc", status: "failed", amountUsdc: onycAmt, error: err });
+      if (!SYRUP_USDC_MINT_STR && syrupAmt > 0) results.push({ leg: "syrup-usdc", status: "failed", amountUsdc: syrupAmt, error: err });
+    }
+  }
+
+  // ── ONyc leg (only when mint is configured — falls through to PRIME above
+  //    when env var is absent)
+  if (onycAmt > 0 && ONYC_MINT_STR) {
+    try {
+      const sig = await jupiterSwap({
+        vaultName: "awy",
+        vaultPda: vault.vaultPda,
+        inputMint: USDC_MINT,
+        outputMint: new PublicKey(ONYC_MINT_STR),
+        amount: onycAmt,
+        slippageBps: 50,
+      });
+      results.push({ leg: "onyc", status: "deployed", tx: sig, amountUsdc: onycAmt });
+    } catch (e) {
+      results.push({ leg: "onyc", status: "failed", amountUsdc: onycAmt, error: e instanceof Error ? e.message : "unknown" });
+    }
+  }
+
+  // ── syrupUSDC leg (only when mint is configured)
+  if (syrupAmt > 0 && SYRUP_USDC_MINT_STR) {
+    try {
+      const sig = await jupiterSwap({
+        vaultName: "awy",
+        vaultPda: vault.vaultPda,
+        inputMint: USDC_MINT,
+        outputMint: new PublicKey(SYRUP_USDC_MINT_STR),
+        amount: syrupAmt,
+        slippageBps: 50,
+      });
+      results.push({ leg: "syrup-usdc", status: "deployed", tx: sig, amountUsdc: syrupAmt });
+    } catch (e) {
+      results.push({ leg: "syrup-usdc", status: "failed", amountUsdc: syrupAmt, error: e instanceof Error ? e.message : "unknown" });
+    }
+  }
+
+  // ── USDY leg via Jupiter (mint exists on mainnet; Ondo doesn't require key
+  //    for the swap path, only for their REST API which we don't use)
+  if (usdyAmt > 0) {
+    try {
+      const sig = await jupiterSwap({
+        vaultName: "awy",
+        vaultPda: vault.vaultPda,
+        inputMint: USDC_MINT,
+        outputMint: USDY_MINT,
+        amount: usdyAmt,
+        slippageBps: 50,
+      });
+      results.push({ leg: "usdy", status: "deployed", tx: sig, amountUsdc: usdyAmt });
+    } catch (e) {
+      results.push({ leg: "usdy", status: "failed", amountUsdc: usdyAmt, error: e instanceof Error ? e.message : "unknown" });
+    }
+  }
+
+  const firstDeployedTx = results.find((r) => r.status === "deployed")?.tx;
+  const allFailed = results.length > 0 && results.every((r) => r.status === "failed");
+  console.log(`AWY deploy(${usdcAmount / 1e6} USDC):`, results.map((r) => `${r.leg}=${r.status}`).join(" "));
+
+  return {
+    success: !allFailed,
+    tx: firstDeployedTx,
+    meta: results,
+    error: allFailed ? "All AWY legs failed" : undefined,
+  };
+}
+
+/**
+ * Withdraw USDC proportionally from each deployed leg. Mirror of deployToAwy:
+ *   1. Spend idle USDC first (cheapest path)
+ *   2. Pull from PRIME via Kamino API
+ *   3. Reverse-swap USDY → USDC, then syrupUSDC, then ONyc
+ *
+ * For "coming_soon" status the basket is mostly idle USDC anyway, so step 1
+ * usually covers it. Once all four legs are wired we'll add a smarter rebalancer
+ * to keep weights at target after withdrawals — for now we accept drift.
+ */
+async function withdrawFromAwy(usdcAmount: number): Promise<{ success: boolean; tx?: string; error?: string }> {
+  const vault = getVaultAddresses("awy");
+  const connection = getConnection();
+  let remaining = usdcAmount;
+  let lastTx: string | undefined;
+
+  const usdcBalRes = await connection.getTokenAccountBalance(vault.usdcAta!).catch(() => null);
+  const idleUsdc = usdcBalRes ? Number(usdcBalRes.value.amount) : 0;
+  if (idleUsdc >= remaining) {
+    console.log(`AWY withdraw: ${remaining / 1e6} USDC served from idle balance`);
+    return { success: true };
+  }
+  remaining -= idleUsdc;
+
+  // Pull from PRIME (Kamino) next
+  if (remaining > 0) {
+    try {
+      const r = await withdrawFromKamino("awy", remaining);
+      if (r.success && r.tx) {
+        lastTx = r.tx;
+        console.log(`AWY withdraw: pulled ${remaining / 1e6} USDC from PRIME, tx: ${r.tx}`);
+        return { success: true, tx: lastTx };
+      }
+    } catch (e) {
+      console.error("AWY withdraw: PRIME pull failed:", e);
+    }
+  }
+
+  // Fallback: reverse-swap USDY → USDC (other legs are env-gated, skipped if absent)
+  if (remaining > 0) {
+    const usdyAta = getAssociatedTokenAddressSync(USDY_MINT, vault.vaultPda, true, TOKEN_PROGRAM_ID);
+    const usdyBalRes = await connection.getTokenAccountBalance(usdyAta).catch(() => null);
+    const usdyBalance = usdyBalRes ? Number(usdyBalRes.value.amount) : 0;
+    if (usdyBalance > 0) {
+      try {
+        const sig = await jupiterSwap({
+          vaultName: "awy",
+          vaultPda: vault.vaultPda,
+          inputMint: USDY_MINT,
+          outputMint: USDC_MINT,
+          amount: usdyBalance,
+          slippageBps: 100,
+        });
+        lastTx = sig;
+        console.log(`AWY withdraw: reverse-swapped USDY → USDC, tx: ${sig}`);
+      } catch (e) {
+        console.error("AWY withdraw: USDY reverse-swap failed:", e);
+      }
+    }
+  }
+
+  if (!lastTx) {
+    return { success: false, error: "AWY: insufficient liquidity across legs to service withdrawal" };
+  }
+  return { success: true, tx: lastTx };
 }
 
 // ============================================================

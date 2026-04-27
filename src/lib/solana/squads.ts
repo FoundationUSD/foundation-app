@@ -2,7 +2,7 @@
  * Squads multisig helper — wraps vault operations (mint, transfer)
  * into propose → approve → execute flow.
  *
- * Supports multiple vaults: solomon, kamino, oro.
+ * Supports multiple vaults: solomon, kamino, oro, awy.
  */
 
 import {
@@ -38,7 +38,7 @@ function getConnection(): Connection {
   return _connection;
 }
 
-export type VaultName = "solomon" | "kamino" | "oro";
+export type VaultName = "solomon" | "kamino" | "oro" | "awy";
 
 /**
  * Get vault addresses for a specific vault by name.
@@ -70,6 +70,7 @@ export function vaultIdToName(vaultId: string): VaultName {
     "fdn-solomon": "solomon",
     "fdn-kamino": "kamino",
     "fdn-oro": "oro",
+    "fdn-awy": "awy",
   };
   const name = map[vaultId];
   if (!name) throw new Error(`Unknown vault ID: ${vaultId}`);
