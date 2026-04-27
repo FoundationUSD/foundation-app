@@ -19,7 +19,18 @@ impl VaultState {
         + 1 + 32 + 32            // SAS fields
         + 32 + 32                // redeem_escrow + pending_claims_usdc
         + 8                      // 8 bumps (was 6)
-        + 8;                     // next_request_id
+        + 8                      // next_request_id
+        // ── AWY basket extension (zeroed when basket_enabled=false) ────────────
+        + 1                      // basket_enabled
+        + 32 * 4                 // basket_underlyings[4]
+        + 2  * 4                 // basket_weights_bps[4]
+        + 8  * 4                 // basket_nav_per_leg[4]
+        + 8  * 4                 // basket_twap_per_leg[4]
+        + 8  * 4                 // basket_last_nav_update_per_leg[4]
+        + 8                      // last_rebalance
+        + 8                      // rebalance_interval_seconds
+        + 2                      // max_slippage_bps
+        + 64;                    // reserved for future fields, zero-allocated
 }
 
 impl ShareLockup {
@@ -104,6 +115,30 @@ pub struct VaultState {
 
     // Monotonic counter for RedeemRequest seeds
     pub next_request_id: u64,
+
+    // ── AWY basket extension ──────────────────────────────────────────────────
+    // All fields zero/default when `basket_enabled = false` so single-asset vaults
+    // (fdnSMOKE, fdnGAIB) keep their existing semantics. Enabled via a separate
+    // `enable_basket` ix after `initialize_token_accounts` runs (basket vaults
+    // also need 4 leg-token accounts, created by a forthcoming ix).
+    pub basket_enabled: bool,
+    /// Mints of the 4 leg underlyings, fixed index order. AWY: [ONyc, PRIME, syrupUSDC, USDY].
+    pub basket_underlyings: [Pubkey; 4],
+    /// Target weights in bps; must sum to 10_000.
+    pub basket_weights_bps: [u16; 4],
+    /// Last known per-leg NAV in 6-decimal USDC units.
+    pub basket_nav_per_leg: [u64; 4],
+    /// Per-leg TWAP for bounds-check parity with the single-asset path (A3).
+    pub basket_twap_per_leg: [u64; 4],
+    /// Per-leg last-update timestamp; any stale leg blocks basket NAV update (A5).
+    pub basket_last_nav_update_per_leg: [i64; 4],
+    pub last_rebalance: i64,
+    pub rebalance_interval_seconds: i64,
+    /// Slippage cap applied per Jupiter swap leg.
+    pub max_slippage_bps: u16,
+    // NOTE: `VaultState::SPACE` reserves an additional 64 bytes after this field for
+    // forward-compatible additions without account realloc. Bytes are zero-filled by
+    // `init` and unused by serialization until a future field is appended here.
 }
 
 #[account]
