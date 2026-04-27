@@ -1986,6 +1986,19 @@ html.light .art-frame::before {
   z-index: 2;
 }
 
+/* ---- Light mode: hide all classical art layers ----
+   The Greek statuary backgrounds were tuned for the dark navy palette and
+   read as muddy on light backgrounds. Disable them entirely in light mode
+   until a light-mode treatment is designed. The wrapper containers stay
+   so layout stays identical; they just sit empty. */
+html.light .art-layer,
+html.light .art-noise,
+html.light .art-frame::before,
+html.light .art-hero::after,
+html.light .art-thumb::after {
+  display: none;
+}
+
 /* ============================================================
    RESPONSIVE — header
    ============================================================ */

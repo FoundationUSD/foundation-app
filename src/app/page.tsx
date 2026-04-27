@@ -40,6 +40,21 @@ const PROTOCOL_LOGO: Record<string, string> = {
   awy: "/assets/awy.png",
 };
 
+/**
+ * Classical art piece paired with each vault. The art lives behind the card
+ * header as a heavily-treated atmospheric layer (see .art-thumb in globals.css).
+ *   Solomon → Hermes (god of trade)
+ *   Kamino  → Athenian pediment fragment (institutional credit / civic)
+ *   Oro     → Plutus / coin hoard (gold)
+ *   AWY     → Demeter (harvest, the four-leg basket)
+ */
+const PROTOCOL_ART: Record<string, string> = {
+  solomon: "/assets/art/HermesForSolomon.png",
+  kamino: "/assets/art/athenian_pediment_fragment.png",
+  oro: "/assets/art/coinhoardForOro.png",
+  awy: "/assets/art/GoddessDemeterforAWY.png",
+};
+
 const USDC_MINT_PK = new PublicKey("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
 
 export default function HomePage() {
@@ -62,24 +77,31 @@ export default function HomePage() {
 
     return (
       <div className="fdn-page">
-        {/* Hero */}
-        <div className="animate-fade-up mb-16 text-center sm:mb-24">
-          <div className="mx-auto mb-6 h-10 w-10 animate-float opacity-50 sm:mb-8 sm:h-12 sm:w-12">
-            <Image src="/partners/rounded-nobg.png" alt="Foundation" width={48} height={48} />
+        {/* Hero — caryatid colonnade backdrop, gold hairline frame */}
+        <div className="art-frame relative animate-fade-up mb-16 overflow-hidden rounded-2xl sm:mb-24">
+          <div
+            className="art-layer art-hero"
+            style={{ backgroundImage: "url('/assets/art/caryatid_colonnade.png')" }}
+          />
+          <div className="art-noise" />
+          <div className="art-content relative px-6 py-20 text-center sm:py-28">
+            <div className="mx-auto mb-6 h-10 w-10 animate-float opacity-60 sm:mb-8 sm:h-12 sm:w-12">
+              <Image src="/partners/rounded-nobg.png" alt="Foundation" width={48} height={48} />
+            </div>
+            <h1 className="page-heading mb-4 text-2xl sm:mb-5 sm:text-[3.2rem]">
+              Managed RWA Yield
+              <br />
+              <em>on Solana</em>
+            </h1>
+            <p className="mx-auto mb-8 max-w-lg text-sm leading-relaxed text-[var(--text-accent)] sm:mb-10 sm:text-[15px]">
+              Deposit USDC and Foundation routes it into curated real-world asset
+              strategies on Solana. Custody runs through Squads multisig. Withdrawals
+              are open at any time.
+            </p>
+            <button onClick={() => setWalletModalOpen(true)} className="btn-primary inline-flex items-center gap-2">
+              Connect Wallet <ArrowRight className="h-3.5 w-3.5" />
+            </button>
           </div>
-          <h1 className="page-heading mb-4 text-2xl sm:mb-5 sm:text-[3.2rem]">
-            Managed RWA Yield
-            <br />
-            <em>on Solana</em>
-          </h1>
-          <p className="mx-auto mb-8 max-w-lg text-sm leading-relaxed text-[var(--text-accent)] sm:mb-10 sm:text-[15px]">
-            Deposit USDC and Foundation routes it into curated real-world asset
-            strategies on Solana. Custody runs through Squads multisig. Withdrawals
-            are open at any time.
-          </p>
-          <button onClick={() => setWalletModalOpen(true)} className="btn-primary inline-flex items-center gap-2">
-            Connect Wallet <ArrowRight className="h-3.5 w-3.5" />
-          </button>
         </div>
 
         {/* Flagship — All-Weather Yield */}
@@ -125,31 +147,38 @@ export default function HomePage() {
   // Connected — vault grid
   return (
     <div className="fdn-page">
-      <div className="mb-6 flex items-end justify-between sm:mb-8">
-        <div>
-          <p className="section-label mb-1 sm:mb-2">
-            {selectedVault ? selectedVault.protocol.toUpperCase() : "VAULT INFRASTRUCTURE"}
-          </p>
-          <h1 className="page-heading text-xl sm:text-2xl">
-            {selectedVault ? selectedVault.name : <>Deposit <em>Strategies</em></>}
-          </h1>
-          {!selectedVault && (
-            <p className="mt-1 max-w-xl text-sm text-[var(--text-accent)]">
-              Institutional-grade yield vaults. Deposit USDC to access curated
-              real-world asset strategies, custodied on chain through Squads
-              multisig.
+      {/* Page header with frieze meander strip */}
+      <div className="relative mb-6 overflow-hidden rounded-xl sm:mb-8">
+        <div
+          className="art-layer art-strip"
+          style={{ backgroundImage: "url('/assets/art/strips/Friezemeanderpattern.png')" }}
+        />
+        <div className="art-content relative flex items-end justify-between gap-4 px-1 py-4 sm:px-2 sm:py-5">
+          <div>
+            <p className="section-label mb-1 sm:mb-2">
+              {selectedVault ? selectedVault.protocol.toUpperCase() : "VAULT INFRASTRUCTURE"}
             </p>
-          )}
-        </div>
-        <div className="flex items-center gap-3">
-          {selectedVault && (
-            <button onClick={() => setSelectedVault(null)} className="fnd-nav-link">
-              <ArrowLeft className="h-3 w-3" /> Back
-            </button>
-          )}
-          <Link href="/portfolio" className="fnd-nav-link">
-            Portfolio <ArrowUpRight className="h-3 w-3" />
-          </Link>
+            <h1 className="page-heading text-xl sm:text-2xl">
+              {selectedVault ? selectedVault.name : <>Deposit <em>Strategies</em></>}
+            </h1>
+            {!selectedVault && (
+              <p className="mt-1 max-w-xl text-sm text-[var(--text-accent)]">
+                Institutional-grade yield vaults. Deposit USDC to access curated
+                real-world asset strategies, custodied on chain through Squads
+                multisig.
+              </p>
+            )}
+          </div>
+          <div className="flex shrink-0 items-center gap-3">
+            {selectedVault && (
+              <button onClick={() => setSelectedVault(null)} className="fnd-nav-link">
+                <ArrowLeft className="h-3 w-3" /> Back
+              </button>
+            )}
+            <Link href="/portfolio" className="fnd-nav-link">
+              Portfolio <ArrowUpRight className="h-3 w-3" />
+            </Link>
+          </div>
         </div>
       </div>
 
@@ -254,23 +283,34 @@ function VaultCard({ vault, onSelect }: { vault: FoundationVault; onSelect: () =
       }`}
       data-glow
     >
-      {/* Header */}
-      <div className="flex items-center gap-3 px-5 py-4">
-        {logo ? (
-          <Image src={logo} alt={vault.protocol} width={36} height={36} className="h-9 w-9 flex-shrink-0 object-contain" />
-        ) : (
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-600 text-[9px] font-bold text-white">
-            {vault.receiptToken.slice(0,4).toUpperCase()}
-          </div>
+      {/* Header — classical art behind the protocol logo + vault name */}
+      <div className="relative overflow-hidden">
+        {PROTOCOL_ART[vault.protocol] && (
+          <>
+            <div
+              className="art-layer art-thumb"
+              style={{ backgroundImage: `url('${PROTOCOL_ART[vault.protocol]}')` }}
+            />
+            <div className="art-noise" />
+          </>
         )}
-        <span className="truncate font-mono text-xl font-bold tracking-[-0.02em] text-[var(--fg)]">
-          {vault.name}
-        </span>
-        {!isLive && (
-          <span className="ml-auto rounded-full border border-[var(--rule)] bg-[var(--surface)] px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider text-gold-500">
-            Soon
+        <div className="art-content relative flex items-center gap-3 px-5 py-4">
+          {logo ? (
+            <Image src={logo} alt={vault.protocol} width={36} height={36} className="h-9 w-9 flex-shrink-0 object-contain" />
+          ) : (
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-600 text-[9px] font-bold text-white">
+              {vault.receiptToken.slice(0,4).toUpperCase()}
+            </div>
+          )}
+          <span className="truncate font-mono text-xl font-bold tracking-[-0.02em] text-[var(--fg)]">
+            {vault.name}
           </span>
-        )}
+          {!isLive && (
+            <span className="ml-auto rounded-full border border-[var(--rule)] bg-[var(--surface)] px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider text-gold-500">
+              Soon
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Description */}
@@ -694,8 +734,16 @@ function AwyHighlight({ onSelect }: { onSelect?: () => void }) {
   return (
     <div
       onClick={onSelect}
-      className="infra-card group block cursor-pointer p-6 transition-all hover:border-[var(--navy)]/40 hover:shadow-md sm:p-8"
+      className="art-frame infra-card group relative block cursor-pointer overflow-hidden p-6 transition-all hover:border-[var(--navy)]/40 hover:shadow-md sm:p-8"
     >
+      {/* Background art: Storm of the Four Winds — matches AWY thesis */}
+      <div
+        className="art-layer art-thumb"
+        style={{ backgroundImage: "url('/assets/art/StormoftheFourWinds.png')" }}
+      />
+      <div className="art-noise" />
+
+      <div className="art-content">
       {/* Header */}
       <div className="mb-6 flex flex-col gap-5 border-b border-[var(--rule)] pb-6 sm:flex-row sm:items-start sm:justify-between sm:gap-8">
         <div className="max-w-xl">
@@ -763,6 +811,7 @@ function AwyHighlight({ onSelect }: { onSelect?: () => void }) {
         <span className="inline-flex items-center gap-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--navy)] transition-colors group-hover:text-emerald-600">
           Deposit <ArrowUpRight className="h-3 w-3" />
         </span>
+      </div>
       </div>
     </div>
   );

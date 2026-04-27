@@ -26,15 +26,22 @@ function truncate(addr: string, chars = 6) {
 export default function TransparencyPage() {
   return (
     <div className="fdn-page mx-auto max-w-5xl">
-      {/* Hero */}
-      <div className="mb-10 text-center">
-        <p className="section-label mx-auto mb-6 block w-fit">On-Chain Verified</p>
-        <h1 className="page-heading mb-4 text-[clamp(2.2rem,5vw,3.5rem)] leading-[1.08]">
-          Foundation <em>Transparency</em>
-        </h1>
-        <p className="mx-auto max-w-lg text-sm text-[var(--muted)]">
-          Every vault, every strategy, every transaction is fully verifiable on Solana. No black boxes.
-        </p>
+      {/* Hero with Athenian pediment fragment as backdrop */}
+      <div className="art-frame relative mb-10 overflow-hidden rounded-2xl">
+        <div
+          className="art-layer art-hero"
+          style={{ backgroundImage: "url('/assets/art/athenian_pediment_fragment.png')" }}
+        />
+        <div className="art-noise" />
+        <div className="art-content relative px-6 py-16 text-center sm:py-20">
+          <p className="section-label mx-auto mb-6 block w-fit">On-Chain Verified</p>
+          <h1 className="page-heading mb-4 text-[clamp(2.2rem,5vw,3.5rem)] leading-[1.08]">
+            Foundation <em>Transparency</em>
+          </h1>
+          <p className="mx-auto max-w-lg text-sm text-[var(--muted)]">
+            Every vault, every strategy, every transaction is fully verifiable on Solana. No black boxes.
+          </p>
+        </div>
       </div>
 
       {/* Audit Status */}

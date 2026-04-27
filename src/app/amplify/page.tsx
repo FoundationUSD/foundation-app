@@ -19,24 +19,30 @@ export default function AmplifyPage() {
 
   return (
     <div className="fdn-page">
-      {/* Page header */}
-      <div className="mb-6 flex items-end justify-between sm:mb-8">
-        <div>
-          <p className="section-label mb-1 sm:mb-2">AMPLIFY</p>
-          <h1 className="page-heading text-xl sm:text-2xl">
-            Leveraged <em>Strategies</em>
-          </h1>
-          <p className="mt-1 max-w-xl text-sm text-[var(--text-accent)]">
-            Higher conviction versions of Foundation vaults. Each strategy pledges
-            its receipt token as collateral on Kamino and borrows USDC to deepen
-            the position, then redeposits the proceeds. Yield is amplified, and so
-            is the risk profile.
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <Link href="/portfolio" className="fnd-nav-link">
-            Portfolio <ArrowUpRight className="h-3 w-3" />
-          </Link>
+      {/* Page header with cracked marble strip */}
+      <div className="relative mb-6 overflow-hidden rounded-xl sm:mb-8">
+        <div
+          className="art-layer art-strip"
+          style={{ backgroundImage: "url('/assets/art/strips/Crackedmarbletexture.png')" }}
+        />
+        <div className="art-content relative flex items-end justify-between gap-4 px-1 py-4 sm:px-2 sm:py-5">
+          <div>
+            <p className="section-label mb-1 sm:mb-2">AMPLIFY</p>
+            <h1 className="page-heading text-xl sm:text-2xl">
+              Leveraged <em>Strategies</em>
+            </h1>
+            <p className="mt-1 max-w-xl text-sm text-[var(--text-accent)]">
+              Higher conviction versions of Foundation vaults. Each strategy pledges
+              its receipt token as collateral on Kamino and borrows USDC to deepen
+              the position, then redeposits the proceeds. Yield is amplified, and so
+              is the risk profile.
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-3">
+            <Link href="/portfolio" className="fnd-nav-link">
+              Portfolio <ArrowUpRight className="h-3 w-3" />
+            </Link>
+          </div>
         </div>
       </div>
 
@@ -139,7 +145,16 @@ export default function AmplifyPage() {
 
 function FlagshipCard({ vault }: { vault: AmplifyVault }) {
   return (
-    <div className="infra-card overflow-hidden p-6 sm:p-8">
+    <div className="art-frame infra-card relative overflow-hidden p-6 sm:p-8">
+      {/* Background art: Atlas bearing the celestial sphere — a literal
+          metaphor for amplified, levered exposure */}
+      <div
+        className="art-layer art-thumb"
+        style={{ backgroundImage: "url('/assets/art/atlasForAWYamplified.png')" }}
+      />
+      <div className="art-noise" />
+
+      <div className="art-content relative">
       {/* Header */}
       <div className="mb-7 flex flex-col gap-5 border-b border-[var(--rule)] pb-7 sm:flex-row sm:items-start sm:justify-between sm:gap-8">
         <div className="flex max-w-2xl items-start gap-4">
@@ -209,6 +224,7 @@ function FlagshipCard({ vault }: { vault: AmplifyVault }) {
         <span className="font-mono text-[9px] uppercase tracking-[0.25em] text-[var(--text-accent)]">
           Quarterly rebalance · Health factor 1.6 target
         </span>
+      </div>
       </div>
     </div>
   );
@@ -293,8 +309,20 @@ function LegPanel({
    AmplifyVaultCard: matches the Invest grid VaultCard pattern
    ============================================================ */
 
+/**
+ * Classical art piece paired with each Amplify product. Mirrors the PROTOCOL_ART
+ * pattern on the Invest page so the design system reads as one piece.
+ *   amp-awy → Atlas (already used on the flagship; reused here as the small thumb)
+ *   amp-oro → Tyche (goddess of fortune with cornucopia, paired with leveraged gold)
+ */
+const AMPLIFY_ART: Record<string, string> = {
+  "amp-awy": "/assets/art/atlasForAWYamplified.png",
+  "amp-oro": "/assets/art/Tycheforamplify.png",
+};
+
 function AmplifyVaultCard({ vault }: { vault: AmplifyVault }) {
   const isLive = vault.status === "live";
+  const artSrc = AMPLIFY_ART[vault.id];
 
   return (
     <div
@@ -303,23 +331,34 @@ function AmplifyVaultCard({ vault }: { vault: AmplifyVault }) {
       }`}
       data-glow
     >
-      {/* Header */}
-      <div className="flex items-center gap-3 px-5 py-4">
-        <Image
-          src={vault.logoSrc}
-          alt={vault.curator}
-          width={36}
-          height={36}
-          className="h-9 w-9 flex-shrink-0 rounded-lg object-contain"
-        />
-        <span className="truncate font-mono text-xl font-bold tracking-[-0.02em] text-[var(--fg)]">
-          {vault.name}
-        </span>
-        {!isLive && (
-          <span className="ml-auto rounded-full border border-[var(--rule)] bg-[var(--surface)] px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider text-gold-500">
-            Soon
-          </span>
+      {/* Header — classical art behind the protocol logo + vault name */}
+      <div className="relative overflow-hidden">
+        {artSrc && (
+          <>
+            <div
+              className="art-layer art-thumb"
+              style={{ backgroundImage: `url('${artSrc}')` }}
+            />
+            <div className="art-noise" />
+          </>
         )}
+        <div className="art-content relative flex items-center gap-3 px-5 py-4">
+          <Image
+            src={vault.logoSrc}
+            alt={vault.curator}
+            width={36}
+            height={36}
+            className="h-9 w-9 flex-shrink-0 rounded-lg object-contain"
+          />
+          <span className="truncate font-mono text-xl font-bold tracking-[-0.02em] text-[var(--fg)]">
+            {vault.name}
+          </span>
+          {!isLive && (
+            <span className="ml-auto rounded-full border border-[var(--rule)] bg-[var(--surface)] px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider text-gold-500">
+              Soon
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Description */}
