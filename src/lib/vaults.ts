@@ -12,6 +12,12 @@ export interface FoundationVault {
   name: string;
   strategy: string;
   protocol: "solomon" | "kamino" | "oro" | "awy";
+  /**
+   * Source classification surfaced by the Invest page filter.
+   *  - "foundation": composed and managed by Foundation itself (e.g. AWY blended basket).
+   *  - "partner":    pass-through into a single partner protocol (Solomon, Kamino, Oro).
+   */
+  category: "foundation" | "partner";
   description: string;
   underlying: string;
   riskTier: "conservative" | "moderate" | "growth";
@@ -24,9 +30,9 @@ export interface FoundationVault {
   usdcAccount: string;
   mint: string;
   multisig: string;
-  /** USD value currently under management — filled at request time by /api/strategies. */
+  /** USD value currently under management. Filled at request time by /api/strategies. */
   tvlUsd?: number;
-  /** Per-protocol live metadata — see /api/strategies for shape per protocol. */
+  /** Per-protocol live metadata. See /api/strategies for shape per protocol. */
   meta?: Record<string, unknown>;
 }
 
@@ -36,6 +42,7 @@ export const FOUNDATION_VAULTS: FoundationVault[] = [
     name: "Foundation × Solomon",
     strategy: "sUSDV Basis Yield",
     protocol: "solomon",
+    category: "partner",
     description:
       "Deposit USDC and Foundation routes it into Solomon's sUSDV, a delta-neutral basis trade across BTC, ETH, and SOL. Yield comes from the funding rate spread between spot longs and perpetual shorts. The position is hedge-neutral by construction, so directional moves in the underlyings do not affect principal.",
     underlying: "Solomon sUSDV (Basis Trading)",
@@ -61,6 +68,7 @@ export const FOUNDATION_VAULTS: FoundationVault[] = [
     name: "Foundation × Kamino",
     strategy: "PRIME Credit Yield",
     protocol: "kamino",
+    category: "partner",
     description:
       "Deposit USDC and Foundation supplies it to Kamino's PRIME lending market. PRIME is collateralized by Figure Technologies' on-chain HELOC portfolio, currently sized at $19B with an average borrower FICO of 745 and an 88 percent max loan-to-value. Yield comes from the spread between USDC supply and HELOC borrow rates.",
     underlying: "Kamino PRIME (Figure HELOCs)",
@@ -86,6 +94,7 @@ export const FOUNDATION_VAULTS: FoundationVault[] = [
     name: "Foundation × Oro",
     strategy: "Gold-Backed Exposure",
     protocol: "oro",
+    category: "partner",
     description:
       "Deposit USDC and Foundation converts it into $GOLD, Oro's tokenized physical gold. Each $GOLD represents one ounce of LBMA-certified, allocated, and insured bullion held in vault. Your position tracks the live spot price and is redeemable at market on withdrawal.",
     underlying: "Oro $GOLD (Tokenized Physical Gold)",
@@ -116,6 +125,7 @@ export const FOUNDATION_VAULTS: FoundationVault[] = [
     name: "Foundation × AWY",
     strategy: "All-Weather Yield",
     protocol: "awy",
+    category: "foundation",
     description:
       "Deposit USDC into a four-leg basket designed to hold its yield across rate cycles, credit cycles, and crypto drawdowns. Foundation allocates 35 percent to OnRe reinsurance receipts (ONyc), 30 percent to Kamino PRIME credit, 25 percent to Maple's institutional lending (syrupUSDC), and 10 percent to short-term US Treasuries (Ondo USDY). No single macro regime compresses every leg at once.",
     underlying: "Blended: ONyc · PRIME · syrupUSDC · USDY",

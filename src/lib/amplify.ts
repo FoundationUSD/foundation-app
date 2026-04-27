@@ -98,30 +98,87 @@ export function getLegContribution(leg: AmplifyLegSpec): number {
 export interface AmplifyVault {
   id: string;
   name: string;
+  /** Short label shown above the title on cards (e.g. "All-Weather Yield · Leveraged"). */
   strategy: string;
+  /** One-line summary used on cards. */
+  shortDescription: string;
+  /** Long-form description used on the flagship hero. */
   description: string;
   /** Net APY (sum of contributions). */
   netApy: number;
   /** Receipt token symbol (Token-2022 InterestBearing once provisioned). */
   receiptToken: string;
+  /** Underlying-asset display string (e.g. "Looped: PRIME · ONyc · syrupUSDC"). */
+  underlying: string;
   riskTier: "moderate" | "growth";
   status: "live" | "coming_soon";
+  /** Source classification mirrors the Invest page filter. All current Amplify
+   *  products are partner-built so none surface under "Foundation". */
+  category: "foundation" | "partner";
+  /** Display name of the source curator / counterparty. */
+  curator: string;
   logoSrc: string;
+  /** Whether this vault is the flagship Amplify preview at the top of the page. */
+  flagship?: boolean;
   composition: AmplifyLegSpec[];
 }
+
+/**
+ * Oro Amplified composition. Single-asset loop on $GOLD: deposit $GOLD as
+ * collateral on Kamino, borrow USDC, swap into more $GOLD, repeat. The single
+ * "leg" represents the looped position itself; the leverage ratio is the net
+ * APY uplift over Oro's base 3.5%.
+ */
+export const AMPLIFY_ORO_COMPOSITION: AmplifyLegSpec[] = [
+  {
+    id: "usdh", // reusing the id type — single leg
+    asset: "$GOLD",
+    issuer: "Oro",
+    weightBps: 10_000,
+    leveraged: true,
+    maxApy: 9.5,
+    expectedApy: 7.0,
+    riskDriver: "Gold spot price",
+    description: "Looped tokenized physical gold. Position multiplies exposure to spot gold while paying USDC borrow.",
+  },
+];
 
 export const AMPLIFY_VAULTS: AmplifyVault[] = [
   {
     id: "amp-awy",
-    name: "Foundation × AWY (Amplified)",
+    name: "AWY Amplified",
     strategy: "All-Weather Yield · Leveraged",
+    shortDescription:
+      "Looped version of the four-leg AWY basket. Targets a net APY in the 11 percent range across three iterations of leverage on the credit legs.",
     description:
-      "Looped version of the AWY basket. Three credit legs (PRIME, ONyc, syrupUSDC) are levered against USDC borrow on Kamino; the basis leg (USDH) stays unleveraged. Targets ~11.4% net APY.",
+      "Looped version of the AWY basket. Three credit legs (PRIME, ONyc, syrupUSDC) are levered against USDC borrow on Kamino. The basis leg (USDH from Solomon) is left unleveraged because basis trades already embed perpetual futures leverage internally.",
     netApy: getAmplifyAwyNetApy(),
     receiptToken: "awylUSD",
+    underlying: "Looped: PRIME · ONyc · syrupUSDC (basis unlevered)",
     riskTier: "growth",
     status: "coming_soon",
+    category: "foundation",
+    curator: "Foundation",
     logoSrc: "/assets/awy_l.png",
+    flagship: true,
     composition: AMPLIFY_AWY_COMPOSITION,
+  },
+  {
+    id: "amp-oro",
+    name: "Oro Amplified",
+    strategy: "Tokenized Gold · Leveraged",
+    shortDescription:
+      "Looped exposure to Oro's $GOLD. Multiplies upside (and downside) on physical gold while paying a USDC borrow rate against the position.",
+    description:
+      "Looped exposure to Oro's tokenized physical gold. Foundation deposits $GOLD as collateral on Kamino, borrows USDC, and recycles the proceeds back into $GOLD across multiple iterations. The position carries directional gold price risk in addition to the borrow cost.",
+    netApy: 7.0,
+    receiptToken: "oroLUSD",
+    underlying: "Looped: $GOLD (LBMA-allocated physical gold)",
+    riskTier: "growth",
+    status: "coming_soon",
+    category: "partner",
+    curator: "Oro",
+    logoSrc: "/partners/oro.png",
+    composition: AMPLIFY_ORO_COMPOSITION,
   },
 ];
