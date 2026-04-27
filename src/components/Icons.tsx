@@ -40,3 +40,12 @@ export function IconSafe({ className = "h-4.5 w-4.5" }: { className?: string }) 
     </svg>
   );
 }
+
+export function IconAmplify({ className = "h-4.5 w-4.5" }: { className?: string }) {
+  // Lightning bolt — signals leverage/amplification.
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M13 2L4.5 13.5C4.13 14 4.5 14.75 5.13 14.75H10.5L9.13 22C9.04 22.5 9.66 22.84 10 22.46L19.5 10.5C19.87 10 19.5 9.25 18.87 9.25H13.5L14.87 2.54C14.96 2.04 14.34 1.7 14 2.04L13 2Z" fill="currentColor" opacity="0.9"/>
+    </svg>
+  );
+}
