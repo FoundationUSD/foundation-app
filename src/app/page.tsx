@@ -49,9 +49,10 @@ export default function HomePage() {
   const [selectedVault, setSelectedVault] = useState<FoundationVault | null>(null);
   const [activeFilter, setActiveFilter] = useState<"all" | "foundation" | "partner">("all");
 
-  // All vaults are "partner" vaults; Foundation tab = coming soon
+  // Filter by category. Foundation = AWY (Foundation-composed basket); Partner =
+  // pass-through partner integrations (Solomon, Kamino, Oro). "All" shows everything.
   const visibleStrategies =
-    activeFilter === "foundation" ? [] : strategies;
+    activeFilter === "all" ? strategies : strategies.filter((v) => v.category === activeFilter);
   const activeStrategies = visibleStrategies.filter((v) => v.status === "live");
   const comingSoonStrategies = visibleStrategies.filter((v) => v.status === "coming_soon");
 
@@ -188,31 +189,7 @@ export default function HomePage() {
             ))}
           </div>
 
-          {activeFilter === "foundation" ? (
-            <div className="infra-card mx-auto max-w-md p-10 text-center">
-              <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full border border-[var(--rule)] bg-[var(--surface-strong)] shadow-sm">
-                <Image
-                  src="/partners/rounded-bg.png"
-                  alt="Foundation"
-                  width={52}
-                  height={52}
-                  className="h-13 w-13 rounded-full fdn-logo-light"
-                />
-                <Image
-                  src="/partners/rounded-nobg.png"
-                  alt="Foundation"
-                  width={52}
-                  height={52}
-                  className="h-13 w-13 rounded-full fdn-logo-dark dark:invert opacity-80"
-                />
-              </div>
-              <h3 className="mb-2 font-serif text-2xl font-light text-[var(--fg)]">Foundation Vaults</h3>
-              <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-gold-500 mb-4">Coming Soon</p>
-              <p className="text-sm text-[var(--muted)] leading-relaxed">
-                Foundation-native vaults are in development. Check back soon for institutional-grade strategies managed entirely on-chain.
-              </p>
-            </div>
-          ) : loading ? (
+          {loading ? (
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
               {[1, 2, 3].map((i) => (
                 <div key={i} className="skeleton h-64" />

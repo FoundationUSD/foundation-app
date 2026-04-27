@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
@@ -7,6 +8,15 @@ import { AMPLIFY_VAULTS, getLegContribution, type AmplifyVault, type AmplifyLegS
 import { formatAPY } from "@/lib/utils";
 
 export default function AmplifyPage() {
+  const [activeFilter, setActiveFilter] = useState<"all" | "foundation" | "partner">("all");
+
+  const flagship = AMPLIFY_VAULTS.find((v) => v.flagship);
+  const visible = activeFilter === "all"
+    ? AMPLIFY_VAULTS
+    : AMPLIFY_VAULTS.filter((v) => v.category === activeFilter);
+  const liveVaults = visible.filter((v) => v.status === "live");
+  const comingSoonVaults = visible.filter((v) => v.status === "coming_soon");
+
   return (
     <div className="fdn-page">
       {/* Page header */}
@@ -17,9 +27,10 @@ export default function AmplifyPage() {
             Leveraged <em>Strategies</em>
           </h1>
           <p className="mt-1 max-w-xl text-sm text-[var(--text-accent)]">
-            Higher conviction versions of Foundation vaults. Each leg pledges its
-            receipt token as collateral on Kamino and borrows additional USDC to
-            deepen the position, then redeposits the proceeds into the same leg.
+            Higher conviction versions of Foundation vaults. Each strategy pledges
+            its receipt token as collateral on Kamino and borrows USDC to deepen
+            the position, then redeposits the proceeds. Yield is amplified, and so
+            is the risk profile.
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -29,35 +40,92 @@ export default function AmplifyPage() {
         </div>
       </div>
 
-      {/* Flagship */}
-      <section className="mb-10">
-        <div className="mb-4 flex items-baseline justify-between">
-          <h2 className="section-label">Flagship Strategy</h2>
-          <span className="font-mono text-[9px] uppercase tracking-[0.25em] text-gold-500">Coming Soon</span>
-        </div>
-        {AMPLIFY_VAULTS.map((v) => (
-          <AmplifyCard key={v.id} vault={v} />
-        ))}
-      </section>
+      {/* Flagship preview */}
+      {flagship && (
+        <section className="mb-10">
+          <div className="mb-4 flex items-baseline justify-between">
+            <h2 className="section-label">Flagship Strategy</h2>
+            <span className="font-mono text-[9px] uppercase tracking-[0.25em] text-gold-500">Coming Soon</span>
+          </div>
+          <FlagshipCard vault={flagship} />
+        </section>
+      )}
 
-      {/* Risk disclosure */}
-      <section className="mb-10">
+      {/* Source filter */}
+      <div className="mb-8 inline-flex items-center gap-1 rounded-xl border border-[var(--rule)] bg-[var(--surface-strong)] p-1 shadow-[inset_0_1px_3px_rgba(0,0,0,0.02)]">
+        {(["all", "foundation", "partner"] as const).map((filter) => (
+          <button
+            key={filter}
+            onClick={() => setActiveFilter(filter)}
+            className={`cursor-pointer rounded-lg px-4 py-2 text-xs font-semibold transition-all sm:text-sm ${
+              activeFilter === filter
+                ? "bg-[var(--surface)] text-[var(--fg)] shadow-sm ring-1 ring-[var(--rule)]"
+                : "text-[var(--muted)] hover:text-[var(--fg)] hover:bg-[var(--surface)]/50"
+            }`}
+          >
+            {filter === "all" ? "All Vaults" : filter === "foundation" ? "Foundation" : "Partner"}
+          </button>
+        ))}
+      </div>
+
+      {(
+        <>
+          {liveVaults.length > 0 && (
+            <section className="mb-10">
+              <div className="mb-4 flex items-baseline justify-between">
+                <h2 className="section-label">Active Vaults</h2>
+                <span className="font-mono text-[10px] text-[var(--text-accent)]">
+                  {liveVaults.length} live
+                </span>
+              </div>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                {liveVaults.map((v) => (
+                  <AmplifyVaultCard key={v.id} vault={v} />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {comingSoonVaults.length > 0 && (
+            <section className="mb-10">
+              <div className="mb-4 flex items-baseline justify-between">
+                <h2 className="section-label">Coming Soon</h2>
+                <span className="font-mono text-[10px] text-[var(--text-accent)]">
+                  {comingSoonVaults.length} queued
+                </span>
+              </div>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                {comingSoonVaults.map((v) => (
+                  <AmplifyVaultCard key={v.id} vault={v} />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {liveVaults.length === 0 && comingSoonVaults.length === 0 && (
+            <p className="py-12 text-center font-mono text-sm text-[var(--text-accent)]">No vaults in this category yet</p>
+          )}
+        </>
+      )}
+
+      {/* Risk explainer */}
+      <section className="mt-4">
         <div className="rounded-xl border border-[var(--rule)] bg-[var(--surface)] p-5">
           <h3 className="mb-3 font-mono text-[10px] uppercase tracking-[0.2em] text-gold-500">
             How looping works
           </h3>
           <p className="text-[13px] leading-relaxed text-[var(--text-accent)]">
-            A levered leg deposits its receipt (PRIME, ONyc, syrupUSDC) onto Kamino as
-            collateral, borrows USDC against it, and re-enters the same leg with the
-            borrowed proceeds. Two or three iterations multiply yield on a thinner
-            equity base. Foundation maintains a target health factor on every position
-            and auto-deleverages when collateral prices, borrow rates, or oracle drift
+            A levered position deposits its receipt asset onto Kamino as collateral,
+            borrows USDC against it, and re-enters the same leg with the borrowed
+            proceeds. Two or three iterations multiply yield on a thinner equity base.
+            Foundation maintains a target health factor on every position and
+            auto-deleverages when collateral prices, borrow rates, or oracle drift
             push the buffer below tolerance.
           </p>
           <p className="mt-3 text-[13px] leading-relaxed text-[var(--text-accent)]">
-            The basis leg, USDH from Solomon, is never looped. Basis trades already
-            embed perpetual futures leverage, so layering an additional borrow on top
-            would compound liquidation risk to a level we will not underwrite.
+            Looping is suited for users who can hold through volatility and accept
+            the possibility of partial liquidation in extreme regimes. The base AWY
+            and Oro vaults remain available for unlevered exposure.
           </p>
         </div>
       </section>
@@ -66,10 +134,10 @@ export default function AmplifyPage() {
 }
 
 /* ============================================================
-   AmplifyCard: factsheet-style flagship card
+   FlagshipCard: factsheet-style hero for the flagship Amplify product
    ============================================================ */
 
-function AmplifyCard({ vault }: { vault: AmplifyVault }) {
+function FlagshipCard({ vault }: { vault: AmplifyVault }) {
   return (
     <div className="infra-card overflow-hidden p-6 sm:p-8">
       {/* Header */}
@@ -135,8 +203,8 @@ function AmplifyCard({ vault }: { vault: AmplifyVault }) {
       {/* Footer */}
       <div className="mt-7 flex flex-col gap-3 border-t border-[var(--rule)] pt-5 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-[11px] leading-relaxed text-[var(--text-accent)]">
-          Receipt: <span className="font-mono font-semibold text-[var(--fg)]">{vault.receiptToken}</span>{", "}
-          Token-2022 with InterestBearing extension. Auto-deleverage on stress.
+          Receipt: <span className="font-mono font-semibold text-[var(--fg)]">{vault.receiptToken}</span>
+          {", "}Token-2022 with InterestBearing extension. Auto-deleverage on stress.
         </p>
         <span className="font-mono text-[9px] uppercase tracking-[0.25em] text-[var(--text-accent)]">
           Quarterly rebalance · Health factor 1.6 target
@@ -162,7 +230,6 @@ function LegPanel({
         horizontalDivider ? "sm:border-t sm:border-[var(--rule)] md:border-0" : ""
       }`}
     >
-      {/* Top row: asset + weight */}
       <div className="mb-1 flex items-baseline justify-between">
         <span className="font-mono text-sm font-bold tracking-tight text-[var(--fg)]">
           {leg.asset}
@@ -176,7 +243,6 @@ function LegPanel({
         {leg.issuer}
       </p>
 
-      {/* Leverage badge */}
       <div className="mb-3">
         {leg.leveraged ? (
           <span className="inline-flex items-center gap-1 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wider text-emerald-600">
@@ -193,7 +259,6 @@ function LegPanel({
         {leg.description}
       </p>
 
-      {/* Numbers */}
       <div className="space-y-1.5 border-t border-[var(--rule)] pt-3">
         <div className="flex items-center justify-between">
           <span className="font-mono text-[9px] uppercase tracking-wider text-[var(--text-accent)]">
@@ -223,3 +288,90 @@ function LegPanel({
     </div>
   );
 }
+
+/* ============================================================
+   AmplifyVaultCard: matches the Invest grid VaultCard pattern
+   ============================================================ */
+
+function AmplifyVaultCard({ vault }: { vault: AmplifyVault }) {
+  const isLive = vault.status === "live";
+
+  return (
+    <div
+      className={`strategy-card overflow-hidden border border-[var(--rule)] bg-[var(--surface-strong)] rounded-xl divide-y divide-[var(--rule)] transition-all ${
+        isLive ? "cursor-pointer hover:-translate-y-0.5" : "cursor-not-allowed opacity-90"
+      }`}
+      data-glow
+    >
+      {/* Header */}
+      <div className="flex items-center gap-3 px-5 py-4">
+        <Image
+          src={vault.logoSrc}
+          alt={vault.curator}
+          width={36}
+          height={36}
+          className="h-9 w-9 flex-shrink-0 rounded-lg object-contain"
+        />
+        <span className="truncate font-mono text-xl font-bold tracking-[-0.02em] text-[var(--fg)]">
+          {vault.name}
+        </span>
+        {!isLive && (
+          <span className="ml-auto rounded-full border border-[var(--rule)] bg-[var(--surface)] px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider text-gold-500">
+            Soon
+          </span>
+        )}
+      </div>
+
+      {/* Description */}
+      <div className="px-5 py-4">
+        <p className="line-clamp-2 text-sm text-[var(--muted)] leading-relaxed">
+          {vault.shortDescription}
+        </p>
+      </div>
+
+      {/* Data grid */}
+      <div className="divide-y divide-[var(--rule)]">
+        <div className="grid grid-cols-2 divide-x divide-[var(--rule)]">
+          <div className="flex flex-col items-start px-5 py-4">
+            <span className="section-label mb-1.5 font-mono text-[10px] font-semibold tracking-[0.15em] text-[var(--gold)]">TARGET NET APY</span>
+            <span className="font-mono text-3xl font-bold tracking-[-0.03em] text-emerald-500">
+              {formatAPY(vault.netApy)}
+            </span>
+          </div>
+          <div className="flex flex-col items-start px-5 py-4">
+            <span className="section-label mb-1.5 font-mono text-[10px] font-semibold tracking-[0.15em] text-[var(--gold)]">RISK TIER</span>
+            <span className="font-mono text-[1.4rem] font-bold tracking-wide capitalize text-[#334155] dark:text-[var(--fg)]">
+              {vault.riskTier}
+            </span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 divide-x divide-[var(--rule)]">
+          <div className="flex flex-col items-start px-5 py-4">
+            <span className="section-label mb-1.5 font-mono text-[10px] font-semibold tracking-[0.15em] text-[var(--gold)]">CURATOR</span>
+            <span className="font-mono text-sm font-bold text-[#334155] dark:text-[var(--fg)]">
+              {vault.curator}
+            </span>
+          </div>
+          <div className="flex flex-col items-start px-5 py-4">
+            <span className="section-label mb-1.5 font-mono text-[10px] font-semibold tracking-[0.15em] text-[var(--gold)]">UNDERLYING</span>
+            <span className="font-mono text-xs font-bold leading-snug tracking-wide text-[#334155] dark:text-[var(--fg)] uppercase line-clamp-2">
+              {vault.underlying}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* CTA */}
+      <div className="flex items-center justify-between px-5 py-4">
+        <span className="text-xs font-mono tracking-wide text-[var(--muted)]">USDC</span>
+        <span className={`text-xs font-mono font-bold tracking-[0.1em] uppercase transition-colors ${
+          isLive ? "text-[#0f172a] dark:text-[var(--fg)]" : "text-[var(--muted)]"
+        }`}>
+          {isLive ? "View Details →" : "Coming Soon"}
+        </span>
+      </div>
+    </div>
+  );
+}
+
