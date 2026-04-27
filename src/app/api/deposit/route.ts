@@ -213,18 +213,32 @@ export async function POST(req: NextRequest) {
 
     const mintSig = await executeVaultTransaction(vaultName, mintInstructions);
 
-    // 10. Log to Supabase
+    // 10. Log to Supabase (defensive: deploy_tx column may not exist on legacy
+    //     deployments — retry without it rather than silently dropping the row)
     if (isSupabaseConfigured()) {
-      const { error: insertErr } = await supabaseAdmin.from("sol_deposits").insert({
+      const baseRow = {
         vault_id: vaultId,
         wallet: userWallet,
         usdc_amount: usdcReceived,
         shares_minted: sharesToMint,
         deposit_tx: txSignature,
         mint_tx: mintSig,
-        deploy_tx: deployTx,
-      });
-      if (insertErr) console.error("Supabase deposit insert failed:", insertErr);
+      };
+      const { error: insertErr } = await supabaseAdmin
+        .from("sol_deposits")
+        .insert({ ...baseRow, deploy_tx: deployTx });
+      if (insertErr) {
+        if (insertErr.message?.includes("deploy_tx")) {
+          // Schema missing column — insert without it and warn loudly
+          console.warn(
+            "sol_deposits.deploy_tx column missing — run: ALTER TABLE sol_deposits ADD COLUMN deploy_tx TEXT;",
+          );
+          const { error: retryErr } = await supabaseAdmin.from("sol_deposits").insert(baseRow);
+          if (retryErr) console.error("Supabase deposit insert (fallback) failed:", retryErr);
+        } else {
+          console.error("Supabase deposit insert failed:", insertErr);
+        }
+      }
     }
 
     return NextResponse.json({

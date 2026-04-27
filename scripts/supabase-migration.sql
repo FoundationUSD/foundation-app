@@ -39,8 +39,11 @@ CREATE TABLE IF NOT EXISTS sol_deposits (
   shares_minted BIGINT NOT NULL,
   deposit_tx TEXT NOT NULL,
   mint_tx TEXT NOT NULL,
+  deploy_tx TEXT,
   created_at TIMESTAMPTZ DEFAULT now()
 );
+-- Backfill for existing deployments missing the column
+ALTER TABLE sol_deposits ADD COLUMN IF NOT EXISTS deploy_tx TEXT;
 
 CREATE INDEX IF NOT EXISTS idx_sol_deposits_wallet
   ON sol_deposits(wallet, created_at DESC);
