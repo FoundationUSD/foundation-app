@@ -88,8 +88,19 @@ async function fetchOroApy(): Promise<number> {
   return 3.5; // Gold leasing via Monetary Metals
 }
 
+/**
+ * AWY blended APY = weighted sum of live per-leg APYs (or spec fallback per leg).
+ * Uses the same getAwyData() that powers the UI so the receipt rate matches what
+ * the user sees on the strategy page.
+ */
+async function fetchAwyApy(): Promise<number> {
+  const { getAwyData } = await import("@/lib/integrations/awy");
+  const data = await getAwyData();
+  return data.blendedBaseApy > 0 ? data.blendedBaseApy : data.specBlendedApy;
+}
+
 type VaultRate = {
-  name: "solomon" | "kamino" | "oro";
+  name: "solomon" | "kamino" | "oro" | "awy";
   envMint: string;
   fetchApy: () => Promise<number>;
   haircut: number; // Foundation fee %
@@ -99,6 +110,7 @@ const VAULT_RATES: VaultRate[] = [
   { name: "solomon", envMint: "NEXT_PUBLIC_SOLOMON_MINT", fetchApy: fetchSolomonApy, haircut: 0.10 },
   { name: "kamino", envMint: "NEXT_PUBLIC_KAMINO_MINT", fetchApy: fetchKaminoApy, haircut: 0.10 },
   { name: "oro", envMint: "NEXT_PUBLIC_ORO_MINT", fetchApy: fetchOroApy, haircut: 0.10 },
+  { name: "awy", envMint: "NEXT_PUBLIC_AWY_MINT", fetchApy: fetchAwyApy, haircut: 0.10 },
 ];
 
 /**

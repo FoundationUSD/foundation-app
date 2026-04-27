@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { FOUNDATION_VAULTS } from "@/lib/vaults";
 import { getOroData } from "@/lib/integrations/oro";
+import { getAwyData } from "@/lib/integrations/awy";
 import { isSupabaseConfigured, supabaseAdmin } from "@/lib/supabase-server";
 
 export const dynamic = "force-dynamic";
@@ -74,10 +75,11 @@ async function fetchOroGoldPrice(): Promise<number> {
 
 export async function GET() {
   try {
-    const [kaminoApy, oroGoldPrice, oroData, tvlMap] = await Promise.all([
+    const [kaminoApy, oroGoldPrice, oroData, awyData, tvlMap] = await Promise.all([
       fetchKaminoApy(),
       fetchOroGoldPrice(),
       getOroData(),
+      getAwyData(),
       fetchVaultTvlMap(),
     ]);
 
@@ -97,6 +99,29 @@ export async function GET() {
             marketCapUsd: oroData.goldSupply * spot,
             priceImpactBps1K: oroData.priceImpactBps1K,
             priceSource: oroGoldPrice > 0 ? "oro-tradebook" : "jupiter",
+          },
+        };
+      }
+      if (v.protocol === "awy") {
+        return {
+          ...v,
+          apy: awyData.blendedBaseApy,
+          tvlUsd,
+          meta: {
+            composition: awyData.legs.map((leg) => ({
+              id: leg.id,
+              asset: leg.asset,
+              issuer: leg.issuer,
+              weightBps: leg.weightBps,
+              specApy: leg.baseApy,
+              liveApy: leg.liveApy,
+              riskDriver: leg.riskDriver,
+              source: leg.source,
+              navUsd: leg.navUsd,
+            })),
+            blendedBaseApy: awyData.blendedBaseApy,
+            specBlendedApy: awyData.specBlendedApy,
+            fetchedAt: awyData.fetchedAt,
           },
         };
       }

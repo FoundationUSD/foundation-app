@@ -37,6 +37,7 @@ const PROTOCOL_LOGO: Record<string, string> = {
   solomon: "/partners/solomon-circle.png",
   kamino: "/partners/kamino.png",
   oro: "/partners/oro.png",
+  awy: "/assets/awy.png",
 };
 
 const USDC_MINT_PK = new PublicKey("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
@@ -83,7 +84,7 @@ export default function HomePage() {
         <div className="mb-14 sm:mb-20">
           <div className="mb-4 flex items-baseline justify-between">
             <h2 className="section-label">Flagship Strategy</h2>
-            <span className="font-mono text-[9px] uppercase tracking-[0.25em] text-gold-500">Coming Soon</span>
+            <span className="font-mono text-[9px] uppercase tracking-[0.25em] text-emerald-500">Live</span>
           </div>
           <AwyHighlight />
         </div>
@@ -156,7 +157,7 @@ export default function HomePage() {
           <section className="mb-10">
             <div className="mb-4 flex items-baseline justify-between">
               <h2 className="section-label">Flagship Strategy</h2>
-              <span className="font-mono text-[9px] uppercase tracking-[0.25em] text-gold-500">Coming Soon</span>
+              <span className="font-mono text-[9px] uppercase tracking-[0.25em] text-emerald-500">Live</span>
             </div>
             <AwyHighlight />
           </section>
@@ -652,16 +653,56 @@ function TxSuccess({ sig, label, sub, onReset }: { sig: string; label: string; s
 }
 
 /* ============================================================
-   All-Weather Yield — flagship highlight (coming soon)
+   All-Weather Yield — flagship highlight (live)
    ============================================================ */
-const AWY_LEGS: Array<{ pct: string; asset: string; source: string; apy: string }> = [
+
+interface AwyLegMeta {
+  id: string;
+  asset: string;
+  weightBps: number;
+  specApy: number;
+  liveApy: number;
+  riskDriver: string;
+  source: string;
+}
+
+interface AwyMeta {
+  composition: AwyLegMeta[];
+  blendedBaseApy: number;
+  specBlendedApy: number;
+  fetchedAt: number;
+}
+
+const AWY_LEGS_FALLBACK: Array<{ pct: string; asset: string; source: string; apy: string }> = [
   { pct: "35%", asset: "ONyc",       source: "Reinsurance premiums",        apy: "11.0%" },
   { pct: "30%", asset: "PRIME",      source: "Tokenized HELOCs",            apy: "7.5%"  },
   { pct: "25%", asset: "syrupUSDC",  source: "Overcollateralized lending",  apy: "6.5%"  },
   { pct: "10%", asset: "USDY",       source: "Short-term US Treasuries",    apy: "3.7%"  },
 ];
 
+const AWY_LEG_DESCRIPTIONS: Record<string, string> = {
+  onyc: "Reinsurance premiums",
+  prime: "Tokenized HELOCs",
+  "syrup-usdc": "Overcollateralized lending",
+  usdy: "Short-term US Treasuries",
+};
+
 function AwyHighlight() {
+  const { strategies } = useStrategies();
+  const awy = strategies.find((s) => s.protocol === "awy");
+  const meta = awy?.meta as AwyMeta | undefined;
+
+  const legs = meta?.composition?.length
+    ? meta.composition.map((leg) => ({
+        pct: `${leg.weightBps / 100}%`,
+        asset: leg.asset,
+        source: AWY_LEG_DESCRIPTIONS[leg.id] ?? leg.riskDriver,
+        apy: `${leg.liveApy.toFixed(1)}%`,
+      }))
+    : AWY_LEGS_FALLBACK;
+
+  const blendedApy = meta?.blendedBaseApy ?? 8.1;
+
   return (
     <div className="infra-card p-6 sm:p-8">
       {/* Header */}
@@ -684,12 +725,12 @@ function AwyHighlight() {
               Blended Base APY
             </p>
             <span className="font-mono text-3xl font-bold tracking-[-0.03em] text-emerald-500 sm:text-[2.5rem]">
-              ~8.1%
+              ~{blendedApy.toFixed(1)}%
             </span>
           </div>
           <div className="sm:mt-2">
-            <span className="rounded-full border border-[var(--rule)] bg-[var(--surface)] px-2.5 py-1 font-mono text-[9px] uppercase tracking-[0.2em] text-gold-500">
-              Coming Soon
+            <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 font-mono text-[9px] uppercase tracking-[0.2em] text-emerald-600">
+              Live
             </span>
           </div>
         </div>
@@ -697,7 +738,7 @@ function AwyHighlight() {
 
       {/* Composition */}
       <div className="grid grid-cols-1 divide-y divide-[var(--rule)] sm:grid-cols-2 sm:divide-y-0 md:grid-cols-4 md:divide-x">
-        {AWY_LEGS.map((leg, i) => (
+        {legs.map((leg, i) => (
           <div
             key={leg.asset}
             className={`px-0 py-4 sm:px-5 ${i === 1 ? "sm:border-l sm:border-[var(--rule)] md:border-0" : ""} ${
