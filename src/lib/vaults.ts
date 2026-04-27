@@ -121,6 +121,8 @@ export const FOUNDATION_VAULTS: FoundationVault[] = [
       "Deposit USDC. Foundation splits across 4 RWA yield engines — reinsurance (ONyc), HELOC credit (PRIME), institutional crypto lending (syrupUSDC), and US Treasuries (USDY) — engineered so no single macro regime compresses every leg at once.",
     underlying: "Blended: ONyc · PRIME · syrupUSDC · USDY",
     riskTier: "moderate",
+    // Spec-target only — the strategies API overwrites this with the live blended
+    // value computed from each leg's actual APY (see /api/strategies).
     apy: 8.1,
     receiptToken: "awyUSD",
     features: [
