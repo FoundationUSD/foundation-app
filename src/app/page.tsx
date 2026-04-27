@@ -86,7 +86,7 @@ export default function HomePage() {
             <h2 className="section-label">Flagship Strategy</h2>
             <span className="font-mono text-[9px] uppercase tracking-[0.25em] text-emerald-500">Live</span>
           </div>
-          <AwyHighlight />
+          <AwyHighlight onSelect={() => setWalletModalOpen(true)} />
         </div>
 
         {/* How It Works */}
@@ -154,13 +154,19 @@ export default function HomePage() {
       ) : (
         <>
           {/* Flagship — All-Weather Yield */}
-          <section className="mb-10">
-            <div className="mb-4 flex items-baseline justify-between">
-              <h2 className="section-label">Flagship Strategy</h2>
-              <span className="font-mono text-[9px] uppercase tracking-[0.25em] text-emerald-500">Live</span>
-            </div>
-            <AwyHighlight />
-          </section>
+          {(() => {
+            const awyVault = strategies.find((s) => s.protocol === "awy");
+            if (!awyVault) return null;
+            return (
+              <section className="mb-10">
+                <div className="mb-4 flex items-baseline justify-between">
+                  <h2 className="section-label">Flagship Strategy</h2>
+                  <span className="font-mono text-[9px] uppercase tracking-[0.25em] text-emerald-500">Live</span>
+                </div>
+                <AwyHighlight onSelect={() => setSelectedVault(awyVault)} />
+              </section>
+            );
+          })()}
 
           {/* Source Filter — glass pill container */}
           <div className="mb-8 inline-flex items-center gap-1 rounded-xl border border-[var(--rule)] bg-[var(--surface-strong)] p-1 shadow-[inset_0_1px_3px_rgba(0,0,0,0.02)]">
@@ -687,7 +693,7 @@ const AWY_LEG_DESCRIPTIONS: Record<string, string> = {
   usdy: "Short-term US Treasuries",
 };
 
-function AwyHighlight() {
+function AwyHighlight({ onSelect }: { onSelect?: () => void }) {
   const { strategies } = useStrategies();
   const awy = strategies.find((s) => s.protocol === "awy");
   const meta = awy?.meta as AwyMeta | undefined;
@@ -704,7 +710,10 @@ function AwyHighlight() {
   const blendedApy = meta?.blendedBaseApy ?? 8.1;
 
   return (
-    <div className="infra-card p-6 sm:p-8">
+    <div
+      onClick={onSelect}
+      className="infra-card group block cursor-pointer p-6 transition-all hover:border-[var(--navy)]/40 hover:shadow-md sm:p-8"
+    >
       {/* Header */}
       <div className="mb-6 flex flex-col gap-5 border-b border-[var(--rule)] pb-6 sm:flex-row sm:items-start sm:justify-between sm:gap-8">
         <div className="max-w-xl">
@@ -768,8 +777,8 @@ function AwyHighlight() {
         <p className="text-[11px] leading-relaxed text-[var(--text-accent)]">
           Four independent drivers · actuarial events · US rate cycle · crypto borrowing demand · Fed funds
         </p>
-        <span className="font-mono text-[9px] uppercase tracking-[0.25em] text-[var(--text-accent)]">
-          Quarterly rebalance · No leverage · Base rates only
+        <span className="inline-flex items-center gap-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--navy)] transition-colors group-hover:text-emerald-600">
+          Deposit <ArrowUpRight className="h-3 w-3" />
         </span>
       </div>
     </div>
