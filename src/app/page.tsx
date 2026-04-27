@@ -707,7 +707,9 @@ function AwyHighlight({ onSelect }: { onSelect?: () => void }) {
       }))
     : AWY_LEGS_FALLBACK;
 
-  const blendedApy = meta?.blendedBaseApy ?? 8.1;
+  // Prefer live blended APY → spec blended (still from API) → strategies-row apy.
+  // No hardcoded fallback — if all are missing we render an em-dash instead.
+  const blendedApy = meta?.blendedBaseApy ?? meta?.specBlendedApy ?? awy?.apy;
 
   return (
     <div
@@ -734,7 +736,7 @@ function AwyHighlight({ onSelect }: { onSelect?: () => void }) {
               Blended Base APY
             </p>
             <span className="font-mono text-3xl font-bold tracking-[-0.03em] text-emerald-500 sm:text-[2.5rem]">
-              ~{blendedApy.toFixed(1)}%
+              {blendedApy != null ? `~${blendedApy.toFixed(2)}%` : "—"}
             </span>
           </div>
           <div className="sm:mt-2">

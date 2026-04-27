@@ -99,8 +99,10 @@ export interface AwyAggregateData {
 }
 
 /**
+/**
  * Spec-blended APY — deterministic, no I/O. Used by tests, fallback paths, and the
- * landing page when API hasn't loaded yet. Currently ~8.1%.
+ * landing page when API hasn't loaded yet. Computed at runtime from AWY_COMPOSITION
+ * weights × baseApy (currently ~8.1%).
  */
 export function getSpecBlendedApy(): number {
   const total = AWY_COMPOSITION.reduce(
