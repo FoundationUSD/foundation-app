@@ -1,17 +1,26 @@
 /**
  * Foundation Managed Vaults — Squads multisig + Token-2022 InterestBearing receipt mint.
  *
- * Solomon:  LIVE — soloUSD
- * Kamino:   LIVE — kmnoUSD
- * Oro:      LIVE — oroUSD
- * AWY:      LIVE — awyUSD (4-leg blended RWA basket; flagship)
+ * Solomon:    LIVE         — soloUSD
+ * Kamino:     LIVE         — kmnoUSD
+ * Oro:        LIVE         — oroUSD
+ * AWY:        LIVE         — awyUSD  (4-leg blended RWA basket; flagship)
+ * Hephaestus: COMING_SOON  — hephUSD (4-metal commodities basket)
  */
 
 export interface FoundationVault {
   id: string;
+  /** Display name — used as fallback in lists, search, and back-compat. */
   name: string;
+  /** Provider / curator label. Shown in small gold above the title.
+   *  "Solomon" / "Kamino" / "Oro" for partner pass-throughs.
+   *  "Foundation" for in-house baskets (AWY, Hephaestus). */
+  provider: string;
+  /** The headline asset or product. Shown big as the page/card title.
+   *  e.g. "sUSDV" / "PRIME" / "$GOLD" / "All-Weather Yield" / "Forge Basket". */
+  assetName: string;
   strategy: string;
-  protocol: "solomon" | "kamino" | "oro" | "awy";
+  protocol: "solomon" | "kamino" | "oro" | "awy" | "hephaestus";
   /**
    * Source classification surfaced by the Invest page filter.
    *  - "foundation": composed and managed by Foundation itself (e.g. AWY blended basket).
@@ -39,7 +48,9 @@ export interface FoundationVault {
 export const FOUNDATION_VAULTS: FoundationVault[] = [
   {
     id: "fdn-solomon",
-    name: "Foundation × Solomon",
+    name: "Solomon",
+    provider: "Solomon",
+    assetName: "sUSDV",
     strategy: "sUSDV Basis Yield",
     protocol: "solomon",
     category: "partner",
@@ -65,7 +76,9 @@ export const FOUNDATION_VAULTS: FoundationVault[] = [
   },
   {
     id: "fdn-kamino",
-    name: "Foundation × Kamino",
+    name: "Kamino",
+    provider: "Kamino",
+    assetName: "PRIME",
     strategy: "PRIME Credit Yield",
     protocol: "kamino",
     category: "partner",
@@ -91,7 +104,9 @@ export const FOUNDATION_VAULTS: FoundationVault[] = [
   },
   {
     id: "fdn-oro",
-    name: "Foundation × Oro",
+    name: "Oro",
+    provider: "Oro",
+    assetName: "$GOLD",
     strategy: "Gold-Backed Exposure",
     protocol: "oro",
     category: "partner",
@@ -122,7 +137,9 @@ export const FOUNDATION_VAULTS: FoundationVault[] = [
   },
   {
     id: "fdn-awy",
-    name: "Foundation × AWY",
+    name: "AWY",
+    provider: "Foundation",
+    assetName: "All-Weather Yield",
     strategy: "All-Weather Yield",
     protocol: "awy",
     category: "foundation",
@@ -152,5 +169,43 @@ export const FOUNDATION_VAULTS: FoundationVault[] = [
     usdcAccount: process.env.NEXT_PUBLIC_AWY_USDC_ATA || "",
     mint: process.env.NEXT_PUBLIC_AWY_MINT || "",
     multisig: process.env.VAULT_AWY_MULTISIG || "",
+  },
+  {
+    id: "fdn-hephaestus",
+    name: "Hephaestus",
+    provider: "Foundation",
+    assetName: "Hephaestus",
+    strategy: "Forge Basket",
+    protocol: "hephaestus",
+    category: "foundation",
+    description:
+      "A four-metal basket forged from the institutional commodity tokens now live on Solana. Foundation allocates 45 percent to gold, 25 percent to silver, 20 percent to platinum, and 10 percent to copper — pairing precious-metal store-of-value with industrial-metal cyclical exposure. The basket targets the natural appreciation of metals across rate cycles and inflation regimes, rebalancing quarterly to target weights.",
+    underlying: "Blended: Gold · Silver · Platinum · Copper",
+    riskTier: "moderate",
+    // Spec-target only — represents weighted long-term metals appreciation,
+    // not a yield. Position is mark-to-market against spot prices.
+    apy: 4.2,
+    receiptToken: "hephUSD",
+    features: [
+      "4-metal physical commodity basket",
+      "LBMA / LPPM certified bullion",
+      "Quarterly rebalance",
+      "Managed by Foundation",
+    ],
+    howItWorks: [
+      "Deposit USDC into Foundation's Squads multisig vault.",
+      "Foundation routes the deposit across four metals at target weights of 45 / 25 / 20 / 10 percent.",
+      "Gold via Oro $GOLD; silver, platinum, and copper via Remora Markets' SLVr, PPLTr, and CPERr — all institutionally issued and audit-verified on Solana.",
+      "Your hephUSD balance reflects the blended spot value of the basket via Token-2022 rate updates.",
+      "Withdraw any time. Foundation unwinds proportional slices across the four metals and returns USDC.",
+    ],
+    status: "coming_soon",
+    // Multisig + accounts not provisioned yet — vault stays in coming_soon
+    // until on-chain plumbing is wired and audit verification of the constituent
+    // commodity tokens (Remora SLVr/PPLTr/CPERr) is complete.
+    vaultPda: "",
+    usdcAccount: "",
+    mint: "",
+    multisig: "",
   },
 ];
