@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useWallet } from "@solana/wallet-adapter-react";
-import { Sparkles, Crown, Award, Anchor, ChevronRight } from "lucide-react";
+import { Sparkles, Crown, Award, Anchor, ChevronRight, ChevronDown } from "lucide-react";
 import { FOUNDATION_VAULTS } from "@/lib/vaults";
 import { STANDING_TIERS, type StandingResult, type StandingTier } from "@/lib/standing";
 import { formatNumber } from "@/lib/utils";
@@ -28,6 +28,7 @@ export function StandingDashboard() {
   const wallet = useWallet();
   const [standing, setStanding] = useState<StandingResult | null>(null);
   const [loading, setLoading] = useState(true);
+  const [charterOpen, setCharterOpen] = useState(false);
 
   useEffect(() => {
     if (!wallet.publicKey) {
@@ -201,10 +202,33 @@ export function StandingDashboard() {
         </div>
       )}
 
-      {/* Tier ladder */}
-      <div className="rounded-xl border border-[var(--rule)] bg-[var(--surface)] p-4">
-        <h3 className="mb-3 text-sm font-semibold text-[var(--fg)]">The Charter</h3>
-        <div className="space-y-2">
+      {/* Tier ladder — collapsed by default */}
+      <div className="rounded-xl border border-[var(--rule)] bg-[var(--surface)]">
+        <button
+          type="button"
+          onClick={() => setCharterOpen((v) => !v)}
+          aria-expanded={charterOpen}
+          className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-[var(--surface-strong)]"
+        >
+          <div className="flex flex-col items-start">
+            <span className="text-sm font-semibold text-[var(--fg)]">The Charter</span>
+            <span className="font-mono text-[10px] text-[var(--text-accent)]">
+              {charterOpen ? "Hide tiers and benefits" : "Show all tiers and what unlocks at each"}
+            </span>
+          </div>
+          <ChevronDown
+            className={`h-4 w-4 shrink-0 text-[var(--text-accent)] transition-transform ${
+              charterOpen ? "rotate-180" : ""
+            }`}
+          />
+        </button>
+        <div
+          className={`grid transition-all duration-300 ease-out ${
+            charterOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+          }`}
+        >
+          <div className="overflow-hidden">
+            <div className="space-y-2 border-t border-[var(--rule)] p-4">
           {STANDING_TIERS.map((t, i) => {
             const isCurrent = i === tierIdx;
             const isPast = i < tierIdx;
@@ -256,6 +280,8 @@ export function StandingDashboard() {
               </div>
             );
           })}
+            </div>
+          </div>
         </div>
       </div>
     </div>
