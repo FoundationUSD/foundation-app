@@ -8,6 +8,7 @@ import {
 import { executeVaultTransaction, getVaultAddresses, vaultIdToName } from "@/lib/solana/squads";
 import { isSupabaseConfigured, supabaseAdmin } from "@/lib/supabase-server";
 import { withdrawCapital } from "@/lib/deploy-capital";
+import { validatePublicKey, validateTxSignature, validateAmount, badRequest } from "@/lib/api-validation";
 
 export const dynamic = "force-dynamic";
 
@@ -18,12 +19,13 @@ export async function POST(req: NextRequest) {
   try {
     const { vaultId, burnTxSignature, userWallet } = await req.json();
 
-    if (!vaultId || !burnTxSignature || !userWallet) {
-      return NextResponse.json(
-        { success: false, error: "Missing required fields" },
-        { status: 400 },
-      );
+    if (!vaultId || typeof vaultId !== "string") {
+      return NextResponse.json(badRequest({ field: "vaultId", code: "missing", message: "vaultId is required" }), { status: 400 });
     }
+    const sigErr = validateTxSignature("burnTxSignature", burnTxSignature);
+    if (sigErr) return NextResponse.json(badRequest(sigErr), { status: 400 });
+    const walletErr = validatePublicKey("userWallet", userWallet);
+    if (walletErr) return NextResponse.json(badRequest(walletErr), { status: 400 });
 
     let vaultName;
     try {
@@ -110,6 +112,9 @@ export async function POST(req: NextRequest) {
         { status: 400 },
       );
     }
+
+    const amtErr = validateAmount("sharesBurned", sharesBurned);
+    if (amtErr) return NextResponse.json(badRequest(amtErr), { status: 400 });
 
     // Calculate USDC owed — check against actual deposits if Supabase available
     let usdcOwed = sharesBurned; // default 1:1

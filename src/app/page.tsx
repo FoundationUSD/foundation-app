@@ -703,14 +703,14 @@ const AWY_LEGS_FALLBACK: Array<{ pct: string; asset: string; source: string; apy
   { pct: "35%", asset: "ONyc",       source: "Reinsurance premiums",        apy: "11.0%" },
   { pct: "30%", asset: "PRIME",      source: "Tokenized HELOCs",            apy: "7.5%"  },
   { pct: "25%", asset: "syrupUSDC",  source: "Overcollateralized lending",  apy: "6.5%"  },
-  { pct: "10%", asset: "USDY",       source: "Short-term US Treasuries",    apy: "3.7%"  },
+  { pct: "10%", asset: "USDv",       source: "Delta-neutral basis trade",   apy: "12.5%" },
 ];
 
 const AWY_LEG_DESCRIPTIONS: Record<string, string> = {
   onyc: "Reinsurance premiums",
   prime: "Tokenized HELOCs",
   "syrup-usdc": "Overcollateralized lending",
-  usdy: "Short-term US Treasuries",
+  solomon: "Delta-neutral basis trade",
 };
 
 function AwyHighlight({ onSelect }: { onSelect?: () => void }) {

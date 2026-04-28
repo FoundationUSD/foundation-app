@@ -127,8 +127,8 @@ export const FOUNDATION_VAULTS: FoundationVault[] = [
     protocol: "awy",
     category: "foundation",
     description:
-      "Deposit USDC into a four-leg basket designed to hold its yield across rate cycles, credit cycles, and crypto drawdowns. Foundation allocates 35 percent to OnRe reinsurance receipts (ONyc), 30 percent to Kamino PRIME credit, 25 percent to Maple's institutional lending (syrupUSDC), and 10 percent to short-term US Treasuries (Ondo USDY). No single macro regime compresses every leg at once.",
-    underlying: "Blended: ONyc · PRIME · syrupUSDC · USDY",
+      "Deposit USDC into a four-leg basket designed to hold its yield across rate cycles, credit cycles, and crypto drawdowns. Foundation allocates 35 percent to OnRe reinsurance receipts (ONyc), 30 percent to Kamino PRIME credit, 25 percent to Maple's institutional lending (syrupUSDC), and 10 percent to Solomon's delta-neutral basis trade (USDv). No single macro regime compresses every leg at once.",
+    underlying: "Blended: ONyc · PRIME · syrupUSDC · USDv",
     riskTier: "moderate",
     // Spec-target only — the strategies API overwrites this with the live blended
     // value computed from each leg's actual APY (see /api/strategies).

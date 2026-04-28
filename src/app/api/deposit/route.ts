@@ -10,6 +10,7 @@ import {
 import { executeVaultTransaction, getVaultAddresses, vaultIdToName } from "@/lib/solana/squads";
 import { isSupabaseConfigured, supabaseAdmin } from "@/lib/supabase-server";
 import { deployCapital } from "@/lib/deploy-capital";
+import { validatePublicKey, validateTxSignature, validateAmount, badRequest } from "@/lib/api-validation";
 
 export const dynamic = "force-dynamic";
 
@@ -20,13 +21,14 @@ export async function POST(req: NextRequest) {
   try {
     const { vaultId, txSignature, userWallet } = await req.json();
 
-    // 1. Validate inputs
-    if (!vaultId || !txSignature || !userWallet) {
-      return NextResponse.json(
-        { success: false, error: "Missing vaultId, txSignature, or userWallet" },
-        { status: 400 },
-      );
+    // 1. Validate inputs (fail fast with structured errors)
+    if (!vaultId || typeof vaultId !== "string") {
+      return NextResponse.json(badRequest({ field: "vaultId", code: "missing", message: "vaultId is required" }), { status: 400 });
     }
+    const sigErr = validateTxSignature("txSignature", txSignature);
+    if (sigErr) return NextResponse.json(badRequest(sigErr), { status: 400 });
+    const walletErr = validatePublicKey("userWallet", userWallet);
+    if (walletErr) return NextResponse.json(badRequest(walletErr), { status: 400 });
 
     // 2. Resolve vault
     let vaultName;
@@ -138,6 +140,9 @@ export async function POST(req: NextRequest) {
         { status: 400 },
       );
     }
+
+    const amtErr = validateAmount("usdcReceived", usdcReceived);
+    if (amtErr) return NextResponse.json(badRequest(amtErr), { status: 400 });
 
     // 7. Verify the sender is an actual signer on this tx
     const msg = tx.transaction.message;

@@ -338,8 +338,9 @@ export default function StrategyPage() {
                         <p className="text-[10px] leading-relaxed text-[var(--text-accent)]">
                           <span className="font-semibold text-amber-700 dark:text-amber-400">v1 routing:</span>{" "}
                           ONyc and syrupUSDC slices are deployed via Kamino PRIME alongside the PRIME slice
-                          until OnRe and Maple publish dedicated Solana mints. USDY routes through Ondo on Jupiter.
-                          The composition shown is the target basket and the rebalance target once mints land.
+                          until OnRe and Maple publish dedicated Solana mints. The Solomon leg routes through
+                          a Jupiter USDC→USDv swap and stake into sUSDV. The composition shown is the target
+                          basket and the rebalance target once mints land.
                         </p>
                       </div>
                       <div className="space-y-2">

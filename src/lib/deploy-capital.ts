@@ -47,17 +47,49 @@ const KAMINO_USDC_RESERVE = "9GJ9GBRwCp4pHmWrQ43L5xpc9Vykg7jnfwcFGN8FoHYu";
 
 const JUPITER_API = "https://lite-api.jup.ag/swap/v1";
 
+/**
+ * Default slippage for Jupiter swaps (bps). Override per-vault via env or per-call.
+ * 50bps = 0.5% — reasonable for liquid stable pairs (USDC↔USDv, USDC↔$GOLD).
+ * Reverse-swaps from less-liquid receipt tokens (USDv→USDC) widen to 100bps.
+ */
+const DEFAULT_SLIPPAGE_BPS = Number(process.env.SWAP_SLIPPAGE_BPS) || 50;
+const REVERSE_SLIPPAGE_BPS = Number(process.env.SWAP_REVERSE_SLIPPAGE_BPS) || 100;
+const ORO_GRAIL_SLIPPAGE_BPS = Number(process.env.ORO_GRAIL_SLIPPAGE_BPS) || 50;
+
+/**
+ * Retry wrapper for external HTTP APIs. Backs off on 503/504/network errors;
+ * surfaces 4xx immediately (those are real client errors, not transient).
+ */
+async function fetchWithRetry(url: string, init?: RequestInit, attempts = 3): Promise<Response> {
+  let lastErr: unknown;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      const res = await fetch(url, init);
+      if (res.ok) return res;
+      // 4xx = real error, don't retry. 5xx = transient, retry.
+      if (res.status >= 400 && res.status < 500) return res;
+      lastErr = new Error(`${res.status} ${res.statusText}`);
+    } catch (e) {
+      lastErr = e;
+    }
+    if (i < attempts - 1) {
+      await new Promise((r) => setTimeout(r, 1000 * Math.pow(2, i)));
+    }
+  }
+  throw lastErr instanceof Error ? lastErr : new Error("fetchWithRetry exhausted attempts");
+}
+
 // AWY basket — spec weights match src/lib/integrations/awy AWY_COMPOSITION.
 //
 // v1 routing (active): until OnRe and Maple publish their Solana mints,
 //   all three credit-flavored slices (ONyc 35 + PRIME 30 + Maple 25 = 90%) are
 //   deployed into Kamino's PRIME lending market (which is the closest mainnet RWA
-//   credit exposure available). The USDY 10% slice swaps to USDY mint via Jupiter.
+//   credit exposure available). The Solomon 10% slice routes through Solomon's
+//   stake program: Jupiter swap USDC → USDv, then stake into sUSDV.
 // v2 routing (later): when ONyc and syrupUSDC mints publish, set
 //   NEXT_PUBLIC_ONYC_MINT / NEXT_PUBLIC_SYRUP_USDC_MINT and the per-leg path
 //   below will route to dedicated allocations.
-const AWY_WEIGHTS_BPS = { onyc: 3500, prime: 3000, syrup: 2500, usdy: 1000 };
-const USDY_MINT = new PublicKey("A1KLoBrKBde8Ty9qtNQUtq3C2ortoC3u7twggz7sEto6");
+const AWY_WEIGHTS_BPS = { onyc: 3500, prime: 3000, syrup: 2500, solomon: 1000 };
 const ONYC_MINT_STR = process.env.NEXT_PUBLIC_ONYC_MINT || "";
 const SYRUP_USDC_MINT_STR = process.env.NEXT_PUBLIC_SYRUP_USDC_MINT || "";
 
@@ -147,7 +179,7 @@ export async function withdrawCapital(
 async function deployToKamino(vaultName: VaultName, usdcAmount: number): Promise<{ success: boolean; tx?: string; error?: string }> {
   const vault = getVaultAddresses(vaultName);
 
-  const res = await fetch(`${KAMINO_API}/ktx/klend/deposit`, {
+  const res = await fetchWithRetry(`${KAMINO_API}/ktx/klend/deposit`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -178,7 +210,7 @@ async function deployToKamino(vaultName: VaultName, usdcAmount: number): Promise
 async function withdrawFromKamino(vaultName: VaultName, usdcAmount: number): Promise<{ success: boolean; tx?: string; error?: string }> {
   const vault = getVaultAddresses(vaultName);
 
-  const res = await fetch(`${KAMINO_API}/ktx/klend/withdraw`, {
+  const res = await fetchWithRetry(`${KAMINO_API}/ktx/klend/withdraw`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -220,7 +252,7 @@ async function deployToSolomon(usdcAmount: number): Promise<{ success: boolean; 
     inputMint: USDC_MINT,
     outputMint: USDV_MINT,
     amount: usdcAmount,
-    slippageBps: 50, // 0.5%
+    slippageBps: DEFAULT_SLIPPAGE_BPS,
   });
 
   console.log(`Solomon: swapped ${usdcAmount / 1e6} USDC → USDv, tx: ${swapSig}`);
@@ -276,7 +308,7 @@ async function withdrawFromSolomon(usdcAmount: number): Promise<{ success: boole
     inputMint: USDV_MINT,
     outputMint: USDC_MINT,
     amount: swapAmount,
-    slippageBps: 50,
+    slippageBps: DEFAULT_SLIPPAGE_BPS,
   });
 
   console.log(`Solomon: swapped USDv → USDC, tx: ${swapSig}`);
@@ -298,7 +330,7 @@ async function withdrawFromSolomon(usdcAmount: number): Promise<{ success: boole
 async function deployToOro(usdcAmount: number): Promise<{ success: boolean; tx?: string; error?: string }> {
   const { makeGrailServerClient, loadGrailPartnerKeypair, loadGrailTestUserKeypair, loadGrailUserId } =
     await import("./integrations/grail/server");
-  const { cosignBuyOrSell } = await import("./integrations/grail/cosign");
+  const { cosignBuyOrSell, withStaleBlockhashRetry } = await import("./integrations/grail/cosign");
 
   const client = makeGrailServerClient();
   const partner = loadGrailPartnerKeypair();
@@ -308,21 +340,27 @@ async function deployToOro(usdcAmount: number): Promise<{ success: boolean; tx?:
   // GRAIL takes USDC in human units, not lamports.
   const usdcHuman = usdcAmount / 1e6;
 
-  const quote = await client.quoteBuy({ grail_user_id: grailUserId, usdc_amount: usdcHuman });
-  const signedB64 = cosignBuyOrSell({
-    partiallySignedTransactionB64: quote.partially_signed_transaction,
-    partnerKeypair: partner,
-    userKeypair: user,
+  return await withStaleBlockhashRetry(async () => {
+    const quote = await client.quoteBuy({
+      grail_user_id: grailUserId,
+      usdc_amount: usdcHuman,
+      slippage_bps: ORO_GRAIL_SLIPPAGE_BPS,
+    });
+    const signedB64 = cosignBuyOrSell({
+      partiallySignedTransactionB64: quote.partially_signed_transaction,
+      partnerKeypair: partner,
+      userKeypair: user,
+    });
+    const submit = await client.submitBuy(quote.trade_id, { signed_tx: signedB64 });
+    console.log(`Oro[devnet]: bought ${usdcHuman} USDC of $GOLD (slippage ${ORO_GRAIL_SLIPPAGE_BPS}bps), trade=${quote.trade_id}, tx=${submit.tx_hash}`);
+    return { success: true, tx: submit.tx_hash };
   });
-  const submit = await client.submitBuy(quote.trade_id, { signed_tx: signedB64 });
-  console.log(`Oro[devnet]: bought ${usdcHuman} USDC of $GOLD, trade=${quote.trade_id}, tx=${submit.tx_hash}`);
-  return { success: true, tx: submit.tx_hash };
 }
 
 async function withdrawFromOro(usdcAmount: number): Promise<{ success: boolean; tx?: string; error?: string }> {
   const { makeGrailServerClient, loadGrailPartnerKeypair, loadGrailTestUserKeypair, loadGrailUserId } =
     await import("./integrations/grail/server");
-  const { cosignBuyOrSell } = await import("./integrations/grail/cosign");
+  const { cosignBuyOrSell, withStaleBlockhashRetry } = await import("./integrations/grail/cosign");
 
   const client = makeGrailServerClient();
   const partner = loadGrailPartnerKeypair();
@@ -343,19 +381,25 @@ async function withdrawFromOro(usdcAmount: number): Promise<{ success: boolean; 
     return { success: false, error: "Computed sell amount rounds to zero" };
   }
 
-  const quote = await client.quoteSell({ grail_user_id: grailUserId, gold_amount: goldToSell });
-  const signedB64 = cosignBuyOrSell({
-    partiallySignedTransactionB64: quote.partially_signed_transaction,
-    partnerKeypair: partner,
-    userKeypair: user,
+  return await withStaleBlockhashRetry(async () => {
+    const quote = await client.quoteSell({
+      grail_user_id: grailUserId,
+      gold_amount: goldToSell,
+      slippage_bps: ORO_GRAIL_SLIPPAGE_BPS,
+    });
+    const signedB64 = cosignBuyOrSell({
+      partiallySignedTransactionB64: quote.partially_signed_transaction,
+      partnerKeypair: partner,
+      userKeypair: user,
+    });
+    const submit = await client.submitSell(quote.trade_id, { signed_tx: signedB64 });
+    console.log(`Oro[devnet]: sold ${goldToSell} GOLD for ~${usdcHuman} USDC (slippage ${ORO_GRAIL_SLIPPAGE_BPS}bps), trade=${quote.trade_id}, tx=${submit.tx_hash}`);
+    return { success: true, tx: submit.tx_hash };
   });
-  const submit = await client.submitSell(quote.trade_id, { signed_tx: signedB64 });
-  console.log(`Oro[devnet]: sold ${goldToSell} GOLD for ~${usdcHuman} USDC, trade=${quote.trade_id}, tx=${submit.tx_hash}`);
-  return { success: true, tx: submit.tx_hash };
 }
 
 // ============================================================
-// AWY — basket: ONyc 35 / PRIME 30 / syrupUSDC 25 / USDY 10
+// AWY — basket: ONyc 35 / PRIME 30 / syrupUSDC 25 / Solomon (USDv) 10
 // ============================================================
 //
 // Each leg is independent. A failure on one leg leaves the others intact and
@@ -364,7 +408,7 @@ async function withdrawFromOro(usdcAmount: number): Promise<{ success: boolean; 
 // rate the cron sets accounts for this).
 
 interface AwyLegResult {
-  leg: "onyc" | "prime" | "syrup-usdc" | "usdy";
+  leg: "onyc" | "prime" | "syrup-usdc" | "solomon";
   status: "deployed" | "skipped" | "failed";
   tx?: string;
   amountUsdc: number;
@@ -376,10 +420,10 @@ async function deployToAwy(usdcAmount: number): Promise<{ success: boolean; tx?:
 
   // Per-leg amounts at spec weights (last leg takes the remainder so we don't
   // strand 1 lamport of USDC to integer rounding).
-  const onycAmt  = Math.floor((usdcAmount * AWY_WEIGHTS_BPS.onyc)  / 10_000);
-  const primeAmt = Math.floor((usdcAmount * AWY_WEIGHTS_BPS.prime) / 10_000);
-  const syrupAmt = Math.floor((usdcAmount * AWY_WEIGHTS_BPS.syrup) / 10_000);
-  const usdyAmt  = usdcAmount - onycAmt - primeAmt - syrupAmt;
+  const onycAmt    = Math.floor((usdcAmount * AWY_WEIGHTS_BPS.onyc)  / 10_000);
+  const primeAmt   = Math.floor((usdcAmount * AWY_WEIGHTS_BPS.prime) / 10_000);
+  const syrupAmt   = Math.floor((usdcAmount * AWY_WEIGHTS_BPS.syrup) / 10_000);
+  const solomonAmt = usdcAmount - onycAmt - primeAmt - syrupAmt;
 
   const results: AwyLegResult[] = [];
 
@@ -421,7 +465,7 @@ async function deployToAwy(usdcAmount: number): Promise<{ success: boolean; tx?:
         inputMint: USDC_MINT,
         outputMint: new PublicKey(ONYC_MINT_STR),
         amount: onycAmt,
-        slippageBps: 50,
+        slippageBps: DEFAULT_SLIPPAGE_BPS,
       });
       results.push({ leg: "onyc", status: "deployed", tx: sig, amountUsdc: onycAmt });
     } catch (e) {
@@ -438,7 +482,7 @@ async function deployToAwy(usdcAmount: number): Promise<{ success: boolean; tx?:
         inputMint: USDC_MINT,
         outputMint: new PublicKey(SYRUP_USDC_MINT_STR),
         amount: syrupAmt,
-        slippageBps: 50,
+        slippageBps: DEFAULT_SLIPPAGE_BPS,
       });
       results.push({ leg: "syrup-usdc", status: "deployed", tx: sig, amountUsdc: syrupAmt });
     } catch (e) {
@@ -446,21 +490,26 @@ async function deployToAwy(usdcAmount: number): Promise<{ success: boolean; tx?:
     }
   }
 
-  // ── USDY leg via Jupiter (mint exists on mainnet; Ondo doesn't require key
-  //    for the swap path, only for their REST API which we don't use)
-  if (usdyAmt > 0) {
+  // ── Solomon leg: Jupiter USDC → USDv, then stake into sUSDV via Solomon program.
+  //    Same path as the standalone Solomon vault, but routed through the AWY PDA.
+  if (solomonAmt > 0) {
     try {
-      const sig = await jupiterSwap({
+      const swapSig = await jupiterSwap({
         vaultName: "awy",
         vaultPda: vault.vaultPda,
         inputMint: USDC_MINT,
-        outputMint: USDY_MINT,
-        amount: usdyAmt,
-        slippageBps: 50,
+        outputMint: USDV_MINT,
+        amount: solomonAmt,
+        slippageBps: DEFAULT_SLIPPAGE_BPS,
       });
-      results.push({ leg: "usdy", status: "deployed", tx: sig, amountUsdc: usdyAmt });
+      // 6 dec USDC → 9 dec USDv (1:1 in human units).
+      const usdvAmount = BigInt(solomonAmt) * BigInt(1000);
+      const stakeIx = buildSolomonStakeInstruction(vault.vaultPda, usdvAmount);
+      const stakeSig = await executeVaultTransaction("awy", [stakeIx]);
+      console.log(`AWY[solomon]: swapped ${solomonAmt / 1e6} USDC → USDv (${swapSig}), staked → sUSDV (${stakeSig})`);
+      results.push({ leg: "solomon", status: "deployed", tx: stakeSig, amountUsdc: solomonAmt });
     } catch (e) {
-      results.push({ leg: "usdy", status: "failed", amountUsdc: usdyAmt, error: e instanceof Error ? e.message : "unknown" });
+      results.push({ leg: "solomon", status: "failed", amountUsdc: solomonAmt, error: e instanceof Error ? e.message : "unknown" });
     }
   }
 
@@ -480,7 +529,11 @@ async function deployToAwy(usdcAmount: number): Promise<{ success: boolean; tx?:
  * Withdraw USDC proportionally from each deployed leg. Mirror of deployToAwy:
  *   1. Spend idle USDC first (cheapest path)
  *   2. Pull from PRIME via Kamino API
- *   3. Reverse-swap USDY → USDC, then syrupUSDC, then ONyc
+ *   3. Fallback: spend idle USDv (Solomon leg) — reverse-swap USDv → USDC.
+ *      Note: the staked sUSDV portion has Solomon's 7-day cooldown so we only
+ *      consume already-unstaked USDv here. To service larger withdrawals from
+ *      the Solomon leg, the rebalance cron initiates StartUnstake ahead of
+ *      time so USDv is liquid when needed.
  *
  * For "coming_soon" status the basket is mostly idle USDC anyway, so step 1
  * usually covers it. Once all four legs are wired we'll add a smarter rebalancer
@@ -514,25 +567,29 @@ async function withdrawFromAwy(usdcAmount: number): Promise<{ success: boolean; 
     }
   }
 
-  // Fallback: reverse-swap USDY → USDC (other legs are env-gated, skipped if absent)
+  // Fallback: reverse-swap idle USDv (Solomon leg) → USDC. Staked sUSDV is in
+  // a 7-day cooldown queue and not consumable here; the rebalance cron pre-stages
+  // unstakes for predictable redemption.
   if (remaining > 0) {
-    const usdyAta = getAssociatedTokenAddressSync(USDY_MINT, vault.vaultPda, true, TOKEN_PROGRAM_ID);
-    const usdyBalRes = await connection.getTokenAccountBalance(usdyAta).catch(() => null);
-    const usdyBalance = usdyBalRes ? Number(usdyBalRes.value.amount) : 0;
-    if (usdyBalance > 0) {
+    const usdvAta = getAssociatedTokenAddressSync(USDV_MINT, vault.vaultPda, true, TOKEN_PROGRAM_ID);
+    const usdvBalRes = await connection.getTokenAccountBalance(usdvAta).catch(() => null);
+    const usdvBalance = usdvBalRes ? Number(usdvBalRes.value.amount) : 0;
+    if (usdvBalance > 0) {
+      // 9 dec USDv → 6 dec USDC (1:1 in human units). Cap by what the leg holds.
+      const swapAmt = Math.min(usdvBalance, remaining * 1000);
       try {
         const sig = await jupiterSwap({
           vaultName: "awy",
           vaultPda: vault.vaultPda,
-          inputMint: USDY_MINT,
+          inputMint: USDV_MINT,
           outputMint: USDC_MINT,
-          amount: usdyBalance,
-          slippageBps: 100,
+          amount: swapAmt,
+          slippageBps: REVERSE_SLIPPAGE_BPS,
         });
         lastTx = sig;
-        console.log(`AWY withdraw: reverse-swapped USDY → USDC, tx: ${sig}`);
+        console.log(`AWY withdraw: reverse-swapped ${swapAmt / 1e9} USDv → USDC, tx: ${sig}`);
       } catch (e) {
-        console.error("AWY withdraw: USDY reverse-swap failed:", e);
+        console.error("AWY withdraw: USDv reverse-swap failed:", e);
       }
     }
   }
@@ -582,7 +639,7 @@ async function jupiterSwap(params: {
   console.log(`Jupiter: transferred ${params.amount} input tokens from vault to authority`);
 
   // Step 2: Authority executes Jupiter swap directly
-  const quoteRes = await fetch(
+  const quoteRes = await fetchWithRetry(
     `${JUPITER_API}/quote?` +
     `inputMint=${params.inputMint.toBase58()}` +
     `&outputMint=${params.outputMint.toBase58()}` +
@@ -593,7 +650,15 @@ async function jupiterSwap(params: {
   if (!quoteRes.ok) throw new Error(`Jupiter quote failed ${quoteRes.status}`);
   const quote = await quoteRes.json();
 
-  const swapRes = await fetch(`${JUPITER_API}/swap`, {
+  // Slippage-protected minimum the swap must produce. Jupiter populates this
+  // from `slippageBps`; we re-check post-confirm as defense in depth.
+  const expectedOutput = Number(quote.outAmount);
+  const minOutput = Number(quote.otherAmountThreshold);
+  if (!Number.isFinite(minOutput) || minOutput <= 0) {
+    throw new Error("Jupiter quote missing slippage threshold");
+  }
+
+  const swapRes = await fetchWithRetry(`${JUPITER_API}/swap`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -608,14 +673,6 @@ async function jupiterSwap(params: {
   const swapBuffer = Buffer.from(swapTransaction, "base64");
   const vtx = VersionedTransaction.deserialize(swapBuffer);
 
-  // Resolve ALTs for signing
-  const altAccounts = await Promise.all(
-    (vtx.message.addressTableLookups || []).map(async (lookup) => {
-      const res = await connection.getAddressLookupTable(lookup.accountKey);
-      return res.value!;
-    }),
-  );
-
   const { blockhash } = await connection.getLatestBlockhash();
   vtx.message.recentBlockhash = blockhash;
   vtx.sign([authority]);
@@ -627,10 +684,17 @@ async function jupiterSwap(params: {
   const authOutputAta = getAssociatedTokenAddressSync(params.outputMint, authority.publicKey, false, TOKEN_PROGRAM_ID);
   const vaultOutputAta = getAssociatedTokenAddressSync(params.outputMint, params.vaultPda, true, TOKEN_PROGRAM_ID);
 
-  // Get actual output amount received
+  // Get actual output amount received and enforce slippage threshold.
   const outputBalance = await connection.getTokenAccountBalance(authOutputAta);
   const outputAmount = Number(outputBalance.value.amount);
   if (outputAmount <= 0) throw new Error("Jupiter swap returned 0 output tokens");
+  if (outputAmount < minOutput) {
+    throw new Error(
+      `Slippage exceeded: got ${outputAmount}, min ${minOutput} (expected ${expectedOutput}, ${params.slippageBps}bps tolerance)`,
+    );
+  }
+  const slippageTaken = ((expectedOutput - outputAmount) / expectedOutput) * 10_000;
+  console.log(`Jupiter: ${outputAmount}/${expectedOutput} output (${Math.max(0, slippageTaken).toFixed(1)}bps slippage taken)`);
 
   const step3Ixs: TransactionInstruction[] = [];
   try { await getAccount(connection, vaultOutputAta, "confirmed", TOKEN_PROGRAM_ID); } catch {
