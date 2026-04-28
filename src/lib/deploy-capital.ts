@@ -131,6 +131,11 @@ export async function deployCapital(
         return await deployToOro(usdcAmount);
       case "awy":
         return await deployToAwy(usdcAmount);
+      case "hephaestus":
+        // On-chain plumbing not yet provisioned — vault is coming_soon. The
+        // /api/deposit route refuses to mint receipt tokens for non-live vaults
+        // anyway, so this branch should be unreachable in practice.
+        return { success: false, error: "Hephaestus vault is not yet live" };
       default:
         return { success: false, error: `Unknown vault: ${vaultName}` };
     }
@@ -158,6 +163,8 @@ export async function withdrawCapital(
         return await withdrawFromOro(usdcAmount);
       case "awy":
         return await withdrawFromAwy(usdcAmount);
+      case "hephaestus":
+        return { success: false, error: "Hephaestus vault is not yet live" };
       default:
         return { success: false, error: `Unknown vault: ${vaultName}` };
     }

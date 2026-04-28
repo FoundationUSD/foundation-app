@@ -37,21 +37,25 @@ const PROTOCOL_LOGO: Record<string, string> = {
   kamino: "/partners/kamino.png",
   oro: "/partners/oro.png",
   awy: "/assets/awy.png",
+  // Foundation-built basket — uses the rounded Foundation crest
+  hephaestus: "/partners/rounded-nobg.png",
 };
 
 /**
  * Classical art piece paired with each vault. The art lives behind the card
  * header as a heavily-treated atmospheric layer (see .art-thumb in globals.css).
- *   Solomon → Hermes (god of trade)
- *   Kamino  → Athenian pediment fragment (institutional credit / civic)
- *   Oro     → Plutus / coin hoard (gold)
- *   AWY     → Demeter (harvest, the four-leg basket)
+ *   Solomon    → Hermes (god of trade)
+ *   Kamino     → Athenian pediment fragment (institutional credit / civic)
+ *   Oro        → Plutus / coin hoard (gold)
+ *   AWY        → Demeter (harvest, the four-leg basket)
+ *   Hephaestus → Storm of the Four Winds (the four metals as cardinal forces)
  */
 const PROTOCOL_ART: Record<string, string> = {
   solomon: "/assets/art/HermesForSolomon.png",
   kamino: "/assets/art/athenian_pediment_fragment.png",
   oro: "/assets/art/coinhoardForOro.png",
   awy: "/assets/art/GoddessDemeterforAWY.png",
+  hephaestus: "/assets/art/StormoftheFourWinds.png",
 };
 
 const USDC_MINT_PK = new PublicKey("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
@@ -162,10 +166,10 @@ export default function HomePage() {
         <div className="art-content relative flex items-end justify-between gap-4 px-1 py-4 sm:px-2 sm:py-5">
           <div>
             <p className="section-label mb-1 sm:mb-2">
-              {selectedVault ? selectedVault.protocol.toUpperCase() : "VAULT INFRASTRUCTURE"}
+              {selectedVault ? selectedVault.provider.toUpperCase() : "VAULT INFRASTRUCTURE"}
             </p>
             <h1 className="page-heading text-xl sm:text-2xl">
-              {selectedVault ? selectedVault.name : <>Deposit <em>Strategies</em></>}
+              {selectedVault ? selectedVault.assetName : <>Deposit <em>Strategies</em></>}
             </h1>
             {!selectedVault && (
               <p className="mt-1 max-w-xl text-sm text-[var(--text-accent)]">
@@ -313,9 +317,14 @@ function VaultCard({ vault, onSelect }: { vault: FoundationVault; onSelect: () =
               {vault.receiptToken.slice(0,4).toUpperCase()}
             </div>
           )}
-          <span className="truncate font-mono text-xl font-bold tracking-[-0.02em] text-[var(--fg)]">
-            {vault.name}
-          </span>
+          <div className="flex min-w-0 flex-col">
+            <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-gold-500">
+              {vault.provider}
+            </span>
+            <span className="truncate font-serif text-xl font-light tracking-[-0.01em] text-[var(--fg)]">
+              {vault.assetName}
+            </span>
+          </div>
           {!isLive && (
             <span className="ml-auto rounded-full border border-[var(--rule)] bg-[var(--surface)] px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider text-gold-500">
               Soon
@@ -354,7 +363,7 @@ function VaultCard({ vault, onSelect }: { vault: FoundationVault; onSelect: () =
           <div className="flex flex-col items-start px-5 py-4">
             <span className="section-label mb-1.5 font-mono text-[10px] font-semibold tracking-[0.15em] text-[var(--gold)]">CURATOR</span>
             <span className="font-mono text-sm font-bold text-[#334155] dark:text-[var(--fg)]">
-              {vault.protocol === "solomon" ? "Solomon" : vault.protocol.charAt(0).toUpperCase() + vault.protocol.slice(1)}
+              {vault.provider}
             </span>
           </div>
           <div className="flex flex-col items-start px-5 py-4">
@@ -713,7 +722,7 @@ function DepositForm({ vault }: { vault: FoundationVault }) {
   return (
     <form onSubmit={handleDeposit}>
       <p className="mb-4 font-mono text-[10px] text-[var(--text-accent)]">
-        {vault.name} · {formatAPY(vault.apy)} APY
+        {vault.provider} · {vault.assetName} · {formatAPY(vault.apy)} APY
       </p>
       <AmountInput value={amount} onChange={setAmount} token="USDC" />
       {amount && parseFloat(amount) > 0 && (
