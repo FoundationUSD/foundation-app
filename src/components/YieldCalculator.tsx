@@ -261,7 +261,7 @@ export function YieldCalculator({ liveStrategies }: { liveStrategies?: Foundatio
           {/* CTA */}
           {vault?.status === "live" ? (
             <Link
-              href={`/strategy/${vault.id}`}
+              href="/"
               className="group flex items-center justify-between rounded-lg bg-[var(--navy)] px-4 py-3 transition-opacity hover:opacity-95"
             >
               <span className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-wider text-white">
