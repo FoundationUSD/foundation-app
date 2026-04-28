@@ -78,20 +78,42 @@ export class GrailClient {
       if (s) url += `?${s}`;
     }
 
-    const res = await fetch(url, {
-      method,
-      headers,
-      body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
-    });
+    // Retry on 5xx / network errors with exponential backoff. 4xx surfaces immediately.
+    const maxAttempts = 3;
+    let lastErr: unknown;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      let res: Response;
+      try {
+        res = await fetch(url, {
+          method,
+          headers,
+          body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
+        });
+      } catch (e) {
+        lastErr = e;
+        if (attempt < maxAttempts - 1) {
+          await new Promise((r) => setTimeout(r, 1000 * Math.pow(2, attempt)));
+          continue;
+        }
+        throw e;
+      }
 
-    const text = await res.text();
-    let parsed: unknown;
-    try { parsed = text ? JSON.parse(text) : null; } catch { parsed = { error: "parse_error", message: text }; }
+      const text = await res.text();
+      let parsed: unknown;
+      try { parsed = text ? JSON.parse(text) : null; } catch { parsed = { error: "parse_error", message: text }; }
 
-    if (!res.ok) {
-      throw new GrailApiError(res.status, parsed as GrailError);
+      if (!res.ok) {
+        // 5xx is transient — backoff and retry. 4xx is a real error.
+        if (res.status >= 500 && attempt < maxAttempts - 1) {
+          lastErr = new GrailApiError(res.status, parsed as GrailError);
+          await new Promise((r) => setTimeout(r, 1000 * Math.pow(2, attempt)));
+          continue;
+        }
+        throw new GrailApiError(res.status, parsed as GrailError);
+      }
+      return parsed as T;
     }
-    return parsed as T;
+    throw lastErr instanceof Error ? lastErr : new Error("GRAIL request exhausted retries");
   }
 
   // ============================================================

@@ -3,7 +3,7 @@
  *
  * AWY-Amplified is the inaugural product: same RWA basket philosophy as AWY but
  * with looped leverage on the three credit legs (PRIME, ONyc, syrupUSDC). The
- * USDH (Solomon basis) leg stays unleveraged because basis trades already carry
+ * Solomon basis leg (USDv) stays unleveraged because basis trades already carry
  * embedded perp-leverage and stacking on top would multiply liquidation risk.
  *
  * Status: coming_soon — on-chain plumbing not yet provisioned. UI shows the
@@ -11,7 +11,7 @@
  */
 
 export interface AmplifyLegSpec {
-  id: "usdh" | "prime" | "onyc" | "syrup-usdc";
+  id: "solomon" | "prime" | "onyc" | "syrup-usdc";
   asset: string;
   issuer: string;
   /** Weight of the basket in basis points (sums to 10_000). */
@@ -33,8 +33,8 @@ export interface AmplifyLegSpec {
  */
 export const AMPLIFY_AWY_COMPOSITION: AmplifyLegSpec[] = [
   {
-    id: "usdh",
-    asset: "USDH",
+    id: "solomon",
+    asset: "USDv",
     issuer: "Solomon",
     weightBps: 2000,
     leveraged: false,
@@ -131,7 +131,7 @@ export interface AmplifyVault {
  */
 export const AMPLIFY_ORO_COMPOSITION: AmplifyLegSpec[] = [
   {
-    id: "usdh", // reusing the id type — single leg
+    id: "solomon", // reusing the id type — single leg (placeholder identifier)
     asset: "$GOLD",
     issuer: "Oro",
     weightBps: 10_000,
@@ -151,7 +151,7 @@ export const AMPLIFY_VAULTS: AmplifyVault[] = [
     shortDescription:
       "Looped version of the four-leg AWY basket. Targets a net APY in the 11 percent range across three iterations of leverage on the credit legs.",
     description:
-      "Looped version of the AWY basket. Three credit legs (PRIME, ONyc, syrupUSDC) are levered against USDC borrow on Kamino. The basis leg (USDH from Solomon) is left unleveraged because basis trades already embed perpetual futures leverage internally.",
+      "Looped version of the AWY basket. Three credit legs (PRIME, ONyc, syrupUSDC) are levered against USDC borrow on Kamino. The basis leg (USDv from Solomon) is left unleveraged because basis trades already embed perpetual futures leverage internally.",
     netApy: getAmplifyAwyNetApy(),
     receiptToken: "awylUSD",
     underlying: "Looped: PRIME · ONyc · syrupUSDC (basis unlevered)",
