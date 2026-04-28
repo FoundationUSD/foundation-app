@@ -15,6 +15,7 @@ import { ArrowLeft, Loader2, Check, ExternalLink, Shield, TrendingUp, BarChart3,
 import Image from "next/image";
 import Link from "next/link";
 import { WalletModal } from "@/components/WalletModal";
+import { VaultHistoryChart } from "@/components/VaultHistoryChart";
 import { formatAPY, formatUsdCompact } from "@/lib/utils";
 import { getTxUrl, PROTOCOL_FEE_SOL, VAULT_AUTHORITY_PUBKEY } from "@/lib/constants";
 import type { FoundationVault } from "@/lib/vaults";
@@ -48,11 +49,8 @@ const RISK_LABELS: Record<string, string> = {
 };
 
 const TABS = [
-  { key: "overview", label: "Overview" },
-  { key: "performance", label: "Performance" },
-  { key: "strategy", label: "Strategy" },
-  { key: "transparency", label: "Transparency" },
-  { key: "risks", label: "Risks" },
+  { key: "details", label: "Vault Details" },
+  { key: "historical", label: "Historical" },
 ] as const;
 
 export default function StrategyPage() {
@@ -62,7 +60,7 @@ export default function StrategyPage() {
   const [walletModalOpen, setWalletModalOpen] = useState(false);
   const [vault, setVault] = useState<FoundationVault | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<string>("overview");
+  const [activeTab, setActiveTab] = useState<string>("details");
   const [activeAction, setActiveAction] = useState<"deposit" | "withdraw">("deposit");
   const [positionBalance, setPositionBalance] = useState(0);
 
@@ -223,7 +221,7 @@ export default function StrategyPage() {
             {/* Tab Content */}
             <div className="min-h-[400px] w-full">
               {/* Overview Tab */}
-              {activeTab === "overview" && (
+              {activeTab === "details" && (
                 <div className="relative w-full space-y-3">
                   {/* Key Highlights */}
                   <div className="rounded-xl border border-[var(--rule)] bg-[var(--surface)] p-4 min-w-full">
@@ -292,8 +290,15 @@ export default function StrategyPage() {
                 </div>
               )}
 
+              {/* Chart Tab */}
+              {activeTab === "historical" && (
+                <div className="relative w-full space-y-3">
+                  <VaultHistoryChart vaultId={vault.id} currentApy={vault.apy} />
+                </div>
+              )}
+
               {/* Performance Tab */}
-              {activeTab === "performance" && (
+              {activeTab === "details" && (
                 <div className="relative w-full space-y-3">
                   <div className="rounded-xl border border-[var(--rule)] bg-[var(--surface)] p-4">
                     <h3 className="mb-3 text-sm font-semibold text-[var(--fg)]">Yield Breakdown</h3>
@@ -325,7 +330,7 @@ export default function StrategyPage() {
               )}
 
               {/* Strategy Tab */}
-              {activeTab === "strategy" && (
+              {activeTab === "details" && (
                 <div className="relative w-full space-y-3">
                   <div className="rounded-xl border border-[var(--rule)] bg-[var(--surface)] p-4">
                     <h3 className="mb-3 text-sm font-semibold text-[var(--fg)]">
@@ -406,7 +411,7 @@ export default function StrategyPage() {
               )}
 
               {/* Transparency Tab */}
-              {activeTab === "transparency" && (
+              {activeTab === "details" && (
                 <div className="relative w-full space-y-3">
                   <div className="rounded-xl border border-[var(--rule)] bg-[var(--surface)] p-4">
                     <h3 className="mb-3 text-sm font-semibold text-[var(--fg)]">Transparency & Security</h3>
@@ -445,7 +450,7 @@ export default function StrategyPage() {
               )}
 
               {/* Risks Tab */}
-              {activeTab === "risks" && (
+              {activeTab === "details" && (
                 <div className="relative w-full space-y-3">
                   <div className="rounded-xl border border-[var(--rule)] bg-[var(--surface)] p-4">
                     <h3 className="mb-3 text-sm font-semibold text-[var(--fg)]">Risk Analysis</h3>

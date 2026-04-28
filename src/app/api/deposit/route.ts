@@ -11,6 +11,8 @@ import { executeVaultTransaction, getVaultAddresses, vaultIdToName } from "@/lib
 import { isSupabaseConfigured, supabaseAdmin } from "@/lib/supabase-server";
 import { deployCapital } from "@/lib/deploy-capital";
 import { validatePublicKey, validateTxSignature, validateAmount, badRequest } from "@/lib/api-validation";
+import { notify } from "@/lib/notifications";
+import { FOUNDATION_VAULTS } from "@/lib/vaults";
 
 export const dynamic = "force-dynamic";
 
@@ -245,6 +247,17 @@ export async function POST(req: NextRequest) {
         }
       }
     }
+
+    // Fire-and-forget user notification (in-app + email if subscribed)
+    const vaultMeta = FOUNDATION_VAULTS.find((v) => v.id === vaultId);
+    notify({
+      wallet: userWallet,
+      type: "deposit",
+      title: `Deposit confirmed: ${(usdcReceived / 1e6).toFixed(2)} USDC into ${vaultMeta?.receiptToken ?? vaultId}`,
+      body: `Your ${(usdcReceived / 1e6).toFixed(2)} USDC deposit into ${vaultMeta?.name ?? vaultId} is now earning ${vaultMeta?.apy.toFixed(2) ?? ""}% APY. Receipt tokens have been minted to your wallet.`,
+      link: `${process.env.NEXT_PUBLIC_APP_URL || ""}/portfolio`,
+      metadata: { vault_id: vaultId, usdc: usdcReceived, mint_tx: mintSig, deploy_tx: deployTx },
+    }).catch((e) => console.error("deposit notify failed:", e));
 
     return NextResponse.json({
       success: true,

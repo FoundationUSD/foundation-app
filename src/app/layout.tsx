@@ -3,6 +3,7 @@ import { Inter, Cormorant_Garamond, DM_Mono } from "next/font/google";
 import Script from "next/script";
 import { WalletProvider } from "@/components/WalletProvider";
 import { Navbar } from "@/components/Navbar";
+import { Footer } from "@/components/Footer";
 import { NoiseBackground } from "@/components/NoiseBackground";
 import "./globals.css";
 
@@ -65,15 +66,10 @@ export default function RootLayout({
           strategy="beforeInteractive"
         >{`try{var d=document.documentElement,m=localStorage.getItem('darkMode');if(m==='true'){d.classList.remove('light')}else{d.classList.add('light')}}catch(e){document.documentElement.classList.add('light')}`}</Script>
         <NoiseBackground />
-        {/* Alpha Banner */}
-        <div className="fdn-alpha-banner">
-          <span className="fdn-alpha-banner__dot" />
-          FOUNDATION ALPHA · THIS VERSION IS FOR EDUCATIONAL PURPOSES ONLY
-          <span className="fdn-alpha-banner__dot" />
-        </div>
         <WalletProvider>
           <Navbar />
-          <main className="relative z-10 min-h-screen pt-[138px]">{children}</main>
+          <main className="relative z-10 min-h-screen pt-[100px]">{children}</main>
+          <Footer />
         </WalletProvider>
       </body>
     </html>

@@ -2,6 +2,13 @@
  * Scan every Squads multisig and reclaim rent from closed/stale transactions
  * by invoking `vaultTransactionAccountsClose` for each index in [1, transactionIndex].
  *
+ * Optimizations to avoid hammering RPC:
+ *   1. Pre-fetch each tx PDA via getMultipleAccountsInfo (batches of 100) to find
+ *      which indices still have an open account — skip the rest.
+ *   2. Batch up to 8 close ixs per tx to amortize fees and round-trips.
+ *   3. Throttle 250ms between tx submissions.
+ *   4. Skip multisigs whose rentCollector is NULL with a clear warning.
+ *
  * Run: VAULT_AUTHORITY_SECRET=… SOLANA_RPC_URL=… bun run scripts/reclaim-rent.ts
  */
 
@@ -17,25 +24,55 @@ import * as multisig from "@sqds/multisig";
 import bs58 from "bs58";
 
 const MULTISIGS: Record<string, string> = {
-  solomon: "4MBkeUXZbjbirA1twwJoVgJtBmumUYr6uZ5cqpUE9ZdH",
-  kamino:  "9JrqmTjapp6FL8RTRhGENo9pikpRCsGPYh7NPrLzq2DE",
-  oro:     "8kGc6giBeUFxwRJuKBQwwjhCuXwMJEHQ3fMqL7iHYdtU",
-  drift:   "ExtJEaA412oyfxPYvDjfzHyR1ACDFzbWp1VAAdAqDQrE",
+  solomon: process.env.VAULT_SOLOMON_MULTISIG || "",
+  kamino:  process.env.VAULT_KAMINO_MULTISIG  || "",
+  oro:     process.env.VAULT_ORO_MULTISIG     || "",
+  awy:     process.env.VAULT_AWY_MULTISIG     || "",
 };
 
-async function reclaimOne(
+const CLOSES_PER_TX = 8;
+const THROTTLE_MS = 250;
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+async function findOpenIndices(
+  connection: Connection,
+  multisigPda: PublicKey,
+  lastIndex: number,
+): Promise<number[]> {
+  const indices = Array.from({ length: lastIndex }, (_, i) => i + 1);
+  const pdas = indices.map((i) =>
+    multisig.getTransactionPda({ multisigPda, index: BigInt(i) })[0],
+  );
+
+  const open: number[] = [];
+  for (let off = 0; off < pdas.length; off += 100) {
+    const slice = pdas.slice(off, off + 100);
+    const infos = await connection.getMultipleAccountsInfo(slice);
+    for (let j = 0; j < infos.length; j++) {
+      if (infos[j] !== null) open.push(indices[off + j]);
+    }
+  }
+  return open;
+}
+
+async function closeBatch(
   connection: Connection,
   authority: Keypair,
   multisigPda: PublicKey,
-  index: bigint,
+  batch: number[],
 ): Promise<{ ok: boolean; reason?: string }> {
   try {
-    const ix = multisig.instructions.vaultTransactionAccountsClose({
-      multisigPda,
-      rentCollector: authority.publicKey,
-      transactionIndex: index,
-    });
-    const tx = new Transaction().add(ix);
+    const tx = new Transaction();
+    for (const i of batch) {
+      tx.add(
+        multisig.instructions.vaultTransactionAccountsClose({
+          multisigPda,
+          rentCollector: authority.publicKey,
+          transactionIndex: BigInt(i),
+        }),
+      );
+    }
     tx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
     tx.feePayer = authority.publicKey;
     await sendAndConfirmTransaction(connection, tx, [authority], {
@@ -45,7 +82,7 @@ async function reclaimOne(
     return { ok: true };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    return { ok: false, reason: msg.slice(0, 140) };
+    return { ok: false, reason: msg.slice(0, 200) };
   }
 }
 
@@ -61,41 +98,58 @@ async function main() {
   console.log("Starting SOL:", (startSol / LAMPORTS_PER_SOL).toFixed(6));
   console.log();
 
-  let reclaimedTotal = 0;
+  let totalClosed = 0;
 
   for (const [name, addr] of Object.entries(MULTISIGS)) {
+    if (!addr) {
+      console.log(`[${name}] multisig env var unset, skipping\n`);
+      continue;
+    }
     const multisigPda = new PublicKey(addr);
     let ms;
     try {
       ms = await multisig.accounts.Multisig.fromAccountAddress(connection, multisigPda);
     } catch {
-      console.log(`[${name}] multisig not found, skipping`);
+      console.log(`[${name}] multisig not found, skipping\n`);
       continue;
     }
+
+    if (!ms.rentCollector) {
+      console.log(`[${name}] rentCollector is NULL — set it via fix-rent-collector.ts before reclaiming\n`);
+      continue;
+    }
+
     const lastIndex = Number(ms.transactionIndex);
-    console.log(`[${name}] scanning indices 1..${lastIndex}`);
+    const open = await findOpenIndices(connection, multisigPda, lastIndex);
+    console.log(`[${name}] scanned 1..${lastIndex}, ${open.length} still open`);
+    if (open.length === 0) {
+      console.log();
+      continue;
+    }
 
     let closed = 0;
-    let skipped = 0;
-    for (let i = 1; i <= lastIndex; i++) {
-      const res = await reclaimOne(connection, authority, multisigPda, BigInt(i));
+    let failed = 0;
+    for (let off = 0; off < open.length; off += CLOSES_PER_TX) {
+      const batch = open.slice(off, off + CLOSES_PER_TX);
+      const res = await closeBatch(connection, authority, multisigPda, batch);
       if (res.ok) {
-        closed++;
-        process.stdout.write(`  ✓ #${i} closed\n`);
+        closed += batch.length;
+        process.stdout.write(`  ✓ closed [${batch.join(",")}]\n`);
       } else {
-        skipped++;
-        if (skipped <= 2) process.stdout.write(`  · #${i} ${res.reason}\n`);
+        failed += batch.length;
+        process.stdout.write(`  · batch [${batch.join(",")}] failed: ${res.reason}\n`);
       }
+      await sleep(THROTTLE_MS);
     }
-    console.log(`[${name}] closed=${closed}  skipped=${skipped}`);
-    reclaimedTotal += closed;
+    console.log(`[${name}] closed=${closed}  failed=${failed}`);
+    totalClosed += closed;
     console.log();
   }
 
   const endSol = await connection.getBalance(authority.publicKey);
   console.log("Ending SOL:", (endSol / LAMPORTS_PER_SOL).toFixed(6));
   console.log(
-    `Net change: ${((endSol - startSol) / LAMPORTS_PER_SOL).toFixed(6)} SOL across ${reclaimedTotal} close ops`,
+    `Net change: ${((endSol - startSol) / LAMPORTS_PER_SOL).toFixed(6)} SOL across ${totalClosed} close ops`,
   );
 }
 

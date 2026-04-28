@@ -4,9 +4,12 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useWallet } from "@solana/wallet-adapter-react";
-import { Wallet, Copy, Check, ArrowDownLeft, ArrowUpRight, ExternalLink, Loader2 } from "lucide-react";
+import { Wallet, Copy, Check, ArrowDownLeft, ArrowUpRight, ExternalLink, Loader2, Download } from "lucide-react";
 import Avatar from "boring-avatars";
 import { WalletModal } from "@/components/WalletModal";
+import { RiskDashboard } from "@/components/RiskDashboard";
+import { StandingDashboard } from "@/components/StandingDashboard";
+import { RebalanceFlow } from "@/components/RebalanceFlow";
 import { FOUNDATION_VAULTS } from "@/lib/vaults";
 import { getTxUrl } from "@/lib/constants";
 import { formatAPY, formatNumber, lamportsToUsdc } from "@/lib/utils";
@@ -43,8 +46,10 @@ export default function PortfolioPage() {
   const [loading, setLoading] = useState(true);
   const [history, setHistory] = useState<TxRecord[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
-  const [selectedSubTab, setSelectedSubTab] = useState<"funds" | "history">("funds");
+  const [selectedSubTab, setSelectedSubTab] = useState<"funds" | "history" | "risk" | "standing" | "rebalance">("funds");
   const [copied, setCopied] = useState(false);
+  const [filterVault, setFilterVault] = useState<string>("all");
+  const [filterType, setFilterType] = useState<"all" | "deposit" | "withdrawal">("all");
 
   useEffect(() => {
     if (!wallet.publicKey) {
@@ -85,6 +90,12 @@ export default function PortfolioPage() {
       clearInterval(interval);
     };
   }, [wallet.publicKey]);
+
+  const filteredHistory = history.filter((tx) => {
+    if (filterType !== "all" && tx.type !== filterType) return false;
+    if (filterVault !== "all" && tx.vaultId !== filterVault) return false;
+    return true;
+  });
 
   const copyAddress = async () => {
     if (!wallet.publicKey) return;
@@ -186,18 +197,24 @@ export default function PortfolioPage() {
       </div>
 
       {/* Sub Tabs */}
-      <div className="mb-6 flex w-fit items-center gap-1 rounded-xl border border-[var(--rule)] bg-light-bg p-1">
-        {(["funds", "history"] as const).map((sub) => (
+      <div className="mb-6 flex w-fit flex-wrap items-center gap-1 rounded-xl border border-[var(--rule)] bg-light-bg p-1">
+        {([
+          { key: "funds",     label: "Funds"     },
+          { key: "history",   label: "History"   },
+          { key: "risk",      label: "Risk"      },
+          { key: "standing",  label: "Standing"  },
+          { key: "rebalance", label: "Rebalance" },
+        ] as const).map((sub) => (
           <button
-            key={sub}
-            onClick={() => setSelectedSubTab(sub)}
-            className={`rounded-lg px-6 py-2.5 text-sm font-semibold transition-all ${
-              selectedSubTab === sub
+            key={sub.key}
+            onClick={() => setSelectedSubTab(sub.key)}
+            className={`rounded-lg px-5 py-2 text-sm font-semibold transition-all ${
+              selectedSubTab === sub.key
                 ? "bg-[var(--surface-strong)] text-[var(--fg)] shadow-sm border border-[var(--rule)]"
                 : "bg-transparent text-[var(--muted)] hover:text-[var(--fg)] border border-transparent"
             }`}
           >
-            {sub === "funds" ? "Funds" : "Transaction History"}
+            {sub.label}
           </button>
         ))}
       </div>
@@ -304,9 +321,45 @@ export default function PortfolioPage() {
       {/* History Tab */}
       {selectedSubTab === "history" && (
         <div className="infra-card overflow-hidden">
-          <div className="flex items-center justify-between border-b border-[var(--rule)] px-5 py-4">
-            <h3 className="font-mono text-xs uppercase tracking-wider text-[var(--fg)]">Transaction History</h3>
-            <span className="font-mono text-[10px] text-[var(--muted)]">{history.length} records</span>
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--rule)] px-5 py-4">
+            <div className="flex items-center gap-3">
+              <h3 className="font-mono text-xs uppercase tracking-wider text-[var(--fg)]">Transaction History</h3>
+              <span className="font-mono text-[10px] text-[var(--muted)]">
+                {historyLoading ? "loading…" : `${filteredHistory.length}/${history.length} records`}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <select
+                value={filterType}
+                onChange={(e) => setFilterType(e.target.value as "all" | "deposit" | "withdrawal")}
+                className="rounded-md border border-[var(--rule)] bg-[var(--surface)] px-2 py-1 font-mono text-[10px] uppercase text-[var(--fg)]"
+                aria-label="Filter by type"
+              >
+                <option value="all">All Types</option>
+                <option value="deposit">Deposits</option>
+                <option value="withdrawal">Withdrawals</option>
+              </select>
+              <select
+                value={filterVault}
+                onChange={(e) => setFilterVault(e.target.value)}
+                className="rounded-md border border-[var(--rule)] bg-[var(--surface)] px-2 py-1 font-mono text-[10px] uppercase text-[var(--fg)]"
+                aria-label="Filter by vault"
+              >
+                <option value="all">All Vaults</option>
+                {FOUNDATION_VAULTS.map((v) => (
+                  <option key={v.id} value={v.id}>{v.receiptToken}</option>
+                ))}
+              </select>
+              <button
+                onClick={() => exportHistoryCsv(filteredHistory)}
+                disabled={filteredHistory.length === 0}
+                className="flex items-center gap-1.5 rounded-md border border-[var(--rule)] px-2.5 py-1 font-mono text-[10px] uppercase text-[var(--fg)] transition-colors hover:bg-[var(--surface-strong)] disabled:opacity-40"
+                aria-label="Export to CSV"
+              >
+                <Download className="h-3 w-3" />
+                CSV
+              </button>
+            </div>
           </div>
 
           {historyLoading ? (
@@ -314,16 +367,20 @@ export default function PortfolioPage() {
               <Loader2 className="h-4 w-4 animate-spin" />
               <span className="font-mono text-xs">Loading history…</span>
             </div>
-          ) : history.length === 0 ? (
+          ) : filteredHistory.length === 0 ? (
             <div className="py-12 text-center">
-              <p className="mb-2 font-serif text-base font-light text-[var(--muted)]">No transactions yet</p>
-              <Link href="/" className="font-mono text-xs text-gold-500 hover:text-gold-400">
-                Make your first deposit →
-              </Link>
+              <p className="mb-2 font-serif text-base font-light text-[var(--muted)]">
+                {history.length === 0 ? "No transactions yet" : "No records match the current filters"}
+              </p>
+              {history.length === 0 && (
+                <Link href="/" className="font-mono text-xs text-gold-500 hover:text-gold-400">
+                  Make your first deposit →
+                </Link>
+              )}
             </div>
           ) : (
             <div className="divide-y divide-[var(--rule)]">
-              {history.map((tx, i) => {
+              {filteredHistory.map((tx, i) => {
                 const vault = FOUNDATION_VAULTS.find((v) => v.id === tx.vaultId);
                 const isDeposit = tx.type === "deposit";
                 const date = new Date(tx.createdAt);
@@ -372,8 +429,9 @@ export default function PortfolioPage() {
                           href={getTxUrl(tx.tx)}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="flex h-8 w-8 items-center justify-center rounded-md border border-[var(--rule)] text-[var(--muted)] opacity-0 transition-all hover:bg-[var(--surface)] hover:text-[var(--fg)] group-hover:opacity-100"
+                          className="flex h-8 w-8 items-center justify-center rounded-md border border-[var(--rule)] text-[var(--muted)] transition-all hover:bg-[var(--surface)] hover:text-[var(--fg)]"
                           title="View on Explorer"
+                          aria-label="View transaction on Solana Explorer"
                         >
                           <ExternalLink className="h-3.5 w-3.5" />
                         </a>
@@ -389,7 +447,52 @@ export default function PortfolioPage() {
         </div>
       )}
 
+      {/* Risk Tab */}
+      {selectedSubTab === "risk" && (
+        <RiskDashboard />
+      )}
+
+      {/* Standing Tab (rewards / loyalty) */}
+      {selectedSubTab === "standing" && (
+        <StandingDashboard />
+      )}
+
+      {/* Rebalance Tab */}
+      {selectedSubTab === "rebalance" && (
+        <RebalanceFlow />
+      )}
+
       <WalletModal open={walletModalOpen} onClose={() => setWalletModalOpen(false)} />
     </div>
   );
+}
+
+/**
+ * Build a CSV from filtered transactions and trigger a download. Naive
+ * client-side approach — fine for the volumes we expect (hundreds, not millions).
+ */
+function exportHistoryCsv(rows: TxRecord[]) {
+  if (rows.length === 0) return;
+  const header = ["date", "type", "vault", "amount_usdc", "tx_signature"];
+  const escape = (s: string) => `"${s.replace(/"/g, '""')}"`;
+  const lines = [header.join(",")];
+  for (const r of rows) {
+    const vault = FOUNDATION_VAULTS.find((v) => v.id === r.vaultId);
+    lines.push([
+      escape(new Date(r.createdAt).toISOString()),
+      r.type,
+      escape(vault?.receiptToken || r.vaultId),
+      r.amount ? (r.amount / 1e6).toFixed(6) : "0",
+      escape(r.tx || ""),
+    ].join(","));
+  }
+  const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `foundation-history-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }

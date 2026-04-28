@@ -13,6 +13,7 @@ const VAULTS = [
   { id: "fdn-solomon", usdc: "VAULT_SOLOMON_USDC_ATA", mint: "NEXT_PUBLIC_SOLOMON_MINT", pda: "NEXT_PUBLIC_SOLOMON_VAULT_PDA" },
   { id: "fdn-kamino", usdc: "VAULT_KAMINO_USDC_ATA", mint: "NEXT_PUBLIC_KAMINO_MINT", pda: "NEXT_PUBLIC_KAMINO_VAULT_PDA" },
   { id: "fdn-oro", usdc: "VAULT_ORO_USDC_ATA", mint: "NEXT_PUBLIC_ORO_MINT", pda: "NEXT_PUBLIC_ORO_VAULT_PDA" },
+  { id: "fdn-awy", usdc: "VAULT_AWY_USDC_ATA", mint: "NEXT_PUBLIC_AWY_MINT", pda: "NEXT_PUBLIC_AWY_VAULT_PDA" },
 ];
 
 /**

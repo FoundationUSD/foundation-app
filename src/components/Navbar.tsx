@@ -8,12 +8,12 @@ import { useWallet } from "@solana/wallet-adapter-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { IconWalletMoney, IconCoin, IconNetwork, IconSafe, IconAmplify } from "@/components/Icons";
 import { WalletButton } from "@/components/WalletButton";
+import { NotificationBell } from "@/components/NotificationBell";
 
 const NAV_TABS = [
   { key: "portfolio", label: "Portfolio", Icon: IconWalletMoney, path: "/portfolio" },
   { key: "invest", label: "Invest", Icon: IconCoin, path: "/" },
   { key: "amplify", label: "Amplify", Icon: IconAmplify, path: "/amplify" },
-  { key: "rebalance", label: "Rebalance", Icon: IconNetwork, path: "/rebalance" },
   { key: "transparency", label: "Transparency", Icon: IconSafe, path: "/transparency" },
 ];
 
@@ -63,7 +63,7 @@ export function Navbar() {
               height={36}
               className="h-9 w-9 fdn-logo-dark"
             />
-            <span className="text-[13px] font-light tracking-[0.15em] uppercase text-[var(--logo-text)]">
+            <span className="font-serif text-[16px] font-light tracking-[0.18em] uppercase text-[var(--logo-text)]">
               Foundation<span className="text-gold-500">.</span>
             </span>
           </Link>
@@ -75,7 +75,6 @@ export function Navbar() {
                 (tab.key === "portfolio" && pathname === "/portfolio") ||
                 (tab.key === "invest" && (pathname === "/" || pathname.startsWith("/strategy"))) ||
                 (tab.key === "amplify" && pathname.startsWith("/amplify")) ||
-                (tab.key === "rebalance" && pathname === "/rebalance") ||
                 (tab.key === "transparency" && pathname === "/transparency");
               return (
                 <Link
@@ -94,6 +93,7 @@ export function Navbar() {
 
           {/* Right Actions */}
           <div className="fnd-header__actions flex items-center gap-2 shrink-0">
+            <NotificationBell />
             <ThemeToggle />
             {wallet.connecting ? (
               <button className="fdn-header__connect-btn flex items-center gap-2 px-4 text-[11px] uppercase tracking-wider">
@@ -139,7 +139,7 @@ export function Navbar() {
                 const isActive =
                   (tab.key === "portfolio" && pathname === "/portfolio") ||
                   (tab.key === "invest" && (pathname === "/" || pathname.startsWith("/strategy"))) ||
-                  (tab.key === "rebalance" && pathname === "/rebalance") ||
+                  (tab.key === "amplify" && pathname.startsWith("/amplify")) ||
                   (tab.key === "transparency" && pathname === "/transparency");
                 return (
                   <Link
