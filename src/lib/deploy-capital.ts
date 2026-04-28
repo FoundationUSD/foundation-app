@@ -40,8 +40,6 @@ function getAuthority(): Keypair {
 
 const USDC_MINT = new PublicKey("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
 const USDV_MINT = new PublicKey("Ex5DaKYMCN6QWFA4n67TmMwsH8MJV68RX6YXTmVM532C");
-// ORO $GOLD — SPL Token, 6 decimals. 1 GOLD ≈ 1 oz physical gold.
-const ORO_GOLD_MINT = new PublicKey("GoLDppdjB1vDTPSGxyMJFqdnj134yH6Prg9eqsGDiw6A");
 
 const KAMINO_API = "https://api.kamino.finance";
 const KAMINO_PRIME_MARKET = "CqAoLuqWtavaVE8deBjMKe8ZfSt9ghR6Vb8nfsyabyHA";
@@ -286,86 +284,74 @@ async function withdrawFromSolomon(usdcAmount: number): Promise<{ success: boole
 }
 
 // ============================================================
-// ORO — Jupiter swap USDC ↔ $GOLD (tokenized physical gold)
+// ORO — GRAIL devnet (demo mode)
 // ============================================================
 //
-// v0: "just hold" — swap USDC → GOLD on Jupiter, multisig holds GOLD. Withdraw
-// reverses the swap at the prevailing gold price. No lockup, no on-chain staking.
+// Phase-2 wiring: mainnet USDC stays idle in the Squads vault while the
+// "deploy" step issues a real GRAIL trade on devnet using Foundation's hot
+// partner + test-user keys. The on-chain GOLD lives on devnet under the test
+// user wallet — purely demonstrative until ORO whitelists us for mainnet.
 //
-// Why not stake: ORO docs (April 2026) state sORO/stGOLD is "not currently issued"
-// and staking requires a 12-month lockup via their off-chain GRAIL API. That
-// conflicts with the "Withdraw anytime" UX every other Foundation vault guarantees.
-// When ORO ships a no-lockup or API-based staking path, add a separate fdn-oro-staked
-// vault tier instead of rewriting this one.
-//
-// User-facing implication: oroUSD tracks GOLD price, not a clean monotonic APY.
-// Upside: gold price appreciation flows through. Downside: gold price drops flow
-// through too (disclose in UI copy).
+// On mainnet: same shape, different keys + base URL. The vault USDC will move
+// through GRAIL via the partner+user co-sign flow defined in src/lib/integrations/grail.
 
 async function deployToOro(usdcAmount: number): Promise<{ success: boolean; tx?: string; error?: string }> {
-  const vault = getVaultAddresses("oro");
-  // Slippage: 50 bps (same as Solomon). ORO liquidity is ~$3M market cap in Apr 2026
-  // so large deposits may see higher impact — client-side APIs should surface this.
-  const swapSig = await jupiterSwap({
-    vaultName: "oro",
-    vaultPda: vault.vaultPda,
-    inputMint: USDC_MINT,
-    outputMint: ORO_GOLD_MINT,
-    amount: usdcAmount,
-    slippageBps: 50,
+  const { makeGrailServerClient, loadGrailPartnerKeypair, loadGrailTestUserKeypair, loadGrailUserId } =
+    await import("./integrations/grail/server");
+  const { cosignBuyOrSell } = await import("./integrations/grail/cosign");
+
+  const client = makeGrailServerClient();
+  const partner = loadGrailPartnerKeypair();
+  const user = loadGrailTestUserKeypair();
+  const grailUserId = loadGrailUserId();
+
+  // GRAIL takes USDC in human units, not lamports.
+  const usdcHuman = usdcAmount / 1e6;
+
+  const quote = await client.quoteBuy({ grail_user_id: grailUserId, usdc_amount: usdcHuman });
+  const signedB64 = cosignBuyOrSell({
+    partiallySignedTransactionB64: quote.partially_signed_transaction,
+    partnerKeypair: partner,
+    userKeypair: user,
   });
-  console.log(`Oro: swapped ${usdcAmount / 1e6} USDC → $GOLD, tx: ${swapSig}`);
-  return { success: true, tx: swapSig };
+  const submit = await client.submitBuy(quote.trade_id, { signed_tx: signedB64 });
+  console.log(`Oro[devnet]: bought ${usdcHuman} USDC of $GOLD, trade=${quote.trade_id}, tx=${submit.tx_hash}`);
+  return { success: true, tx: submit.tx_hash };
 }
 
 async function withdrawFromOro(usdcAmount: number): Promise<{ success: boolean; tx?: string; error?: string }> {
-  const vault = getVaultAddresses("oro");
-  const connection = getConnection();
+  const { makeGrailServerClient, loadGrailPartnerKeypair, loadGrailTestUserKeypair, loadGrailUserId } =
+    await import("./integrations/grail/server");
+  const { cosignBuyOrSell } = await import("./integrations/grail/cosign");
 
-  // Convert target USDC amount to an estimated GOLD amount to sell, via a live
-  // Jupiter reverse-quote. Then sell exactly that much GOLD back to USDC.
-  // If the vault holds less GOLD than needed, sell everything available — Foundation
-  // will top up the shortfall from reserves or mark as insufficient-liquidity.
-  const vaultGoldAta = getAssociatedTokenAddressSync(ORO_GOLD_MINT, vault.vaultPda, true, TOKEN_PROGRAM_ID);
-  const goldBalRes = await connection.getTokenAccountBalance(vaultGoldAta).catch(() => null);
-  const goldBalance = goldBalRes ? Number(goldBalRes.value.amount) : 0;
+  const client = makeGrailServerClient();
+  const partner = loadGrailPartnerKeypair();
+  const user = loadGrailTestUserKeypair();
+  const grailUserId = loadGrailUserId();
 
-  if (goldBalance <= 0) {
-    return { success: false, error: "Vault holds no $GOLD — cannot service withdrawal" };
+  // Estimate GOLD-to-sell from a fresh buy quote: usdc/oz at the current spot,
+  // then invert to oz that approximates the requested USDC payout. GRAIL will
+  // re-price on submit, so this is just a sizing heuristic.
+  const usdcHuman = usdcAmount / 1e6;
+  const probe = await client.quoteBuy({ grail_user_id: grailUserId, usdc_amount: usdcHuman });
+  const pricePerOz = probe.quote.price_per_troy_oz;
+  if (!pricePerOz || pricePerOz <= 0) {
+    return { success: false, error: "GRAIL returned no spot price" };
+  }
+  const goldToSell = Number((usdcHuman / pricePerOz).toFixed(6));
+  if (goldToSell <= 0) {
+    return { success: false, error: "Computed sell amount rounds to zero" };
   }
 
-  // Reverse-quote: how much GOLD does Jupiter want for `usdcAmount` USDC?
-  const quoteRes = await fetch(
-    `${JUPITER_API}/quote?` +
-    `inputMint=${ORO_GOLD_MINT.toBase58()}` +
-    `&outputMint=${USDC_MINT.toBase58()}` +
-    `&amount=${goldBalance}` + // quote full balance — we'll scale proportionally
-    `&slippageBps=50`,
-  );
-  if (!quoteRes.ok) throw new Error(`Jupiter quote failed ${quoteRes.status}`);
-  const quote = await quoteRes.json();
-  const usdcPerFullGold = Number(quote.outAmount);
-
-  if (usdcPerFullGold <= 0) {
-    throw new Error("Jupiter returned zero USDC output — no liquidity");
-  }
-
-  // goldToSell = goldBalance * (usdcAmount / usdcPerFullGold), clamped to goldBalance
-  const goldToSell = Math.min(
-    Math.ceil((goldBalance * usdcAmount) / usdcPerFullGold),
-    goldBalance,
-  );
-
-  const swapSig = await jupiterSwap({
-    vaultName: "oro",
-    vaultPda: vault.vaultPda,
-    inputMint: ORO_GOLD_MINT,
-    outputMint: USDC_MINT,
-    amount: goldToSell,
-    slippageBps: 50,
+  const quote = await client.quoteSell({ grail_user_id: grailUserId, gold_amount: goldToSell });
+  const signedB64 = cosignBuyOrSell({
+    partiallySignedTransactionB64: quote.partially_signed_transaction,
+    partnerKeypair: partner,
+    userKeypair: user,
   });
-  console.log(`Oro: swapped ${goldToSell / 1e6} $GOLD → USDC, tx: ${swapSig}`);
-  return { success: true, tx: swapSig };
+  const submit = await client.submitSell(quote.trade_id, { signed_tx: signedB64 });
+  console.log(`Oro[devnet]: sold ${goldToSell} GOLD for ~${usdcHuman} USDC, trade=${quote.trade_id}, tx=${submit.tx_hash}`);
+  return { success: true, tx: submit.tx_hash };
 }
 
 // ============================================================

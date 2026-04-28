@@ -5,7 +5,7 @@
  *   ONyc       (OnRe)          — reinsurance premiums + collateral yield
  *   PRIME      (Figure)        — tokenized HELOC lending (via Kamino)
  *   syrupUSDC  (Maple)         — overcollateralized institutional lending
- *   USDY       (Ondo)          — short-term US Treasuries
+ *   USDv       (Solomon)       — delta-neutral basis trade on BTC/ETH/SOL
  *
  * Architecture mirrors Solomon / Kamino / Oro: a Squads multisig holds USDC and the
  * four leg assets, deployCapital() splits incoming USDC by `weightBps` and routes each
@@ -14,9 +14,9 @@
 import { getOnycData } from "./onyc";
 import { getPrimeData } from "./prime";
 import { getSyrupUsdcData } from "./maple";
-import { getUsdyData } from "./ondo";
+import { getSolomonAwyLegData } from "./solomon";
 
-export type AwyLegId = "onyc" | "prime" | "syrup-usdc" | "usdy";
+export type AwyLegId = "onyc" | "prime" | "syrup-usdc" | "solomon";
 
 export interface AwyLegSpec {
   id: AwyLegId;
@@ -61,13 +61,13 @@ export const AWY_COMPOSITION: AwyLegSpec[] = [
     description: "Overcollateralized lending to institutional borrowers (~160% LTV BTC/ETH).",
   },
   {
-    id: "usdy",
-    asset: "USDY",
-    issuer: "Ondo Finance",
+    id: "solomon",
+    asset: "USDv",
+    issuer: "Solomon",
     weightBps: 1000,
-    baseApy: 3.7,
-    riskDriver: "Fed funds rate",
-    description: "Short-term US Treasuries. NAV accrues daily via on-chain oracle.",
+    baseApy: 12.5,
+    riskDriver: "Basis spread",
+    description: "Delta-neutral basis trade on BTC/ETH/SOL. Funding-rate yield with embedded perp leverage internal to the strategy.",
   },
 ];
 
@@ -118,18 +118,18 @@ export function getSpecBlendedApy(): number {
  * is implicit: if every leg falls back, blendedBaseApy === specBlendedApy.
  */
 export async function getAwyData(): Promise<AwyAggregateData> {
-  const [onyc, prime, maple, ondo] = await Promise.all([
+  const [onyc, prime, maple, solomon] = await Promise.all([
     getOnycData().catch(() => null),
     getPrimeData().catch(() => null),
     getSyrupUsdcData().catch(() => null),
-    getUsdyData().catch(() => null),
+    getSolomonAwyLegData().catch(() => null),
   ]);
 
   const liveByLeg: Record<AwyLegId, { apy: number; nav: number | null; mint: string; source: string }> = {
     onyc: onyc ?? { apy: 0, nav: null, mint: "", source: "spec-fallback" },
     prime: prime ?? { apy: 0, nav: null, mint: "", source: "spec-fallback" },
     "syrup-usdc": maple ?? { apy: 0, nav: null, mint: "", source: "spec-fallback" },
-    usdy: ondo ?? { apy: 0, nav: null, mint: "", source: "spec-fallback" },
+    solomon: solomon ?? { apy: 0, nav: null, mint: "", source: "spec-fallback" },
   };
 
   const legs: AwyLegLiveData[] = AWY_COMPOSITION.map((spec) => {
