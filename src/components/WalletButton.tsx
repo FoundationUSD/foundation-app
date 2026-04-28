@@ -159,7 +159,7 @@ export function WalletButton() {
               <p className="min-w-0 flex-1 truncate font-mono text-[10px] text-[var(--muted)]">
                 {publicKey.toBase58()}
               </p>
-              <button onClick={copyAddress} className="shrink-0 rounded p-1 transition-colors hover:bg-[var(--surface-strong)]">
+              <button onClick={copyAddress} className="shrink-0 rounded p-1 transition-colors hover:bg-[var(--surface-strong)]" aria-label="Copy wallet address">
                 {copied ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3 text-[var(--muted)]" />}
               </button>
             </div>

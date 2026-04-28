@@ -9,6 +9,8 @@ import { executeVaultTransaction, getVaultAddresses, vaultIdToName } from "@/lib
 import { isSupabaseConfigured, supabaseAdmin } from "@/lib/supabase-server";
 import { withdrawCapital } from "@/lib/deploy-capital";
 import { validatePublicKey, validateTxSignature, validateAmount, badRequest } from "@/lib/api-validation";
+import { notify } from "@/lib/notifications";
+import { FOUNDATION_VAULTS } from "@/lib/vaults";
 
 export const dynamic = "force-dynamic";
 
@@ -210,6 +212,16 @@ export async function POST(req: NextRequest) {
       });
       if (insertErr) console.error("Supabase withdrawal insert failed:", insertErr);
     }
+
+    const vaultMeta = FOUNDATION_VAULTS.find((v) => v.id === vaultId);
+    notify({
+      wallet: userWallet,
+      type: "withdrawal",
+      title: `Withdrawal confirmed: ${(usdcOwed / 1e6).toFixed(2)} USDC from ${vaultMeta?.receiptToken ?? vaultId}`,
+      body: `Your withdrawal of ${(usdcOwed / 1e6).toFixed(2)} USDC from ${vaultMeta?.name ?? vaultId} is complete. USDC has been transferred to your wallet.`,
+      link: `${process.env.NEXT_PUBLIC_APP_URL || ""}/portfolio`,
+      metadata: { vault_id: vaultId, usdc: usdcOwed, transfer_tx: sig },
+    }).catch((e) => console.error("withdraw notify failed:", e));
 
     return NextResponse.json({
       success: true,

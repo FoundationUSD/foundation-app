@@ -238,8 +238,21 @@ html:not(.light) .noise-overlay {
 
 /* Keep native cursor on all elements */
 * { cursor: auto; }
-button, a, [role="button"], select { cursor: pointer; }
+button, a, [role="button"], select, label[for] { cursor: pointer; }
+button *, a *, [role="button"] *, select *, label[for] * { cursor: inherit; }
 input, textarea { cursor: text; }
+input[type="checkbox"], input[type="radio"], input[type="range"], input[type="submit"], input[type="button"] { cursor: pointer; }
+:disabled, [aria-disabled="true"] { cursor: not-allowed; }
+
+/* Keyboard focus ring — only for keyboard nav, not mouse clicks */
+button:focus-visible,
+a:focus-visible,
+[role="button"]:focus-visible,
+select:focus-visible {
+  outline: 2px solid rgb(184, 150, 12);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
 
 /* Trailing dot — follows cursor with lerp lag */
 #cursor-dot {
@@ -297,6 +310,84 @@ input:-webkit-autofill:hover,
 input:-webkit-autofill:focus {
   -webkit-box-shadow: 0 0 0 1000px transparent inset;
   transition: background-color 5000s ease-in-out 0s;
+}
+
+/* ============================================================
+   Status + Risk badges
+   ============================================================ */
+.fdn-status-badge,
+.risk-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  border: 1px solid transparent;
+  background: rgba(100, 116, 139, 0.08);
+  color: var(--text-accent);
+  white-space: nowrap;
+}
+
+/* ── Status: Coming Soon (default), Live ─────────────────── */
+.fdn-status-badge.live {
+  background: rgba(16, 185, 129, 0.1);
+  color: rgb(5, 150, 105);
+  border-color: rgba(16, 185, 129, 0.25);
+}
+html:not(.light) .fdn-status-badge.live {
+  background: rgba(16, 185, 129, 0.14);
+  color: rgb(52, 211, 153);
+  border-color: rgba(52, 211, 153, 0.3);
+}
+.fdn-status-badge.live::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: currentColor;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+  animation: fdn-pulse 1.8s ease-in-out infinite;
+}
+@keyframes fdn-pulse {
+  0%, 100% { opacity: 0.6; transform: scale(0.85); }
+  50%      { opacity: 1.0; transform: scale(1.05); }
+}
+
+/* ── Risk tiers ──────────────────────────────────────────── */
+.risk-badge.conservative {
+  background: rgba(16, 185, 129, 0.1);
+  color: rgb(5, 150, 105);
+  border-color: rgba(16, 185, 129, 0.25);
+}
+.risk-badge.moderate {
+  background: rgba(59, 130, 246, 0.1);
+  color: rgb(37, 99, 235);
+  border-color: rgba(59, 130, 246, 0.25);
+}
+.risk-badge.growth {
+  background: rgba(245, 158, 11, 0.1);
+  color: rgb(217, 119, 6);
+  border-color: rgba(245, 158, 11, 0.3);
+}
+html:not(.light) .risk-badge.conservative {
+  background: rgba(16, 185, 129, 0.14);
+  color: rgb(52, 211, 153);
+  border-color: rgba(52, 211, 153, 0.3);
+}
+html:not(.light) .risk-badge.moderate {
+  background: rgba(59, 130, 246, 0.16);
+  color: rgb(96, 165, 250);
+  border-color: rgba(96, 165, 250, 0.3);
+}
+html:not(.light) .risk-badge.growth {
+  background: rgba(245, 158, 11, 0.16);
+  color: rgb(251, 191, 36);
+  border-color: rgba(251, 191, 36, 0.3);
 }
 
 /* Kill browser focus outline on ALL inputs globally — wrapper handles focus style */
@@ -805,7 +896,7 @@ html:not(.light) ::-webkit-scrollbar-thumb:hover {
    ============================================================ */
 .fdn-header {
   position: fixed;
-  top: 48px;
+  top: 12px;
   left: 0;
   right: 0;
   z-index: 100;

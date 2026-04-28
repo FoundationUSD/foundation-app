@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useWallet } from "@solana/wallet-adapter-react";
 import {
   ArrowUpRight,
@@ -13,6 +14,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { useStrategies } from "@/hooks/useStrategies";
+import { YieldCalculator } from "@/components/YieldCalculator";
 import { WalletModal } from "@/components/WalletModal";
 import { formatAPY, formatUsdCompact } from "@/lib/utils";
 import { getTxUrl, PROTOCOL_FEE_SOL, VAULT_AUTHORITY_PUBKEY } from "@/lib/constants";
@@ -58,11 +60,13 @@ const PROTOCOL_ART: Record<string, string> = {
 const USDC_MINT_PK = new PublicKey("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
 
 export default function HomePage() {
+  const router = useRouter();
   const { strategies, loading } = useStrategies();
   const wallet = useWallet();
   const [walletModalOpen, setWalletModalOpen] = useState(false);
-  const [selectedVault, setSelectedVault] = useState<FoundationVault | null>(null);
   const [activeFilter, setActiveFilter] = useState<"all" | "foundation" | "partner">("all");
+
+  const goToVault = (v: FoundationVault) => router.push(`/strategy/${v.id}`);
 
   // Filter by category. Foundation = AWY (Foundation-composed basket); Partner =
   // pass-through partner integrations (Solomon, Kamino, Oro). "All" shows everything.
@@ -155,26 +159,17 @@ export default function HomePage() {
         />
         <div className="art-content relative flex items-end justify-between gap-4 px-1 py-4 sm:px-2 sm:py-5">
           <div>
-            <p className="section-label mb-1 sm:mb-2">
-              {selectedVault ? selectedVault.protocol.toUpperCase() : "VAULT INFRASTRUCTURE"}
-            </p>
+            <p className="section-label mb-1 sm:mb-2">VAULT INFRASTRUCTURE</p>
             <h1 className="page-heading text-xl sm:text-2xl">
-              {selectedVault ? selectedVault.name : <>Deposit <em>Strategies</em></>}
+              Deposit <em>Strategies</em>
             </h1>
-            {!selectedVault && (
-              <p className="mt-1 max-w-xl text-sm text-[var(--text-accent)]">
-                Institutional-grade yield vaults. Deposit USDC to access curated
-                real-world asset strategies, custodied on chain through Squads
-                multisig.
-              </p>
-            )}
+            <p className="mt-1 max-w-xl text-sm text-[var(--text-accent)]">
+              Institutional-grade yield vaults. Deposit USDC to access curated
+              real-world asset strategies, custodied on chain through Squads
+              multisig.
+            </p>
           </div>
           <div className="flex shrink-0 items-center gap-3">
-            {selectedVault && (
-              <button onClick={() => setSelectedVault(null)} className="fnd-nav-link">
-                <ArrowLeft className="h-3 w-3" /> Back
-              </button>
-            )}
             <Link href="/portfolio" className="fnd-nav-link">
               Portfolio <ArrowUpRight className="h-3 w-3" />
             </Link>
@@ -182,10 +177,7 @@ export default function HomePage() {
         </div>
       </div>
 
-      {selectedVault ? (
-        <VaultDetail vault={selectedVault} onBack={() => setSelectedVault(null)} />
-      ) : (
-        <>
+      <>
           {/* Flagship — All-Weather Yield */}
           {(() => {
             const awyVault = strategies.find((s) => s.protocol === "awy");
@@ -196,7 +188,7 @@ export default function HomePage() {
                   <h2 className="section-label">Flagship Strategy</h2>
                   <span className="font-mono text-[9px] uppercase tracking-[0.25em] text-emerald-500">Live</span>
                 </div>
-                <AwyHighlight onSelect={() => setSelectedVault(awyVault)} />
+                <AwyHighlight onSelect={() => goToVault(awyVault)} />
               </section>
             );
           })()}
@@ -238,7 +230,7 @@ export default function HomePage() {
                   </div>
                   <div className="stagger-children grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
                     {activeStrategies.map((v) => (
-                      <VaultCard key={v.id} vault={v} onSelect={() => setSelectedVault(v)} />
+                      <VaultCard key={v.id} vault={v} onSelect={() => goToVault(v)} />
                     ))}
                   </div>
                 </section>
@@ -254,11 +246,16 @@ export default function HomePage() {
                   </div>
                   <div className="stagger-children grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
                     {comingSoonStrategies.map((v) => (
-                      <VaultCard key={v.id} vault={v} onSelect={() => setSelectedVault(v)} />
+                      <VaultCard key={v.id} vault={v} onSelect={() => goToVault(v)} />
                     ))}
                   </div>
                 </section>
               )}
+
+              <section className="mt-10">
+                <h2 className="section-label mb-4">Project Your Yield</h2>
+                <YieldCalculator liveStrategies={strategies} />
+              </section>
             </>
           )}
         </>
