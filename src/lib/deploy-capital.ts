@@ -282,6 +282,35 @@ async function withdrawFromKamino(
 // Solomon — Jupiter swap USDC→USDv, then stake via Solomon
 // ============================================================
 
+/**
+ * Admin helper: stake any idle USDv sitting in a Solomon-style vault PDA.
+ * Used to clean up USDv leftover from older deploys where the swap succeeded
+ * but the stake step failed. Caller decides which vault (`solomon` standalone,
+ * or in future `awy` if we re-enable AWY staking).
+ */
+export async function stakeIdleUsdv(
+  vaultName: VaultName,
+  usdvAmountBaseUnits: bigint,
+): Promise<{ success: boolean; tx?: string; error?: string }> {
+  try {
+    const vault = getVaultAddresses(vaultName);
+    const susdvAta = getAssociatedTokenAddressSync(SUSDV_MINT, vault.vaultPda, true, TOKEN_PROGRAM_ID);
+    const ataIx = createAssociatedTokenAccountIdempotentInstruction(
+      vault.vaultPda,
+      susdvAta,
+      vault.vaultPda,
+      SUSDV_MINT,
+      TOKEN_PROGRAM_ID,
+    );
+    const stakeIx = buildSolomonStakeInstruction(vault.vaultPda, usdvAmountBaseUnits);
+    const sig = await executeVaultTransaction(vaultName, [ataIx, stakeIx]);
+    console.log(`stakeIdleUsdv[${vaultName}]: staked ${Number(usdvAmountBaseUnits) / 1e9} USDv → sUSDV, tx: ${sig}`);
+    return { success: true, tx: sig };
+  } catch (e) {
+    return { success: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 async function deployToSolomon(usdcAmount: number): Promise<{ success: boolean; tx?: string; error?: string }> {
   const vault = getVaultAddresses("solomon");
 
