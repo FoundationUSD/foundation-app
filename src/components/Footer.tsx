@@ -16,10 +16,9 @@ export function Footer() {
           </p>
           <div className="flex flex-wrap gap-x-4 gap-y-1 font-mono text-[11px] text-[var(--text-accent)]">
             <Link href="/" className="hover:text-[var(--fg)]">Invest</Link>
+            <Link href="/awy" className="hover:text-[var(--fg)]">AWY</Link>
             <Link href="/portfolio" className="hover:text-[var(--fg)]">Portfolio</Link>
-            <Link href="/risk" className="hover:text-[var(--fg)]">Risk</Link>
             <Link href="/transparency" className="hover:text-[var(--fg)]">Transparency</Link>
-            <Link href="/amplify" className="hover:text-[var(--fg)]">Amplify</Link>
           </div>
           <div className="mt-3 flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-[10px] leading-relaxed text-amber-700 dark:text-amber-400">
             <span className="mt-1 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" />

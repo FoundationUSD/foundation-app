@@ -1,0 +1,982 @@
+{
+    "address": "HSnn7bDvkZSEwujZDPtUcdo9KL7Conycgmy8m6mBFD5",
+    "metadata": {
+        "name": "Stake Program",
+        "version": "0.1.0",
+        "spec": "0.1.0",
+        "description": "Solomon Labs vault program for staking USDv and LP tokens."
+    },
+    "instructions": [
+        {
+            "name": "refresh_cooldowns",
+            "discriminator": [
+                206,
+                6,
+                23,
+                119,
+                92,
+                123,
+                192,
+                16
+            ],
+            "accounts": [
+                {
+                    "name": "vault_state",
+                    "writable": true,
+                    "pda": {
+                        "seeds": [
+                            {
+                                "kind": "const",
+                                "value": [
+                                    118,
+                                    97,
+                                    117,
+                                    108,
+                                    116,
+                                    45,
+                                    115,
+                                    116,
+                                    97,
+                                    116,
+                                    101
+                                ]
+                            },
+                            {
+                                "kind": "arg",
+                                "path": "salt"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "name": "user_data",
+                    "writable": true,
+                    "pda": {
+                        "seeds": [
+                            {
+                                "kind": "const",
+                                "value": [
+                                    117,
+                                    115,
+                                    101,
+                                    114,
+                                    45,
+                                    100,
+                                    97,
+                                    116,
+                                    97
+                                ]
+                            },
+                            {
+                                "kind": "account",
+                                "path": "user"
+                            },
+                            {
+                                "kind": "account",
+                                "path": "vault_state"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "name": "user",
+                    "writable": true,
+                    "signer": true
+                },
+                {
+                    "name": "system_program",
+                    "address": "11111111111111111111111111111111"
+                }
+            ],
+            "args": [
+                {
+                    "name": "_salt",
+                    "type": {
+                        "array": [
+                            "u8",
+                            8
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "name": "stake",
+            "discriminator": [
+                206,
+                176,
+                202,
+                18,
+                200,
+                209,
+                179,
+                108
+            ],
+            "accounts": [
+                {
+                    "name": "vault_state",
+                    "writable": true,
+                    "pda": {
+                        "seeds": [
+                            {
+                                "kind": "const",
+                                "value": [
+                                    118,
+                                    97,
+                                    117,
+                                    108,
+                                    116,
+                                    45,
+                                    115,
+                                    116,
+                                    97,
+                                    116,
+                                    101
+                                ]
+                            },
+                            {
+                                "kind": "arg",
+                                "path": "salt"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "name": "staking_token",
+                    "writable": true,
+                    "pda": {
+                        "seeds": [
+                            {
+                                "kind": "const",
+                                "value": [
+                                    115,
+                                    116,
+                                    97,
+                                    107,
+                                    105,
+                                    110,
+                                    103,
+                                    45,
+                                    116,
+                                    111,
+                                    107,
+                                    101,
+                                    110
+                                ]
+                            },
+                            {
+                                "kind": "account",
+                                "path": "vault_state"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "name": "user_deposit_token_account",
+                    "docs": [
+                        "The user deposit token account, we're going to transfer from this"
+                    ],
+                    "writable": true
+                },
+                {
+                    "name": "user_staking_token_account",
+                    "docs": [
+                        "The users staking token account, we're going to mint to this"
+                    ],
+                    "writable": true
+                },
+                {
+                    "name": "vault_token_account",
+                    "docs": [
+                        "The vault's account for the deposit token"
+                    ],
+                    "writable": true,
+                    "pda": {
+                        "seeds": [
+                            {
+                                "kind": "const",
+                                "value": [
+                                    118,
+                                    97,
+                                    117,
+                                    108,
+                                    116,
+                                    45,
+                                    116,
+                                    111,
+                                    107,
+                                    101,
+                                    110,
+                                    45,
+                                    97,
+                                    99,
+                                    99,
+                                    111,
+                                    117,
+                                    110,
+                                    116
+                                ]
+                            },
+                            {
+                                "kind": "account",
+                                "path": "vault_state"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "name": "blacklisted",
+                    "writable": true,
+                    "pda": {
+                        "seeds": [
+                            {
+                                "kind": "const",
+                                "value": [
+                                    118,
+                                    97,
+                                    117,
+                                    108,
+                                    116,
+                                    45,
+                                    115,
+                                    116,
+                                    97,
+                                    116,
+                                    101
+                                ]
+                            },
+                            {
+                                "kind": "arg",
+                                "path": "salt"
+                            },
+                            {
+                                "kind": "account",
+                                "path": "user"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "name": "user",
+                    "writable": true,
+                    "signer": true
+                },
+                {
+                    "name": "token_program",
+                    "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+                },
+                {
+                    "name": "system_program",
+                    "address": "11111111111111111111111111111111"
+                }
+            ],
+            "args": [
+                {
+                    "name": "salt",
+                    "type": {
+                        "array": [
+                            "u8",
+                            8
+                        ]
+                    }
+                },
+                {
+                    "name": "amt",
+                    "type": "u64"
+                }
+            ]
+        },
+        {
+            "name": "start_unstake",
+            "discriminator": [
+                200,
+                243,
+                106,
+                111,
+                170,
+                72,
+                31,
+                117
+            ],
+            "accounts": [
+                {
+                    "name": "token_program",
+                    "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+                },
+                {
+                    "name": "vault_state",
+                    "writable": true,
+                    "pda": {
+                        "seeds": [
+                            {
+                                "kind": "const",
+                                "value": [
+                                    118,
+                                    97,
+                                    117,
+                                    108,
+                                    116,
+                                    45,
+                                    115,
+                                    116,
+                                    97,
+                                    116,
+                                    101
+                                ]
+                            },
+                            {
+                                "kind": "arg",
+                                "path": "salt"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "name": "staking_token",
+                    "writable": true,
+                    "pda": {
+                        "seeds": [
+                            {
+                                "kind": "const",
+                                "value": [
+                                    115,
+                                    116,
+                                    97,
+                                    107,
+                                    105,
+                                    110,
+                                    103,
+                                    45,
+                                    116,
+                                    111,
+                                    107,
+                                    101,
+                                    110
+                                ]
+                            },
+                            {
+                                "kind": "account",
+                                "path": "vault_state"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "name": "user_staking_token_account",
+                    "writable": true
+                },
+                {
+                    "name": "user_deposit_token_account",
+                    "docs": [
+                        "The user deposit account were going to send collateral too"
+                    ],
+                    "writable": true
+                },
+                {
+                    "name": "vault_token_account",
+                    "docs": [
+                        "The vault's token account for the deposit token"
+                    ],
+                    "writable": true,
+                    "pda": {
+                        "seeds": [
+                            {
+                                "kind": "const",
+                                "value": [
+                                    118,
+                                    97,
+                                    117,
+                                    108,
+                                    116,
+                                    45,
+                                    116,
+                                    111,
+                                    107,
+                                    101,
+                                    110,
+                                    45,
+                                    97,
+                                    99,
+                                    99,
+                                    111,
+                                    117,
+                                    110,
+                                    116
+                                ]
+                            },
+                            {
+                                "kind": "account",
+                                "path": "vault_state"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "name": "blacklisted",
+                    "writable": true,
+                    "pda": {
+                        "seeds": [
+                            {
+                                "kind": "const",
+                                "value": [
+                                    118,
+                                    97,
+                                    117,
+                                    108,
+                                    116,
+                                    45,
+                                    115,
+                                    116,
+                                    97,
+                                    116,
+                                    101
+                                ]
+                            },
+                            {
+                                "kind": "arg",
+                                "path": "salt"
+                            },
+                            {
+                                "kind": "account",
+                                "path": "user"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "name": "user_data",
+                    "writable": true,
+                    "pda": {
+                        "seeds": [
+                            {
+                                "kind": "const",
+                                "value": [
+                                    117,
+                                    115,
+                                    101,
+                                    114,
+                                    45,
+                                    100,
+                                    97,
+                                    116,
+                                    97
+                                ]
+                            },
+                            {
+                                "kind": "account",
+                                "path": "user"
+                            },
+                            {
+                                "kind": "account",
+                                "path": "vault_state"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "name": "user",
+                    "writable": true,
+                    "signer": true
+                },
+                {
+                    "name": "system_program",
+                    "address": "11111111111111111111111111111111"
+                }
+            ],
+            "args": [
+                {
+                    "name": "salt",
+                    "type": {
+                        "array": [
+                            "u8",
+                            8
+                        ]
+                    }
+                },
+                {
+                    "name": "shares",
+                    "type": "u64"
+                }
+            ]
+        },
+        {
+            "name": "unstake",
+            "discriminator": [
+                90,
+                95,
+                107,
+                42,
+                205,
+                124,
+                50,
+                225
+            ],
+            "accounts": [
+                {
+                    "name": "token_program",
+                    "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+                },
+                {
+                    "name": "vault_state",
+                    "writable": true,
+                    "pda": {
+                        "seeds": [
+                            {
+                                "kind": "const",
+                                "value": [
+                                    118,
+                                    97,
+                                    117,
+                                    108,
+                                    116,
+                                    45,
+                                    115,
+                                    116,
+                                    97,
+                                    116,
+                                    101
+                                ]
+                            },
+                            {
+                                "kind": "arg",
+                                "path": "salt"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "name": "staking_token",
+                    "writable": true,
+                    "pda": {
+                        "seeds": [
+                            {
+                                "kind": "const",
+                                "value": [
+                                    115,
+                                    116,
+                                    97,
+                                    107,
+                                    105,
+                                    110,
+                                    103,
+                                    45,
+                                    116,
+                                    111,
+                                    107,
+                                    101,
+                                    110
+                                ]
+                            },
+                            {
+                                "kind": "account",
+                                "path": "vault_state"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "name": "user_staking_token_account",
+                    "writable": true
+                },
+                {
+                    "name": "user_deposit_token_account",
+                    "docs": [
+                        "The user deposit account were going to send collateral too"
+                    ],
+                    "writable": true
+                },
+                {
+                    "name": "vault_token_account",
+                    "docs": [
+                        "The vault's token account for the deposit token"
+                    ],
+                    "writable": true,
+                    "pda": {
+                        "seeds": [
+                            {
+                                "kind": "const",
+                                "value": [
+                                    118,
+                                    97,
+                                    117,
+                                    108,
+                                    116,
+                                    45,
+                                    116,
+                                    111,
+                                    107,
+                                    101,
+                                    110,
+                                    45,
+                                    97,
+                                    99,
+                                    99,
+                                    111,
+                                    117,
+                                    110,
+                                    116
+                                ]
+                            },
+                            {
+                                "kind": "account",
+                                "path": "vault_state"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "name": "blacklisted",
+                    "writable": true,
+                    "pda": {
+                        "seeds": [
+                            {
+                                "kind": "const",
+                                "value": [
+                                    118,
+                                    97,
+                                    117,
+                                    108,
+                                    116,
+                                    45,
+                                    115,
+                                    116,
+                                    97,
+                                    116,
+                                    101
+                                ]
+                            },
+                            {
+                                "kind": "arg",
+                                "path": "salt"
+                            },
+                            {
+                                "kind": "account",
+                                "path": "user"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "name": "user_data",
+                    "writable": true,
+                    "pda": {
+                        "seeds": [
+                            {
+                                "kind": "const",
+                                "value": [
+                                    117,
+                                    115,
+                                    101,
+                                    114,
+                                    45,
+                                    100,
+                                    97,
+                                    116,
+                                    97
+                                ]
+                            },
+                            {
+                                "kind": "account",
+                                "path": "user"
+                            },
+                            {
+                                "kind": "account",
+                                "path": "vault_state"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "name": "user",
+                    "writable": true,
+                    "signer": true
+                },
+                {
+                    "name": "system_program",
+                    "address": "11111111111111111111111111111111"
+                }
+            ],
+            "args": [
+                {
+                    "name": "salt",
+                    "type": {
+                        "array": [
+                            "u8",
+                            8
+                        ]
+                    }
+                },
+                {
+                    "name": "assets",
+                    "type": "u64"
+                }
+            ]
+        }
+    ],
+    "accounts": [
+        {
+            "name": "Blacklisted",
+            "discriminator": [
+                157,
+                77,
+                174,
+                91,
+                217,
+                44,
+                45,
+                201
+            ]
+        },
+        {
+            "name": "VaultState",
+            "discriminator": [
+                228,
+                196,
+                82,
+                165,
+                98,
+                210,
+                235,
+                152
+            ]
+        }
+    ],
+    "events": [
+        {
+            "name": "StakeEvent",
+            "discriminator": [
+                226,
+                134,
+                188,
+                173,
+                19,
+                33,
+                75,
+                175
+            ]
+        },
+        {
+            "name": "StartUnstakeEvent",
+            "discriminator": [
+                212,
+                16,
+                225,
+                120,
+                148,
+                23,
+                121,
+                187
+            ]
+        },
+        {
+            "name": "UnstakeEvent",
+            "discriminator": [
+                162,
+                104,
+                137,
+                228,
+                81,
+                3,
+                79,
+                197
+            ]
+        }
+    ],
+    "errors": [
+        {
+            "code": 6006,
+            "name": "Blacklisted",
+            "msg": "The user is prohibited from staking"
+        },
+        {
+            "code": 6007,
+            "name": "UserNotFound",
+            "msg": "The user was not found in current stakers"
+        },
+        {
+            "code": 6008,
+            "name": "WrongToken",
+            "msg": "That token is not available for staking"
+        },
+        {
+            "code": 6009,
+            "name": "AssetsUnavailable",
+            "msg": "Insufficient assets available"
+        },
+        {
+            "code": 6010,
+            "name": "BadStakingTokenDecimals",
+            "msg": "Bad Staking Token Decimals, they must be gte than the deposit token"
+        },
+        {
+            "code": 6011,
+            "name": "MinSharesViolation",
+            "msg": "Total shares are below minimum for staking or unstaking"
+        },
+        {
+            "code": 6012,
+            "name": "ZeroShares",
+            "msg": "Deposit is too small to receive shares"
+        },
+        {
+            "code": 6013,
+            "name": "BadDepositToken",
+            "msg": "Bad Deposit Token"
+        }
+    ],
+    "types": [
+        {
+            "name": "Blacklisted",
+            "type": {
+                "kind": "struct",
+                "fields": [
+                    {
+                        "name": "user",
+                        "type": "pubkey"
+                    },
+                    {
+                        "name": "blacklisted",
+                        "type": "bool"
+                    }
+                ]
+            }
+        },
+        {
+            "name": "StakeEvent",
+            "type": {
+                "kind": "struct",
+                "fields": [
+                    {
+                        "name": "who",
+                        "type": "pubkey"
+                    },
+                    {
+                        "name": "assets",
+                        "type": "u64"
+                    },
+                    {
+                        "name": "shares",
+                        "type": "u64"
+                    },
+                    {
+                        "name": "salt",
+                        "type": {
+                            "array": [
+                                "u8",
+                                8
+                            ]
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "name": "StartUnstakeEvent",
+            "type": {
+                "kind": "struct",
+                "fields": [
+                    {
+                        "name": "who",
+                        "type": "pubkey"
+                    },
+                    {
+                        "name": "shares",
+                        "type": "u64"
+                    },
+                    {
+                        "name": "assets",
+                        "type": "u64"
+                    },
+                    {
+                        "name": "end",
+                        "type": "u32"
+                    },
+                    {
+                        "name": "salt",
+                        "type": {
+                            "array": [
+                                "u8",
+                                8
+                            ]
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "name": "UnstakeEvent",
+            "type": {
+                "kind": "struct",
+                "fields": [
+                    {
+                        "name": "who",
+                        "type": "pubkey"
+                    },
+                    {
+                        "name": "assets",
+                        "type": "u64"
+                    },
+                    {
+                        "name": "salt",
+                        "type": {
+                            "array": [
+                                "u8",
+                                8
+                            ]
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "name": "VaultState",
+            "type": {
+                "kind": "struct",
+                "fields": [
+                    {
+                        "name": "admin",
+                        "type": "pubkey"
+                    },
+                    {
+                        "name": "deposit_token",
+                        "type": "pubkey"
+                    },
+                    {
+                        "name": "vesting_amount",
+                        "type": "u64"
+                    },
+                    {
+                        "name": "total_assets",
+                        "type": "u64"
+                    },
+                    {
+                        "name": "min_shares",
+                        "type": "u64"
+                    },
+                    {
+                        "name": "last_distribution_time",
+                        "type": "u32"
+                    },
+                    {
+                        "name": "cooldown",
+                        "type": "u32"
+                    },
+                    {
+                        "name": "vesting_period",
+                        "type": "u32"
+                    },
+                    {
+                        "name": "bump",
+                        "type": "u8"
+                    },
+                    {
+                        "name": "rewarders",
+                        "type": {
+                            "vec": "pubkey"
+                        }
+                    }
+                ]
+            }
+        }
+    ]
+}

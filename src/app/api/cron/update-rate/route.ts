@@ -100,7 +100,7 @@ async function fetchAwyApy(): Promise<number> {
 }
 
 type VaultRate = {
-  name: "solomon" | "kamino" | "oro" | "awy" | "hephaestus";
+  name: "solomon" | "kamino" | "oro" | "awy";
   envMint: string;
   fetchApy: () => Promise<number>;
   haircut: number; // Foundation fee %

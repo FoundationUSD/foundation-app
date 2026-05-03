@@ -1,17 +1,34 @@
 /**
- * syrupUSDC — Maple Finance institutional lending receipt token.
+ * syrupUSDC leg — institutional-lending exposure for the AWY basket.
  *
- * USDC deployed to vetted institutional borrowers (market makers, trading firms)
- * collateralized by BTC/ETH at ~160% LTV. Most liquid leg of AWY; integrated across
- * Kamino, Drift, and Pendle. Zero losses since Maple's 2022 pivot to overcollateralization.
+ * Reality check: syrupUSDC on Solana is a CCIP-bridged token from Ethereum
+ * (mintAuthority = Chainlink pool). It's NOT a borrowable / supply asset on
+ * any Kamino lending market — only an LP pair on Kamino Liquidity / Orca.
+ * That means a Solana program cannot atomically deposit USDC and end up
+ * holding syrupUSDC with its underlying yield.
  *
- * Mainnet mint: jSyhWi5kkAGZyyxx2qzhQiLXt9qyJxXYXgfqPNX5tnp (placeholder until verified
- * against the live deployment — env override takes precedence).
+ * For the AWY routing we therefore supply the slice into Kamino's Main
+ * market USDC reserve — same operational rail as PRIME — and earn Kamino's
+ * USDC supply APY there. This isn't true Maple yield but it's the cleanest
+ * mainnet-addressable proxy until Maple ships a Solana-native lending
+ * program (or until Hastra/Figure publishes a syrupUSDC alt rail).
+ *
+ *   Verified syrupUSDC mint:  AvZZF1YaZDziPY2RCK4oJrRVrbN3mTD9NL24hPeaZeUj  (SPL, 6 dec)
+ *   Live APY source:          Kamino Main market USDC supply
+ *   Reference yield:          Maple canonical Eth pool via DefiLlama (informational)
  */
-const SYRUP_USDC_MINT_MAINNET =
-  process.env.NEXT_PUBLIC_SYRUP_USDC_MINT || "jSyhWi5kkAGZyyxx2qzhQiLXt9qyJxXYXgfqPNX5tnp";
 
-const MAPLE_API = "https://api.maple.finance";
+import { KAMINO_MARKETS, getKaminoReserves } from "../kamino";
+
+const SYRUP_USDC_MINT_MAINNET =
+  process.env.NEXT_PUBLIC_SYRUP_USDC_MINT ||
+  "AvZZF1YaZDziPY2RCK4oJrRVrbN3mTD9NL24hPeaZeUj";
+
+const MAIN_MARKET = KAMINO_MARKETS.find((m) => m.id === "main")!.address;
+
+// DefiLlama pool for the canonical Maple Ethereum syrupUSDC pool — used only
+// as a reference / informational fallback, not the routing rate.
+const LLAMA_POOL_ETH_SYRUP = "43641cf5-a92e-416b-bce9-27113d3c0db6";
 
 export interface SyrupUsdcLiveData {
   apy: number;
@@ -20,29 +37,53 @@ export interface SyrupUsdcLiveData {
   source: string;
 }
 
-/**
- * Fetch live syrupUSDC APY. Maple publishes pool-level rates on its public API; we
- * read the syrupUSDC pool specifically. Falls back to spec on any failure.
- */
-export async function getSyrupUsdcData(): Promise<SyrupUsdcLiveData> {
+let _llamaCache: { apy: number; ts: number } | null = null;
+
+async function fetchLlamaSyrupApy(): Promise<number> {
+  if (_llamaCache && Date.now() - _llamaCache.ts < 600_000) return _llamaCache.apy;
   try {
-    const res = await fetch(`${MAPLE_API}/v2/pools/syrupUSDC`, {
+    const res = await fetch("https://yields.llama.fi/pools", {
       next: { revalidate: 600 },
     });
-    if (!res.ok) throw new Error(`Maple API ${res.status}`);
-    const data = await res.json();
-    const apy = Number(data?.apy ?? data?.supplyApy ?? 0);
-    const nav = Number(data?.exchangeRate ?? data?.nav ?? 1);
-    if (!Number.isFinite(apy) || apy <= 0) {
-      return { apy: 0, nav: null, mint: SYRUP_USDC_MINT_MAINNET, source: "spec-fallback" };
+    if (!res.ok) return 0;
+    const json = await res.json();
+    const pool = (json?.data ?? []).find(
+      (p: { pool: string }) => p.pool === LLAMA_POOL_ETH_SYRUP,
+    );
+    const apy = Number(pool?.apy ?? pool?.apyBase ?? 0);
+    if (Number.isFinite(apy) && apy > 0) {
+      _llamaCache = { apy, ts: Date.now() };
+      return apy;
     }
+  } catch {}
+  return 0;
+}
+
+export async function getSyrupUsdcData(): Promise<SyrupUsdcLiveData> {
+  try {
+    const reserves = await getKaminoReserves(MAIN_MARKET);
+    const usdc = reserves.find((r) => r.symbol.toUpperCase() === "USDC");
+    if (usdc && usdc.supplyApy > 0) {
+      return {
+        apy: usdc.supplyApy * 100,
+        nav: 1,
+        mint: SYRUP_USDC_MINT_MAINNET,
+        source: "kamino-main-usdc",
+      };
+    }
+  } catch {}
+
+  // Fallback to canonical Eth syrupUSDC rate — strictly informational; the
+  // basket isn't actually exposed to this rate, but it's better than zero.
+  const llamaApy = await fetchLlamaSyrupApy();
+  if (llamaApy > 0) {
     return {
-      apy,
-      nav: Number.isFinite(nav) && nav > 0 ? nav : null,
+      apy: llamaApy,
+      nav: 1,
       mint: SYRUP_USDC_MINT_MAINNET,
-      source: "maple-api",
+      source: "defillama-eth-fallback",
     };
-  } catch {
-    return { apy: 0, nav: null, mint: SYRUP_USDC_MINT_MAINNET, source: "spec-fallback" };
   }
+
+  return { apy: 0, nav: null, mint: SYRUP_USDC_MINT_MAINNET, source: "spec-fallback" };
 }

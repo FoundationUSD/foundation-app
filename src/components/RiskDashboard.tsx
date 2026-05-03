@@ -27,7 +27,6 @@ const PROTOCOL_DRIVER: Record<string, string> = {
   solomon: "Basis spread",
   kamino: "US rate cycle",
   oro: "Gold spot price",
-  hephaestus: "Metals spot prices",
 };
 
 const DRIVER_DESCRIPTIONS: Record<string, string> = {
@@ -37,7 +36,6 @@ const DRIVER_DESCRIPTIONS: Record<string, string> = {
   "Actuarial events": "Reinsurance premium income. Risk: catastrophic insurance events trigger payouts.",
   "Gold spot price": "Tokenized physical gold tracks LBMA spot. Risk: gold market drawdowns flow through directly.",
   "Fed funds rate": "Short-term US Treasury yield. Risk: rate cuts compress yield.",
-  "Metals spot prices": "Diversified metals basket — gold, silver, platinum, copper. Risk: synchronized commodity drawdowns; copper has industrial-cycle exposure.",
 };
 
 const DRIVER_COLORS: Record<string, string> = {
@@ -47,7 +45,6 @@ const DRIVER_COLORS: Record<string, string> = {
   "Actuarial events":        "rgb(236, 72, 153)",
   "Gold spot price":         "rgb(234, 179, 8)",
   "Fed funds rate":          "rgb(20, 184, 166)",
-  "Metals spot prices":      "rgb(217, 119, 6)",
 };
 
 function buildExposures(positions: Position[]): DriverExposure[] {
