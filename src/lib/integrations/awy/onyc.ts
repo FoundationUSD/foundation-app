@@ -255,7 +255,8 @@ export async function buildOnycTakeOfferIxs({
   const permissionlessOnyc = getAssociatedTokenAddressSync(ONYC_MINT, permissionlessAuthority, true);
   const userUsdc = getAssociatedTokenAddressSync(USDC_MINT_PK, user, true);
   const userOnyc = getAssociatedTokenAddressSync(ONYC_MINT, user, true);
-  const bossUsdc = getAssociatedTokenAddressSync(USDC_MINT_PK, boss, false);
+  // boss is OnRe's own program/multisig PDA (off-curve), so allowOwnerOffCurve = true.
+  const bossUsdc = getAssociatedTokenAddressSync(USDC_MINT_PK, boss, true);
 
   // 4. Build the take_offer_permissionless ix via Anchor methods.
   const takeOfferIx = await program.methods

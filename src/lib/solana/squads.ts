@@ -79,10 +79,16 @@ export function vaultIdToName(vaultId: string): VaultName {
 
 /**
  * Execute instructions through a specific Squads multisig vault.
+ *
+ * Pass `addressLookupTableAccounts` whenever the instructions reference keys
+ * that came from an ALT (e.g. Kamino klend deposit). Without it the inner
+ * vault tx blows past the 1232-byte size limit because every account is
+ * resolved to its full 32-byte pubkey.
  */
 export async function executeVaultTransaction(
   vaultName: VaultName,
   instructions: TransactionInstruction[],
+  addressLookupTableAccounts: import("@solana/web3.js").AddressLookupTableAccount[] = [],
 ): Promise<string> {
   // Serialize all vault transactions to prevent race conditions on transactionIndex
   let resolve: () => void;
@@ -91,7 +97,7 @@ export async function executeVaultTransaction(
   await prevLock;
 
   try {
-    return await _executeVaultTransactionInner(vaultName, instructions);
+    return await _executeVaultTransactionInner(vaultName, instructions, addressLookupTableAccounts);
   } finally {
     resolve!();
   }
@@ -100,6 +106,7 @@ export async function executeVaultTransaction(
 async function _executeVaultTransactionInner(
   vaultName: VaultName,
   instructions: TransactionInstruction[],
+  addressLookupTableAccounts: import("@solana/web3.js").AddressLookupTableAccount[],
 ): Promise<string> {
   const connection = getConnection();
   const authority = getAuthority();
@@ -128,6 +135,7 @@ async function _executeVaultTransactionInner(
     vaultIndex: 0,
     ephemeralSigners: 0,
     transactionMessage: txMessage,
+    addressLookupTableAccounts,
   });
 
   const createProposalIx = multisig.instructions.proposalCreate({
@@ -150,25 +158,70 @@ async function _executeVaultTransactionInner(
   // Wait for confirmation to propagate before executing
   await new Promise((r) => setTimeout(r, 2000));
 
-  // Execute
-  const executeIx = await multisig.instructions.vaultTransactionExecute({
-    connection,
-    multisigPda,
-    transactionIndex: BigInt(transactionIndex),
-    member: authority.publicKey,
-  });
+  // Execute — uses v0 transaction with ALTs returned by Squads (ALTs are
+  // needed when the inner vault tx referenced keys via lookup tables).
+  const { instruction: executeIxRaw, lookupTableAccounts } =
+    await multisig.instructions.vaultTransactionExecute({
+      connection,
+      multisigPda,
+      transactionIndex: BigInt(transactionIndex),
+      member: authority.publicKey,
+    });
 
-  const executeTx = new Transaction().add(executeIx.instruction);
-  executeTx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
-  executeTx.feePayer = authority.publicKey;
-
-  const sig = await sendAndConfirmTransaction(connection, executeTx, [authority]);
-
-  // Reclaim rent from the executed transaction + proposal accounts
-  // This returns ~0.004 SOL back to the authority
-  // Requires rentCollector to be set on the multisig (see scripts/fix-rent-collector.ts)
+  const { VersionedTransaction, TransactionMessage: TM, ComputeBudgetProgram } =
+    await import("@solana/web3.js");
+  // Kamino's deposit chain (RefreshReserve × N → RefreshObligation → Deposit)
+  // routinely needs ~600–900K CUs once wrapped in Squads' execute. Default
+  // 200K is far too low; we bump to 1M which is safely under the 1.4M cap.
+  const execMessage = new TM({
+    payerKey: authority.publicKey,
+    recentBlockhash: (await connection.getLatestBlockhash()).blockhash,
+    instructions: [
+      ComputeBudgetProgram.setComputeUnitLimit({ units: 1_000_000 }),
+      executeIxRaw,
+    ],
+  }).compileToV0Message(lookupTableAccounts);
+  const execTx = new VersionedTransaction(execMessage);
+  execTx.sign([authority]);
+  let sig: string;
   try {
-    // Small delay to ensure execution state is finalized
+    sig = await connection.sendRawTransaction(execTx.serialize());
+    await connection.confirmTransaction(sig, "confirmed");
+  } catch (execErr) {
+    // Execute failed — proposal stays Approved, tx account stays open. Cancel
+    // the proposal then close the accounts so the authority's escrowed rent
+    // (~0.005-0.007 SOL per orphan) comes back immediately. Without this we
+    // bleed SOL on every failed leg and downstream legs fail for fee reasons.
+    await new Promise((r) => setTimeout(r, 1500));
+    try {
+      const cancelIx = multisig.instructions.proposalCancel({
+        multisigPda,
+        transactionIndex: BigInt(transactionIndex),
+        member: authority.publicKey,
+      });
+      const cancelTx = new Transaction().add(cancelIx);
+      cancelTx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
+      cancelTx.feePayer = authority.publicKey;
+      await sendAndConfirmTransaction(connection, cancelTx, [authority]);
+      const closeIx = multisig.instructions.vaultTransactionAccountsClose({
+        multisigPda,
+        rentCollector: authority.publicKey,
+        transactionIndex: BigInt(transactionIndex),
+      });
+      const closeTx = new Transaction().add(closeIx);
+      closeTx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
+      closeTx.feePayer = authority.publicKey;
+      await sendAndConfirmTransaction(connection, closeTx, [authority]);
+      console.log(`Rent reclaimed (failed-exec) for tx #${transactionIndex}`);
+    } catch (cleanupErr) {
+      console.error(`Cleanup after failed exec #${transactionIndex} failed:`, cleanupErr instanceof Error ? cleanupErr.message : cleanupErr);
+    }
+    throw execErr;
+  }
+
+  // Reclaim rent for successful executes — Squads requires rentCollector on
+  // the multisig (see scripts/fix-rent-collector.ts).
+  try {
     await new Promise((r) => setTimeout(r, 2000));
     const closeIx = multisig.instructions.vaultTransactionAccountsClose({
       multisigPda,

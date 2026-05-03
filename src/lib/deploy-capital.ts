@@ -8,6 +8,7 @@
  */
 
 import {
+  AddressLookupTableAccount,
   Connection,
   PublicKey,
   Transaction,
@@ -21,6 +22,7 @@ import {
   getAssociatedTokenAddressSync,
   createTransferInstruction,
   createAssociatedTokenAccountInstruction,
+  createAssociatedTokenAccountIdempotentInstruction,
   getAccount,
 } from "@solana/spl-token";
 import { executeVaultTransaction, getVaultAddresses } from "@/lib/solana/squads";
@@ -107,6 +109,7 @@ const SYRUP_USDC_MINT_STR =
 // Solomon stake program
 const SOLOMON_PROGRAM = new PublicKey("HSnn7bDvkZSEwujZDPtUcdo9KL7Conycgmy8m6mBFD5");
 const SOLOMON_VAULT_STATE = new PublicKey("BsPrkRjar8ktWagbcxsEzSBSpVnaj47nasjpFHWp1VMF");
+const SOLOMON_VAULT_SALT_BYTES = new Uint8Array([0, 0, 0, 0, 0, 0, 0, 0]);
 const SOLOMON_VAULT_USDV_ACCOUNT = new PublicKey("4AZVLwe6KinAmV3p7Hpj4PYQHrAGXhbpcCCiqLYRxwHf");
 const SOLOMON_MINT_AUTHORITY = new PublicKey("AFidqoSLvwSkv7HtCHiGBmdK6Sp32Me8jwSGvWKNkJVy");
 const SOLOMON_EVENT_AUTHORITY = new PublicKey("FEunrQB7m6s2ZicCTvYJCfiPQAFfb4baCM7TaP8f37CU");
@@ -204,13 +207,19 @@ async function deployToKamino(
   const vault = getVaultAddresses(vaultName);
   const { market, reserve } = kaminoMarketAddrs(kind);
 
+  // Kamino's REST API expects `amount` as a USDC decimal string (e.g. "0.05"),
+  // not 6-decimal base units. Their backend multiplies by 10^6 internally to
+  // get reserve liquidity. Sending base units → 1e6× over-deposit → "insufficient
+  // funds" on the inner TransferChecked.
+  const usdcDecimal = (usdcAmount / 1e6).toString();
+
   const res = await fetchWithRetry(`${KAMINO_API}/ktx/klend/deposit`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       wallet: vault.vaultPda.toBase58(),
       reserve,
-      amount: usdcAmount.toString(),
+      amount: usdcDecimal,
       market,
     }),
   });
@@ -221,13 +230,13 @@ async function deployToKamino(
   }
 
   const { transaction: txBase64 } = await res.json();
-  const instructions = await deserializeTxInstructions(txBase64);
+  const { instructions, lookupTableAccounts } = await deserializeTxInstructions(txBase64);
 
   if (instructions.length === 0) {
     throw new Error("Kamino API returned empty transaction");
   }
 
-  const sig = await executeVaultTransaction(vaultName, instructions);
+  const sig = await executeVaultTransaction(vaultName, instructions, lookupTableAccounts);
   console.log(`Kamino[${vaultName}/${kind}] deposit: ${usdcAmount / 1e6} USDC, tx: ${sig}`);
   return { success: true, tx: sig };
 }
@@ -240,13 +249,14 @@ async function withdrawFromKamino(
   const vault = getVaultAddresses(vaultName);
   const { market, reserve } = kaminoMarketAddrs(kind);
 
+  const usdcDecimal = (usdcAmount / 1e6).toString();
   const res = await fetchWithRetry(`${KAMINO_API}/ktx/klend/withdraw`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       wallet: vault.vaultPda.toBase58(),
       reserve,
-      amount: usdcAmount.toString(),
+      amount: usdcDecimal,
       market,
     }),
   });
@@ -257,13 +267,13 @@ async function withdrawFromKamino(
   }
 
   const { transaction: txBase64 } = await res.json();
-  const instructions = await deserializeTxInstructions(txBase64);
+  const { instructions, lookupTableAccounts } = await deserializeTxInstructions(txBase64);
 
   if (instructions.length === 0) {
     throw new Error("Kamino API returned empty transaction");
   }
 
-  const sig = await executeVaultTransaction(vaultName, instructions);
+  const sig = await executeVaultTransaction(vaultName, instructions, lookupTableAccounts);
   console.log(`Kamino[${vaultName}/${kind}] withdraw: ${usdcAmount / 1e6} USDC, tx: ${sig}`);
   return { success: true, tx: sig };
 }
@@ -287,11 +297,22 @@ async function deployToSolomon(usdcAmount: number): Promise<{ success: boolean; 
 
   console.log(`Solomon: swapped ${usdcAmount / 1e6} USDC → USDv, tx: ${swapSig}`);
 
-  // Step 2: Stake USDv → sUSDV via Solomon program
-  // Convert USDC amount (6 dec) to USDv amount (9 dec) — approximate 1:1
+  // Step 2: Stake USDv → sUSDV via Solomon program.
+  // Solomon's Stake instruction requires `user_staking_token_account` (the
+  // vault's sUSDV ATA) to exist *before* the call — otherwise Anchor 3012
+  // (AccountNotInitialized) at runtime. We prepend a create-idempotent ATA
+  // ix so first-ever stakes work without an out-of-band setup tx.
   const usdvAmount = BigInt(usdcAmount) * BigInt(1000); // 6 dec → 9 dec
+  const susdvAta = getAssociatedTokenAddressSync(SUSDV_MINT, vault.vaultPda, true, TOKEN_PROGRAM_ID);
+  const ataIx = createAssociatedTokenAccountIdempotentInstruction(
+    vault.vaultPda,                     // payer (the vault PDA itself)
+    susdvAta,                            // ATA address
+    vault.vaultPda,                      // owner
+    SUSDV_MINT,
+    TOKEN_PROGRAM_ID,
+  );
   const stakeIx = buildSolomonStakeInstruction(vault.vaultPda, usdvAmount);
-  const stakeSig = await executeVaultTransaction("solomon", [stakeIx]);
+  const stakeSig = await executeVaultTransaction("solomon", [ataIx, stakeIx]);
   console.log(`Solomon: staked ${Number(usdvAmount) / 1e9} USDv → sUSDV, tx: ${stakeSig}`);
 
   return { success: true, tx: stakeSig };
@@ -460,7 +481,12 @@ async function deployToAwy(usdcAmount: number): Promise<{ success: boolean; tx?:
   // ── PRIME leg: USDC supplied to Kamino's Figure PRIME lending market.
   if (primeAmt > 0) {
     try {
-      const r = await deployToKamino("awy", primeAmt);
+      const r = await deployToKamino("awy", primeAmt, "prime");
+      if (r.success) {
+        console.log(`AWY[prime]: deposited ${primeAmt / 1e6} USDC to Kamino PRIME (${r.tx})`);
+      } else {
+        console.error(`AWY[prime] FAILED:`, r.error);
+      }
       results.push({
         leg: "prime",
         status: r.success ? "deployed" : "failed",
@@ -469,7 +495,9 @@ async function deployToAwy(usdcAmount: number): Promise<{ success: boolean; tx?:
         error: r.error,
       });
     } catch (e) {
-      results.push({ leg: "prime", status: "failed", amountUsdc: primeAmt, error: e instanceof Error ? e.message : "unknown" });
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error(`AWY[prime] THREW:`, msg);
+      results.push({ leg: "prime", status: "failed", amountUsdc: primeAmt, error: msg });
     }
   }
 
@@ -485,10 +513,12 @@ async function deployToAwy(usdcAmount: number): Promise<{ success: boolean; tx?:
         usdcAmount: BigInt(onycAmt),
       });
       const sig = await executeVaultTransaction("awy", plan.instructions);
-      console.log(`AWY[onyc]: minted ${plan.expectedOnycOut.toFixed(4)} ONyc from ${onycAmt / 1e6} USDC (${sig})`);
+      console.log(`AWY[onyc]: minted ~${plan.expectedOnycOut.toFixed(4)} ONyc from ${onycAmt / 1e6} USDC (${sig})`);
       results.push({ leg: "onyc", status: "deployed", tx: sig, amountUsdc: onycAmt });
     } catch (e) {
-      results.push({ leg: "onyc", status: "failed", amountUsdc: onycAmt, error: e instanceof Error ? e.message : "unknown" });
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error(`AWY[onyc] FAILED:`, msg);
+      results.push({ leg: "onyc", status: "failed", amountUsdc: onycAmt, error: msg });
     }
   }
 
@@ -496,12 +526,15 @@ async function deployToAwy(usdcAmount: number): Promise<{ success: boolean; tx?:
   //    Maple's syrupUSDC on Solana is a CCIP burn-mint token with a Chainlink
   //    mintAuthority — there's no Solana-native lending program that accepts
   //    USDC and pays Maple yield. The closest mainnet-addressable proxy is
-  //    Kamino's Main market USDC supply (~4.2% APY). Updating the basket
-  //    routing here when Maple ships native lending or Hastra publishes a
-  //    syrupUSDC alt rail.
+  //    Kamino's Main market USDC supply (~4.2% APY).
   if (syrupAmt > 0) {
     try {
       const r = await deployToKamino("awy", syrupAmt, "main");
+      if (r.success) {
+        console.log(`AWY[syrup→main]: deposited ${syrupAmt / 1e6} USDC to Kamino Main (${r.tx})`);
+      } else {
+        console.error(`AWY[syrup→main] FAILED:`, r.error);
+      }
       results.push({
         leg: "syrup-usdc",
         status: r.success ? "deployed" : "failed",
@@ -510,12 +543,16 @@ async function deployToAwy(usdcAmount: number): Promise<{ success: boolean; tx?:
         error: r.error,
       });
     } catch (e) {
-      results.push({ leg: "syrup-usdc", status: "failed", amountUsdc: syrupAmt, error: e instanceof Error ? e.message : "unknown" });
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error(`AWY[syrup→main] THREW:`, msg);
+      results.push({ leg: "syrup-usdc", status: "failed", amountUsdc: syrupAmt, error: msg });
     }
   }
 
-  // ── Solomon leg: Jupiter USDC → USDv, then stake into sUSDV via Solomon program.
-  //    Same path as the standalone Solomon vault, but routed through the AWY PDA.
+  // ── Solomon leg: Jupiter swap USDC → USDv only. Vault holds base USDv;
+  //    no sUSDV staking. Staking added a second tx + a 7-day cooldown that
+  //    blocked withdraw liquidity; holding USDv directly keeps the leg liquid
+  //    and accruing yield via Solomon's vault rate updates.
   if (solomonAmt > 0) {
     try {
       const swapSig = await jupiterSwap({
@@ -526,14 +563,12 @@ async function deployToAwy(usdcAmount: number): Promise<{ success: boolean; tx?:
         amount: solomonAmt,
         slippageBps: DEFAULT_SLIPPAGE_BPS,
       });
-      // 6 dec USDC → 9 dec USDv (1:1 in human units).
-      const usdvAmount = BigInt(solomonAmt) * BigInt(1000);
-      const stakeIx = buildSolomonStakeInstruction(vault.vaultPda, usdvAmount);
-      const stakeSig = await executeVaultTransaction("awy", [stakeIx]);
-      console.log(`AWY[solomon]: swapped ${solomonAmt / 1e6} USDC → USDv (${swapSig}), staked → sUSDV (${stakeSig})`);
-      results.push({ leg: "solomon", status: "deployed", tx: stakeSig, amountUsdc: solomonAmt });
+      console.log(`AWY[solomon]: swapped ${solomonAmt / 1e6} USDC → USDv (${swapSig})`);
+      results.push({ leg: "solomon", status: "deployed", tx: swapSig, amountUsdc: solomonAmt });
     } catch (e) {
-      results.push({ leg: "solomon", status: "failed", amountUsdc: solomonAmt, error: e instanceof Error ? e.message : "unknown" });
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error(`AWY[solomon] FAILED:`, msg);
+      results.push({ leg: "solomon", status: "failed", amountUsdc: solomonAmt, error: msg });
     }
   }
 
@@ -550,18 +585,13 @@ async function deployToAwy(usdcAmount: number): Promise<{ success: boolean; tx?:
 }
 
 /**
- * Withdraw USDC proportionally from each deployed leg. Mirror of deployToAwy:
- *   1. Spend idle USDC first (cheapest path)
- *   2. Pull from PRIME via Kamino API
- *   3. Fallback: spend idle USDv (Solomon leg) — reverse-swap USDv → USDC.
- *      Note: the staked sUSDV portion has Solomon's 7-day cooldown so we only
- *      consume already-unstaked USDv here. To service larger withdrawals from
- *      the Solomon leg, the rebalance cron initiates StartUnstake ahead of
- *      time so USDv is liquid when needed.
- *
- * For "coming_soon" status the basket is mostly idle USDC anyway, so step 1
- * usually covers it. Once all four legs are wired we'll add a smarter rebalancer
- * to keep weights at target after withdrawals — for now we accept drift.
+ * Withdraw USDC proportionally from each deployed leg. Service order:
+ *   1. Idle USDC (cheapest, instant)
+ *   2. Kamino PRIME market (instant via klend redeem)
+ *   3. Kamino Main market — where the syrupUSDC slice lives (instant)
+ *   4. USDv reverse-swap via Jupiter (instant; AWY holds base USDv unstaked
+ *      so no cooldown applies)
+ *   5. ONyc redemption queue (async — OnRe admin fulfills within 24–72h)
  */
 async function withdrawFromAwy(usdcAmount: number): Promise<{ success: boolean; tx?: string; error?: string }> {
   const vault = getVaultAddresses("awy");
@@ -605,9 +635,8 @@ async function withdrawFromAwy(usdcAmount: number): Promise<{ success: boolean; 
     }
   }
 
-  // Fallback: reverse-swap idle USDv (Solomon leg) → USDC. Staked sUSDV is in
-  // a 7-day cooldown queue and not consumable here; the rebalance cron pre-stages
-  // unstakes for predictable redemption.
+  // Reverse-swap idle USDv (Solomon leg) → USDC. AWY holds base USDv (no sUSDV
+  // staking, so no cooldown).
   if (remaining > 0) {
     const usdvAta = getAssociatedTokenAddressSync(USDV_MINT, vault.vaultPda, true, TOKEN_PROGRAM_ID);
     const usdvBalRes = await connection.getTokenAccountBalance(usdvAta).catch(() => null);
@@ -805,10 +834,14 @@ async function jupiterSwap(params: {
 // ============================================================
 
 /**
- * Deserialize a base64-encoded transaction and extract its instructions.
- * Resolves Address Lookup Tables for VersionedTransactions.
+ * Deserialize a base64-encoded transaction and extract its instructions and
+ * ALT accounts. Returning the ALTs (instead of fully resolving them inline)
+ * lets us pass them through to the Squads vault tx wrapper, which keeps the
+ * compiled v0 message under the 1232-byte limit.
  */
-async function deserializeTxInstructions(txBase64: string): Promise<TransactionInstruction[]> {
+async function deserializeTxInstructions(
+  txBase64: string,
+): Promise<{ instructions: TransactionInstruction[]; lookupTableAccounts: AddressLookupTableAccount[] }> {
   const buffer = Buffer.from(txBase64, "base64");
 
   // Try VersionedTransaction first (more common from APIs)
@@ -816,12 +849,11 @@ async function deserializeTxInstructions(txBase64: string): Promise<TransactionI
     const vtx = VersionedTransaction.deserialize(buffer);
     const msg = vtx.message;
 
-    // Build full account key list (static + ALT resolved)
-    let allKeys = [...msg.staticAccountKeys];
+    const lookupTableAccounts: AddressLookupTableAccount[] = [];
+    const allKeys = [...msg.staticAccountKeys];
 
     if (msg.addressTableLookups && msg.addressTableLookups.length > 0) {
       const connection = getConnection();
-      // Fetch all lookup tables in parallel
       const altAccounts = await Promise.all(
         msg.addressTableLookups.map(async (lookup) => {
           const res = await connection.getAddressLookupTable(lookup.accountKey);
@@ -829,60 +861,52 @@ async function deserializeTxInstructions(txBase64: string): Promise<TransactionI
         }),
       );
 
-      // Resolve writable and readonly keys from each ALT
       for (let i = 0; i < msg.addressTableLookups.length; i++) {
         const lookup = msg.addressTableLookups[i];
         const alt = altAccounts[i];
         if (!alt) throw new Error(`Failed to fetch ALT: ${lookup.accountKey.toBase58()}`);
+        lookupTableAccounts.push(alt);
 
-        for (const idx of lookup.writableIndexes) {
-          allKeys.push(alt.state.addresses[idx]);
-        }
-        for (const idx of lookup.readonlyIndexes) {
-          allKeys.push(alt.state.addresses[idx]);
-        }
+        for (const idx of lookup.writableIndexes) allKeys.push(alt.state.addresses[idx]);
+        for (const idx of lookup.readonlyIndexes) allKeys.push(alt.state.addresses[idx]);
       }
     }
 
     const numStaticWritableSigned = msg.header.numRequiredSignatures - msg.header.numReadonlySignedAccounts;
     const numStaticWritableUnsigned = msg.staticAccountKeys.length - msg.header.numRequiredSignatures - msg.header.numReadonlyUnsignedAccounts;
-
-    // Count ALT writable keys
     const altWritableCount = msg.addressTableLookups
       ? msg.addressTableLookups.reduce((s, l) => s + l.writableIndexes.length, 0)
       : 0;
 
-    return msg.compiledInstructions.map((ci) => {
+    const instructions = msg.compiledInstructions.map((ci) => {
       const programId = allKeys[ci.programIdIndex];
       const keys = ci.accountKeyIndexes.map((idx) => {
         const pubkey = allKeys[idx];
         const isStatic = idx < msg.staticAccountKeys.length;
         let isSigner = false;
         let isWritable = false;
-
         if (isStatic) {
           isSigner = idx < msg.header.numRequiredSignatures;
           isWritable = idx < numStaticWritableSigned ||
             (idx >= msg.header.numRequiredSignatures && idx < msg.header.numRequiredSignatures + numStaticWritableUnsigned);
         } else {
-          // ALT keys: writable ones come first, then readonly
           const altIdx = idx - msg.staticAccountKeys.length;
           isWritable = altIdx < altWritableCount;
         }
-
         return { pubkey, isSigner, isWritable };
       });
       return new TransactionInstruction({ programId, keys, data: Buffer.from(ci.data) });
     });
+
+    return { instructions, lookupTableAccounts };
   } catch (e) {
-    // If it's an ALT fetch error, re-throw
     if (e instanceof Error && e.message.includes("ALT")) throw e;
     // Fall back to legacy Transaction
   }
 
   try {
     const tx = Transaction.from(buffer);
-    return tx.instructions;
+    return { instructions: tx.instructions, lookupTableAccounts: [] };
   } catch {
     throw new Error("Failed to deserialize transaction");
   }
@@ -900,37 +924,51 @@ function buildSolomonStakeInstruction(
   userPda: PublicKey,
   usdvAmount: bigint,
 ): TransactionInstruction {
+  // Account layout from Solomon stake program IDL (solomon-program-examples).
+  //   [0] vault_state                  PDA["vault-state", salt]
+  //   [1] staking_token (sUSDV mint)   PDA["staking-token", vault_state]
+  //   [2] user_deposit_token_account   USDv ATA owned by user
+  //   [3] user_staking_token_account   sUSDV ATA owned by user
+  //   [4] vault_token_account          PDA["vault-token-account", vault_state]
+  //   [5] blacklisted                  PDA["vault-state", user] (anti-blacklist marker)
+  //   [6] user                         signer
+  //   [7] token_program
+  //   [8] system_program
   const userUsdvAta = findAtaAddress(USDV_MINT.toBase58(), userPda);
   const userSusdvAta = findAtaAddress(SUSDV_MINT.toBase58(), userPda);
 
-  // Per-user escrow PDA (41 bytes, program-owned receipt account)
-  const [userEscrow] = PublicKey.findProgramAddressSync(
-    [SOLOMON_VAULT_STATE.toBuffer(), userPda.toBuffer()],
+  const [stakingToken] = PublicKey.findProgramAddressSync(
+    [Buffer.from("staking-token"), SOLOMON_VAULT_STATE.toBuffer()],
     SOLOMON_PROGRAM,
   );
-  // Escrow authority PDA
-  const [escrowAuthority] = PublicKey.findProgramAddressSync(
-    [Buffer.from("escrow"), SOLOMON_VAULT_STATE.toBuffer(), userPda.toBuffer()],
+  const [vaultTokenAccount] = PublicKey.findProgramAddressSync(
+    [Buffer.from("vault-token-account"), SOLOMON_VAULT_STATE.toBuffer()],
+    SOLOMON_PROGRAM,
+  );
+  // `blacklisted` PDA seeds = ["vault-state", salt, user]
+  const [blacklisted] = PublicKey.findProgramAddressSync(
+    [Buffer.from("vault-state"), Buffer.from(SOLOMON_VAULT_SALT_BYTES), userPda.toBuffer()],
     SOLOMON_PROGRAM,
   );
 
-  // Data: 8-byte discriminator + 8-byte padding (0) + 8-byte amount (u64 LE)
+  // Args layout (after disc): salt[8] u8 + amt u64 LE.
   const data = Buffer.alloc(24);
   SOLOMON_STAKE_DISCRIMINATOR.copy(data, 0);
+  // bytes 8-15 = salt (all zeros for canonical vault)
   data.writeBigUInt64LE(usdvAmount, 16);
 
   return new TransactionInstruction({
     programId: SOLOMON_PROGRAM,
     keys: [
-      { pubkey: SOLOMON_VAULT_STATE, isSigner: false, isWritable: true },    // [0] vault state
-      { pubkey: SUSDV_MINT, isSigner: false, isWritable: true },             // [1] sUSDV mint
-      { pubkey: userUsdvAta, isSigner: false, isWritable: true },            // [2] user USDv ATA (source)
-      { pubkey: userSusdvAta, isSigner: false, isWritable: true },           // [3] user sUSDV ATA (dest)
-      { pubkey: SOLOMON_VAULT_USDV_ACCOUNT, isSigner: false, isWritable: true }, // [4] vault USDv
-      { pubkey: userEscrow, isSigner: false, isWritable: true },             // [5] user escrow
-      { pubkey: escrowAuthority, isSigner: false, isWritable: true },        // [6] escrow authority
-      { pubkey: TOKEN_PROGRAM, isSigner: false, isWritable: false },         // [7]
-      { pubkey: SYSTEM_PROGRAM, isSigner: false, isWritable: false },        // [8]
+      { pubkey: SOLOMON_VAULT_STATE,  isSigner: false, isWritable: true },
+      { pubkey: stakingToken,         isSigner: false, isWritable: true },
+      { pubkey: userUsdvAta,          isSigner: false, isWritable: true },
+      { pubkey: userSusdvAta,         isSigner: false, isWritable: true },
+      { pubkey: vaultTokenAccount,    isSigner: false, isWritable: true },
+      { pubkey: blacklisted,          isSigner: false, isWritable: true },
+      { pubkey: userPda,              isSigner: true,  isWritable: true },
+      { pubkey: TOKEN_PROGRAM,        isSigner: false, isWritable: false },
+      { pubkey: SYSTEM_PROGRAM,       isSigner: false, isWritable: false },
     ],
     data,
   });
