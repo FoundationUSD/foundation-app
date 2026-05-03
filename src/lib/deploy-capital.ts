@@ -43,7 +43,12 @@ const USDV_MINT = new PublicKey("Ex5DaKYMCN6QWFA4n67TmMwsH8MJV68RX6YXTmVM532C");
 
 const KAMINO_API = "https://api.kamino.finance";
 const KAMINO_PRIME_MARKET = "CqAoLuqWtavaVE8deBjMKe8ZfSt9ghR6Vb8nfsyabyHA";
-const KAMINO_USDC_RESERVE = "9GJ9GBRwCp4pHmWrQ43L5xpc9Vykg7jnfwcFGN8FoHYu";
+const KAMINO_PRIME_USDC_RESERVE = "9GJ9GBRwCp4pHmWrQ43L5xpc9Vykg7jnfwcFGN8FoHYu";
+// Main market — used as the syrupUSDC leg's routing rail until Maple ships
+// a Solana-native lending program. We supply USDC and earn the main market
+// supply rate; this is documented as a proxy in the AWY composition copy.
+const KAMINO_MAIN_MARKET = "7u3HeHxYDLhnCoErrtycNokbQYbWGzLs6JSDqGAv5PfF";
+const KAMINO_MAIN_USDC_RESERVE = "D6q6wuQSrifJKZYpR1M8R4YawnLDtDsMmWM1NbBmgJ59";
 
 const JUPITER_API = "https://lite-api.jup.ag/swap/v1";
 
@@ -86,12 +91,18 @@ async function fetchWithRetry(url: string, init?: RequestInit, attempts = 3): Pr
 //   deployed into Kamino's PRIME lending market (which is the closest mainnet RWA
 //   credit exposure available). The Solomon 10% slice routes through Solomon's
 //   stake program: Jupiter swap USDC → USDv, then stake into sUSDV.
-// v2 routing (later): when ONyc and syrupUSDC mints publish, set
-//   NEXT_PUBLIC_ONYC_MINT / NEXT_PUBLIC_SYRUP_USDC_MINT and the per-leg path
-//   below will route to dedicated allocations.
-const AWY_WEIGHTS_BPS = { onyc: 3500, prime: 3000, syrup: 2500, solomon: 1000 };
-const ONYC_MINT_STR = process.env.NEXT_PUBLIC_ONYC_MINT || "";
-const SYRUP_USDC_MINT_STR = process.env.NEXT_PUBLIC_SYRUP_USDC_MINT || "";
+// Spec weights matching AWY_COMPOSITION in src/lib/integrations/awy/index.ts.
+//   ONyc 35 / PRIME 25 / syrupUSDC 20 / Solomon 20
+//
+// ONyc routes through OnRe's permissionless mint program (`take_offer_permissionless`)
+// — direct USDC → ONyc at NAV, no Jupiter, no KYC, US-geofenced via the UI.
+// syrupUSDC routes via Jupiter swap (no Solana-native mint exists; the token is
+// CCIP-bridged from Ethereum and only reachable through secondary markets).
+// PRIME stays on Kamino's USDC supplier rail until Hastra publishes an SDK.
+const AWY_WEIGHTS_BPS = { onyc: 3500, prime: 2500, syrup: 2000, solomon: 2000 };
+const SYRUP_USDC_MINT_STR =
+  process.env.NEXT_PUBLIC_SYRUP_USDC_MINT ||
+  "AvZZF1YaZDziPY2RCK4oJrRVrbN3mTD9NL24hPeaZeUj";
 
 // Solomon stake program
 const SOLOMON_PROGRAM = new PublicKey("HSnn7bDvkZSEwujZDPtUcdo9KL7Conycgmy8m6mBFD5");
@@ -131,11 +142,6 @@ export async function deployCapital(
         return await deployToOro(usdcAmount);
       case "awy":
         return await deployToAwy(usdcAmount);
-      case "hephaestus":
-        // On-chain plumbing not yet provisioned — vault is coming_soon. The
-        // /api/deposit route refuses to mint receipt tokens for non-live vaults
-        // anyway, so this branch should be unreachable in practice.
-        return { success: false, error: "Hephaestus vault is not yet live" };
       default:
         return { success: false, error: `Unknown vault: ${vaultName}` };
     }
@@ -163,8 +169,6 @@ export async function withdrawCapital(
         return await withdrawFromOro(usdcAmount);
       case "awy":
         return await withdrawFromAwy(usdcAmount);
-      case "hephaestus":
-        return { success: false, error: "Hephaestus vault is not yet live" };
       default:
         return { success: false, error: `Unknown vault: ${vaultName}` };
     }
@@ -178,22 +182,36 @@ export async function withdrawCapital(
 // Kamino — deposit/withdraw via REST API
 // ============================================================
 
+type KaminoMarketKind = "prime" | "main";
+
+function kaminoMarketAddrs(kind: KaminoMarketKind): { market: string; reserve: string } {
+  return kind === "main"
+    ? { market: KAMINO_MAIN_MARKET, reserve: KAMINO_MAIN_USDC_RESERVE }
+    : { market: KAMINO_PRIME_MARKET, reserve: KAMINO_PRIME_USDC_RESERVE };
+}
+
 /**
- * Vault-scoped Kamino PRIME deposit — used by both the standalone Kamino vault and
- * the AWY basket's PRIME leg. The vault PDA owns the kToken receipt, so PRIME yield
- * accrues directly to whichever multisig deposited.
+ * Vault-scoped Kamino USDC supply. Routes to either the PRIME RWA market
+ * (kind="prime", default) or the Main market (kind="main", used by the AWY
+ * syrupUSDC leg). The vault PDA owns the kToken receipt; supply yield accrues
+ * directly to whichever multisig deposited.
  */
-async function deployToKamino(vaultName: VaultName, usdcAmount: number): Promise<{ success: boolean; tx?: string; error?: string }> {
+async function deployToKamino(
+  vaultName: VaultName,
+  usdcAmount: number,
+  kind: KaminoMarketKind = "prime",
+): Promise<{ success: boolean; tx?: string; error?: string }> {
   const vault = getVaultAddresses(vaultName);
+  const { market, reserve } = kaminoMarketAddrs(kind);
 
   const res = await fetchWithRetry(`${KAMINO_API}/ktx/klend/deposit`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       wallet: vault.vaultPda.toBase58(),
-      reserve: KAMINO_USDC_RESERVE,
+      reserve,
       amount: usdcAmount.toString(),
-      market: KAMINO_PRIME_MARKET,
+      market,
     }),
   });
 
@@ -210,21 +228,26 @@ async function deployToKamino(vaultName: VaultName, usdcAmount: number): Promise
   }
 
   const sig = await executeVaultTransaction(vaultName, instructions);
-  console.log(`Kamino[${vaultName}] deposit: ${usdcAmount / 1e6} USDC, tx: ${sig}`);
+  console.log(`Kamino[${vaultName}/${kind}] deposit: ${usdcAmount / 1e6} USDC, tx: ${sig}`);
   return { success: true, tx: sig };
 }
 
-async function withdrawFromKamino(vaultName: VaultName, usdcAmount: number): Promise<{ success: boolean; tx?: string; error?: string }> {
+async function withdrawFromKamino(
+  vaultName: VaultName,
+  usdcAmount: number,
+  kind: KaminoMarketKind = "prime",
+): Promise<{ success: boolean; tx?: string; error?: string }> {
   const vault = getVaultAddresses(vaultName);
+  const { market, reserve } = kaminoMarketAddrs(kind);
 
   const res = await fetchWithRetry(`${KAMINO_API}/ktx/klend/withdraw`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       wallet: vault.vaultPda.toBase58(),
-      reserve: KAMINO_USDC_RESERVE,
+      reserve,
       amount: usdcAmount.toString(),
-      market: KAMINO_PRIME_MARKET,
+      market,
     }),
   });
 
@@ -241,7 +264,7 @@ async function withdrawFromKamino(vaultName: VaultName, usdcAmount: number): Pro
   }
 
   const sig = await executeVaultTransaction(vaultName, instructions);
-  console.log(`Kamino[${vaultName}] withdraw: ${usdcAmount / 1e6} USDC, tx: ${sig}`);
+  console.log(`Kamino[${vaultName}/${kind}] withdraw: ${usdcAmount / 1e6} USDC, tx: ${sig}`);
   return { success: true, tx: sig };
 }
 
@@ -434,64 +457,58 @@ async function deployToAwy(usdcAmount: number): Promise<{ success: boolean; tx?:
 
   const results: AwyLegResult[] = [];
 
-  // ── PRIME leg ────────────────────────────────────────────────────────────
-  // PRIME slice + ONyc/Maple slices route to Kamino PRIME lending market in v1.
-  // We send them as a single Kamino deposit (saves a multisig tx + fees) but
-  // record them as separate legs so the UI's per-leg breakdown stays accurate.
-  let primeAggregateAmt = primeAmt;
-  if (!ONYC_MINT_STR) primeAggregateAmt += onycAmt;
-  if (!SYRUP_USDC_MINT_STR) primeAggregateAmt += syrupAmt;
-
-  if (primeAggregateAmt > 0) {
+  // ── PRIME leg: USDC supplied to Kamino's Figure PRIME lending market.
+  if (primeAmt > 0) {
     try {
-      const r = await deployToKamino("awy", primeAggregateAmt);
-      const status = r.success ? "deployed" : "failed";
-      results.push({ leg: "prime", status, tx: r.tx, amountUsdc: primeAmt, error: r.error });
-      // Mark ONyc / Maple legs as routed-via-PRIME (status: deployed, same tx)
-      if (!ONYC_MINT_STR && onycAmt > 0) {
-        results.push({ leg: "onyc", status, tx: r.tx, amountUsdc: onycAmt, error: r.error });
-      }
-      if (!SYRUP_USDC_MINT_STR && syrupAmt > 0) {
-        results.push({ leg: "syrup-usdc", status, tx: r.tx, amountUsdc: syrupAmt, error: r.error });
-      }
+      const r = await deployToKamino("awy", primeAmt);
+      results.push({
+        leg: "prime",
+        status: r.success ? "deployed" : "failed",
+        tx: r.tx,
+        amountUsdc: primeAmt,
+        error: r.error,
+      });
     } catch (e) {
-      const err = e instanceof Error ? e.message : "unknown";
-      results.push({ leg: "prime", status: "failed", amountUsdc: primeAmt, error: err });
-      if (!ONYC_MINT_STR && onycAmt > 0) results.push({ leg: "onyc", status: "failed", amountUsdc: onycAmt, error: err });
-      if (!SYRUP_USDC_MINT_STR && syrupAmt > 0) results.push({ leg: "syrup-usdc", status: "failed", amountUsdc: syrupAmt, error: err });
+      results.push({ leg: "prime", status: "failed", amountUsdc: primeAmt, error: e instanceof Error ? e.message : "unknown" });
     }
   }
 
-  // ── ONyc leg (only when mint is configured — falls through to PRIME above
-  //    when env var is absent)
-  if (onycAmt > 0 && ONYC_MINT_STR) {
+  // ── ONyc leg: direct mint via OnRe's permissionless `take_offer` channel.
+  //    Build the ATA-create + take_offer ixs and execute through the AWY
+  //    Squads multisig (the vault PDA signs). Single tx, no Jupiter slippage.
+  if (onycAmt > 0) {
     try {
-      const sig = await jupiterSwap({
-        vaultName: "awy",
-        vaultPda: vault.vaultPda,
-        inputMint: USDC_MINT,
-        outputMint: new PublicKey(ONYC_MINT_STR),
-        amount: onycAmt,
-        slippageBps: DEFAULT_SLIPPAGE_BPS,
+      const { buildOnycTakeOfferIxs } = await import("@/lib/integrations/awy/onyc");
+      const plan = await buildOnycTakeOfferIxs({
+        user: vault.vaultPda,
+        feePayer: vault.vaultPda,
+        usdcAmount: BigInt(onycAmt),
       });
+      const sig = await executeVaultTransaction("awy", plan.instructions);
+      console.log(`AWY[onyc]: minted ${plan.expectedOnycOut.toFixed(4)} ONyc from ${onycAmt / 1e6} USDC (${sig})`);
       results.push({ leg: "onyc", status: "deployed", tx: sig, amountUsdc: onycAmt });
     } catch (e) {
       results.push({ leg: "onyc", status: "failed", amountUsdc: onycAmt, error: e instanceof Error ? e.message : "unknown" });
     }
   }
 
-  // ── syrupUSDC leg (only when mint is configured)
-  if (syrupAmt > 0 && SYRUP_USDC_MINT_STR) {
+  // ── syrupUSDC leg: route to Kamino Main market USDC supply.
+  //    Maple's syrupUSDC on Solana is a CCIP burn-mint token with a Chainlink
+  //    mintAuthority — there's no Solana-native lending program that accepts
+  //    USDC and pays Maple yield. The closest mainnet-addressable proxy is
+  //    Kamino's Main market USDC supply (~4.2% APY). Updating the basket
+  //    routing here when Maple ships native lending or Hastra publishes a
+  //    syrupUSDC alt rail.
+  if (syrupAmt > 0) {
     try {
-      const sig = await jupiterSwap({
-        vaultName: "awy",
-        vaultPda: vault.vaultPda,
-        inputMint: USDC_MINT,
-        outputMint: new PublicKey(SYRUP_USDC_MINT_STR),
-        amount: syrupAmt,
-        slippageBps: DEFAULT_SLIPPAGE_BPS,
+      const r = await deployToKamino("awy", syrupAmt, "main");
+      results.push({
+        leg: "syrup-usdc",
+        status: r.success ? "deployed" : "failed",
+        tx: r.tx,
+        amountUsdc: syrupAmt,
+        error: r.error,
       });
-      results.push({ leg: "syrup-usdc", status: "deployed", tx: sig, amountUsdc: syrupAmt });
     } catch (e) {
       results.push({ leg: "syrup-usdc", status: "failed", amountUsdc: syrupAmt, error: e instanceof Error ? e.message : "unknown" });
     }
@@ -560,17 +577,31 @@ async function withdrawFromAwy(usdcAmount: number): Promise<{ success: boolean; 
   }
   remaining -= idleUsdc;
 
-  // Pull from PRIME (Kamino) next
+  // Pull from PRIME (Kamino prime market) next
   if (remaining > 0) {
     try {
-      const r = await withdrawFromKamino("awy", remaining);
+      const r = await withdrawFromKamino("awy", remaining, "prime");
       if (r.success && r.tx) {
         lastTx = r.tx;
-        console.log(`AWY withdraw: pulled ${remaining / 1e6} USDC from PRIME, tx: ${r.tx}`);
+        console.log(`AWY withdraw: pulled ${remaining / 1e6} USDC from Kamino PRIME, tx: ${r.tx}`);
         return { success: true, tx: lastTx };
       }
     } catch (e) {
-      console.error("AWY withdraw: PRIME pull failed:", e);
+      console.error("AWY withdraw: Kamino PRIME pull failed:", e);
+    }
+  }
+
+  // Then Kamino main market (where the syrupUSDC slice supplies USDC)
+  if (remaining > 0) {
+    try {
+      const r = await withdrawFromKamino("awy", remaining, "main");
+      if (r.success && r.tx) {
+        lastTx = r.tx;
+        console.log(`AWY withdraw: pulled ${remaining / 1e6} USDC from Kamino Main, tx: ${r.tx}`);
+        return { success: true, tx: lastTx };
+      }
+    } catch (e) {
+      console.error("AWY withdraw: Kamino Main pull failed:", e);
     }
   }
 
@@ -598,6 +629,57 @@ async function withdrawFromAwy(usdcAmount: number): Promise<{ success: boolean; 
       } catch (e) {
         console.error("AWY withdraw: USDv reverse-swap failed:", e);
       }
+    }
+  }
+
+  // Final fallback: queue an ONyc redemption request. ONyc redemption is
+  // async — OnRe's admin runs `fulfill_redemption_request` off-chain on their
+  // own schedule. We submit the request and surface a "pending" state to the
+  // caller; user-facing copy explains the wait. The cron picks up fulfilled
+  // redemptions and unblocks the queued withdrawal.
+  if (remaining > 0) {
+    try {
+      const { buildOnycRedemptionRequestIxs, ONYC_DECIMALS, getOnycData } =
+        await import("@/lib/integrations/awy/onyc");
+      // Convert remaining USDC (6-dec) into ONyc base units at live NAV.
+      const live = await getOnycData();
+      const nav = live.nav && live.nav > 0 ? live.nav : 1;
+      const usdcHuman = remaining / 1e6;
+      const onycHuman = usdcHuman / nav;
+      const onycBaseUnits = BigInt(Math.ceil(onycHuman * 10 ** ONYC_DECIMALS));
+
+      const onycAta = getAssociatedTokenAddressSync(
+        new PublicKey("5Y8NV33Vv7WbnLfq3zBcKSdYPrk7g2KoiQoe7M2tcxp5"),
+        vault.vaultPda,
+        true,
+        TOKEN_PROGRAM_ID,
+      );
+      const onycBalRes = await connection.getTokenAccountBalance(onycAta).catch(() => null);
+      const ZERO = BigInt(0);
+      const onycBalance = onycBalRes ? BigInt(onycBalRes.value.amount) : ZERO;
+      const redeemAmt = onycBalance < onycBaseUnits ? onycBalance : onycBaseUnits;
+
+      if (redeemAmt > ZERO) {
+        const plan = await buildOnycRedemptionRequestIxs({
+          redeemer: vault.vaultPda,
+          onycAmount: redeemAmt,
+        });
+        const sig = await executeVaultTransaction("awy", plan.instructions);
+        console.log(
+          `AWY withdraw: queued ONyc redemption request id=${plan.requestId} ` +
+          `amount=${Number(redeemAmt) / 10 ** 9} ONyc, pda=${plan.redemptionRequestPda.toBase58()}, tx=${sig}`,
+        );
+        // Pending — admin must fulfill before USDC lands.
+        return {
+          success: false,
+          tx: sig,
+          error:
+            "AWY: ONyc redemption queued — OnRe admin will fulfill within 24–72h. " +
+            "Pending state visible in portfolio.",
+        };
+      }
+    } catch (e) {
+      console.error("AWY withdraw: ONyc redemption queue failed:", e);
     }
   }
 

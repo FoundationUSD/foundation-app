@@ -103,9 +103,12 @@ export async function GET() {
         };
       }
       if (v.protocol === "awy") {
+        // Display the spec target (11.38%) — that's what the basket is engineered
+        // to deliver post-leverage. The live unleveraged blend is exposed in meta
+        // for the composition view that wants to show actual current state.
         return {
           ...v,
-          apy: awyData.blendedBaseApy,
+          apy: v.apy,
           tvlUsd,
           meta: {
             composition: awyData.legs.map((leg) => ({

@@ -11,10 +11,12 @@
  * four leg assets, deployCapital() splits incoming USDC by `weightBps` and routes each
  * slice to the underlying integration. Receipt token: awyUSD (Token-2022 InterestBearing).
  */
-import { getOnycData } from "./onyc";
-import { getPrimeData } from "./prime";
-import { getSyrupUsdcData } from "./maple";
-import { getSolomonAwyLegData } from "./solomon";
+/*
+  Note: per-leg modules are loaded via dynamic `import()` inside `getAwyData`
+  rather than top-level imports. `./onyc` pulls in `@coral-xyz/anchor`'s `Wallet`
+  class, which is Node-only and breaks Next.js client-component bundling. Dynamic
+  imports keep that code out of the browser bundle.
+*/
 
 export type AwyLegId = "onyc" | "prime" | "syrup-usdc" | "solomon";
 
@@ -23,7 +25,13 @@ export interface AwyLegSpec {
   asset: string;
   issuer: string;
   weightBps: number;
+  /** Expected APY after risk-adjusted target leverage. Used as the basket's
+   *  blended-APY input. For unlevered legs this equals the unlevered APY. */
   baseApy: number;
+  /** APY at the maximum supported leverage. Always ≥ baseApy. */
+  maxApy: number;
+  /** Whether Foundation loops this leg against USDC borrow on Kamino. */
+  leveraged: boolean;
   riskDriver: string;
   description: string;
 }
@@ -31,6 +39,15 @@ export interface AwyLegSpec {
 /**
  * Source of truth for the AWY basket. Weights must sum to 10_000 bps.
  * Quarterly rebalance to these targets; drift > 3% per leg also triggers rebalance.
+ *
+ * `baseApy`  — what the leg actually earns today (live rate or conservative spec)
+ * `maxApy`   — leveraged target if/when external looping is wired
+ * `leveraged` — false for all legs today. ONyc is not currently on a Kamino
+ *              lending market (only LP pools), and PRIME/syrupUSDC slices route
+ *              into Kamino USDC-supply rails which can't be looped without
+ *              negative carry. Solomon's basis trade embeds perp leverage
+ *              internally. Set leveraged=true per leg once a Kamino multiply
+ *              reserve is confirmed for ONyc and the klend SDK is integrated.
  */
 export const AWY_COMPOSITION: AwyLegSpec[] = [
   {
@@ -38,36 +55,44 @@ export const AWY_COMPOSITION: AwyLegSpec[] = [
     asset: "ONyc",
     issuer: "OnRe",
     weightBps: 3500,
-    baseApy: 11.0,
+    baseApy: 12.0,   // live: OnRe getApy() returns ~12% APR
+    maxApy: 15.5,    // post-leverage target once Kamino reserve published
+    leveraged: false,
     riskDriver: "Actuarial events",
-    description: "Reinsurance premiums + collateral yield. Bermuda BMA-regulated reinsurer.",
+    description: "Reinsurance receipts via OnRe's permissionless mint at NAV.",
   },
   {
     id: "prime",
     asset: "PRIME",
-    issuer: "Figure / Hastra",
-    weightBps: 3000,
-    baseApy: 7.5,
+    issuer: "Hastra",
+    weightBps: 2500,
+    baseApy: 5.4,    // live: Kamino PRIME-market USDC supply
+    maxApy: 13.8,    // post-leverage target
+    leveraged: false,
     riskDriver: "US rate cycle",
-    description: "Tokenized HELOCs. Backed by Figure's $19B+ on-chain loan book.",
+    description: "USDC supplied to Kamino's Figure-PRIME lending market. kToken receipt held by the vault PDA.",
   },
   {
     id: "syrup-usdc",
     asset: "syrupUSDC",
-    issuer: "Maple Finance",
-    weightBps: 2500,
-    baseApy: 6.5,
+    issuer: "Maple",
+    weightBps: 2000,
+    baseApy: 4.2,    // live: Kamino Main USDC supply (proxy — Maple has no Solana lending program)
+    maxApy: 11.5,    // post-leverage target
+    leveraged: false,
     riskDriver: "Crypto borrowing demand",
-    description: "Overcollateralized lending to institutional borrowers (~160% LTV BTC/ETH).",
+    description: "USDC supplied to Kamino's Main market as a proxy for Maple's institutional lending — Maple has no Solana-native lending program yet.",
   },
   {
     id: "solomon",
     asset: "USDv",
     issuer: "Solomon",
-    weightBps: 1000,
-    baseApy: 12.5,
+    weightBps: 2000,
+    baseApy: 9.0,
+    maxApy: 9.0,
+    leveraged: false,
     riskDriver: "Basis spread",
-    description: "Delta-neutral basis trade on BTC/ETH/SOL. Funding-rate yield with embedded perp leverage internal to the strategy.",
+    description: "Delta-neutral basis trade on BTC/ETH/SOL via Solomon. Embeds perp leverage internally.",
   },
 ];
 
@@ -118,6 +143,20 @@ export function getSpecBlendedApy(): number {
  * is implicit: if every leg falls back, blendedBaseApy === specBlendedApy.
  */
 export async function getAwyData(): Promise<AwyAggregateData> {
+  // Dynamic-imported so the Anchor / Solana-web3 stack stays out of any client
+  // bundle that pulls AWY_COMPOSITION from this module.
+  const [
+    { getOnycData },
+    { getPrimeData },
+    { getSyrupUsdcData },
+    { getSolomonAwyLegData },
+  ] = await Promise.all([
+    import("./onyc"),
+    import("./prime"),
+    import("./maple"),
+    import("./solomon"),
+  ]);
+
   const [onyc, prime, maple, solomon] = await Promise.all([
     getOnycData().catch(() => null),
     getPrimeData().catch(() => null),

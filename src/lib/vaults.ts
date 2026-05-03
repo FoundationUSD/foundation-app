@@ -1,11 +1,10 @@
 /**
  * Foundation Managed Vaults — Squads multisig + Token-2022 InterestBearing receipt mint.
  *
- * Solomon:    LIVE         — soloUSD
- * Kamino:     LIVE         — kmnoUSD
- * Oro:        LIVE         — oroUSD
- * AWY:        LIVE         — awyUSD  (4-leg blended RWA basket; flagship)
- * Hephaestus: COMING_SOON  — hephUSD (4-metal commodities basket)
+ * Solomon:    LIVE — soloUSD
+ * Kamino:     LIVE — kmnoUSD
+ * Oro:        LIVE — oroUSD
+ * AWY:        LIVE — awyUSD  (4-leg blended RWA basket; flagship)
  */
 
 export interface FoundationVault {
@@ -14,13 +13,13 @@ export interface FoundationVault {
   name: string;
   /** Provider / curator label. Shown in small gold above the title.
    *  "Solomon" / "Kamino" / "Oro" for partner pass-throughs.
-   *  "Foundation" for in-house baskets (AWY, Hephaestus). */
+   *  "Foundation" for in-house baskets (AWY). */
   provider: string;
   /** The headline asset or product. Shown big as the page/card title.
    *  e.g. "sUSDV" / "PRIME" / "$GOLD" / "All-Weather Yield" / "Forge Basket". */
   assetName: string;
   strategy: string;
-  protocol: "solomon" | "kamino" | "oro" | "awy" | "hephaestus";
+  protocol: "solomon" | "kamino" | "oro" | "awy";
   /**
    * Source classification surfaced by the Invest page filter.
    *  - "foundation": composed and managed by Foundation itself (e.g. AWY blended basket).
@@ -144,68 +143,30 @@ export const FOUNDATION_VAULTS: FoundationVault[] = [
     protocol: "awy",
     category: "foundation",
     description:
-      "Deposit USDC into a four-leg basket designed to hold its yield across rate cycles, credit cycles, and crypto drawdowns. Foundation allocates 35 percent to OnRe reinsurance receipts (ONyc), 30 percent to Kamino PRIME credit, 25 percent to Maple's institutional lending (syrupUSDC), and 10 percent to Solomon's delta-neutral basis trade (USDv). No single macro regime compresses every leg at once.",
-    underlying: "Blended: ONyc · PRIME · syrupUSDC · USDv",
+      "Deposit USDC into a four-leg basket designed to hold its yield across rate cycles, credit cycles, and crypto drawdowns. Foundation allocates 35 percent to OnRe reinsurance receipts (ONyc, minted at NAV via OnRe's permissionless program), 25 percent to Kamino's Figure-PRIME USDC supply, 20 percent to Kamino Main USDC supply (Maple proxy), and 20 percent to Solomon's delta-neutral basis trade (USDv). External leverage on the credit legs is on the roadmap — wired in once Kamino publishes an ONyc lending reserve.",
+    underlying: "Blended: ONyc + Kamino-PRIME + Kamino-Main + USDv",
     riskTier: "moderate",
-    // Spec-target only — the strategies API overwrites this with the live blended
-    // value computed from each leg's actual APY (see /api/strategies).
-    apy: 8.1,
+    // Spec-target — the actual on-chain awyUSD interest rate is set by the
+    // update-rate cron from awyData.blendedBaseApy (live data per leg).
+    apy: 7.85,
     receiptToken: "awyUSD",
     features: [
-      "~8.1% blended base APY",
+      "~7.85% blended target APY",
       "4 independent risk drivers",
-      "Quarterly rebalance",
-      "Managed by Foundation",
+      "ONyc minted at NAV · others routed to Kamino supply",
+      "Quarterly rebalance · async ONyc redemption",
     ],
     howItWorks: [
       "Deposit USDC into Foundation's Squads multisig vault.",
-      "Foundation routes the deposit across four legs at target weights of 35, 30, 25, and 10 percent.",
-      "Each leg accrues yield from its own underlying source. The basket rebalances quarterly back to target.",
+      "Foundation routes the deposit across four legs at target weights of 20 percent USDv, 25 percent PRIME, 35 percent ONyc, and 20 percent syrupUSDC.",
+      "ONyc slice mints directly at NAV via OnRe's permissionless program (no Jupiter slippage). PRIME and syrupUSDC slices supply USDC to Kamino markets. USDv slice swaps via Jupiter, then stakes into sUSDV.",
       "Your awyUSD balance grows automatically through the Token-2022 InterestBearing extension at the live blended rate.",
-      "Withdraw any time. Foundation unwinds proportional slices across the four legs and returns USDC.",
+      "Withdraw any time — instant via idle USDC + Kamino redemption + USDv reverse-swap. Larger withdrawals queue an ONyc redemption (24–72h fulfillment).",
     ],
     status: "live",
     vaultPda: process.env.NEXT_PUBLIC_AWY_VAULT_PDA || "",
     usdcAccount: process.env.NEXT_PUBLIC_AWY_USDC_ATA || "",
     mint: process.env.NEXT_PUBLIC_AWY_MINT || "",
     multisig: process.env.VAULT_AWY_MULTISIG || "",
-  },
-  {
-    id: "fdn-hephaestus",
-    name: "Hephaestus",
-    provider: "Foundation",
-    assetName: "Hephaestus",
-    strategy: "Forge Basket",
-    protocol: "hephaestus",
-    category: "foundation",
-    description:
-      "A four-metal basket forged from the institutional commodity tokens now live on Solana. Foundation allocates 45 percent to gold, 25 percent to silver, 20 percent to platinum, and 10 percent to copper — pairing precious-metal store-of-value with industrial-metal cyclical exposure. The basket targets the natural appreciation of metals across rate cycles and inflation regimes, rebalancing quarterly to target weights.",
-    underlying: "Blended: Gold · Silver · Platinum · Copper",
-    riskTier: "moderate",
-    // Spec-target only — represents weighted long-term metals appreciation,
-    // not a yield. Position is mark-to-market against spot prices.
-    apy: 4.2,
-    receiptToken: "hephUSD",
-    features: [
-      "4-metal physical commodity basket",
-      "LBMA / LPPM certified bullion",
-      "Quarterly rebalance",
-      "Managed by Foundation",
-    ],
-    howItWorks: [
-      "Deposit USDC into Foundation's Squads multisig vault.",
-      "Foundation routes the deposit across four metals at target weights of 45 / 25 / 20 / 10 percent.",
-      "Gold via Oro $GOLD; silver, platinum, and copper via Remora Markets' SLVr, PPLTr, and CPERr — all institutionally issued and audit-verified on Solana.",
-      "Your hephUSD balance reflects the blended spot value of the basket via Token-2022 rate updates.",
-      "Withdraw any time. Foundation unwinds proportional slices across the four metals and returns USDC.",
-    ],
-    status: "coming_soon",
-    // Multisig + accounts not provisioned yet — vault stays in coming_soon
-    // until on-chain plumbing is wired and audit verification of the constituent
-    // commodity tokens (Remora SLVr/PPLTr/CPERr) is complete.
-    vaultPda: "",
-    usdcAccount: "",
-    mint: "",
-    multisig: "",
   },
 ];

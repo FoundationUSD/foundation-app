@@ -13,7 +13,7 @@ import { NotificationBell } from "@/components/NotificationBell";
 const NAV_TABS = [
   { key: "portfolio", label: "Portfolio", Icon: IconWalletMoney, path: "/portfolio" },
   { key: "invest", label: "Invest", Icon: IconCoin, path: "/" },
-  { key: "amplify", label: "Amplify", Icon: IconAmplify, path: "/amplify" },
+  { key: "awy", label: "AWY", Icon: IconAmplify, path: "/awy" },
   { key: "transparency", label: "Transparency", Icon: IconSafe, path: "/transparency" },
 ];
 
@@ -74,7 +74,7 @@ export function Navbar() {
               const isActive =
                 (tab.key === "portfolio" && pathname === "/portfolio") ||
                 (tab.key === "invest" && (pathname === "/" || pathname.startsWith("/strategy"))) ||
-                (tab.key === "amplify" && pathname.startsWith("/amplify")) ||
+                (tab.key === "awy" && pathname.startsWith("/awy")) ||
                 (tab.key === "transparency" && pathname === "/transparency");
               return (
                 <Link
@@ -139,7 +139,7 @@ export function Navbar() {
                 const isActive =
                   (tab.key === "portfolio" && pathname === "/portfolio") ||
                   (tab.key === "invest" && (pathname === "/" || pathname.startsWith("/strategy"))) ||
-                  (tab.key === "amplify" && pathname.startsWith("/amplify")) ||
+                  (tab.key === "awy" && pathname.startsWith("/awy")) ||
                   (tab.key === "transparency" && pathname === "/transparency");
                 return (
                   <Link
