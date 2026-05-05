@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { ArrowUpRight, ArrowRight, ArrowLeft } from "lucide-react";
 import { useStrategies } from "@/hooks/useStrategies";
@@ -41,15 +42,22 @@ const PROTOCOL_ART: Record<string, string> = {
 };
 
 export default function HomePage() {
-  const { strategies: allStrategies, loading } = useStrategies();
-  // AWY has its own dedicated /awy route — exclude it from the Invest page.
-  const strategies = allStrategies.filter((s) => s.protocol !== "awy");
+  const { strategies, loading } = useStrategies();
+  const router = useRouter();
   const wallet = useWallet();
   const [walletModalOpen, setWalletModalOpen] = useState(false);
   const [selectedVault, setSelectedVault] = useState<FoundationVault | null>(null);
   const [activeFilter, setActiveFilter] = useState<"all" | "foundation" | "partner">("all");
 
-  const goToVault = (v: FoundationVault) => setSelectedVault(v);
+  // AWY has its own dedicated /awy detail route with the four-leg composition view.
+  // Other vaults render inline in this page via VaultDetail.
+  const goToVault = (v: FoundationVault) => {
+    if (v.protocol === "awy") {
+      router.push("/awy");
+      return;
+    }
+    setSelectedVault(v);
+  };
 
   // Scroll to top when entering / leaving detail view.
   useEffect(() => {
