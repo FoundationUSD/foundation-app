@@ -16,6 +16,75 @@ Status legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[!]` blocked
 
 ---
 
+## 🚧 Squads Grid migration (paused — waiting on API keys)
+
+**Decision (2026-05-04):** Move from custodial 1-of-1 Foundation multisigs to **per-user 2-of-2 Grid smart accounts** (1 Foundation co-signer + 1 user signer). Removes Foundation's unilateral custody — every move requires user signature. Grid API used because it's purpose-built for this exact model and saves ~1-2 weeks of bespoke build. Free up to 1k MAUs, $499/mo above.
+
+**Resume condition:** user provides `GRID_API_KEY` (sandbox + production from <https://grid.squads.xyz/dashboard>) + decision on email-auth provider (Privy default, or skip email for v1).
+
+### What's already shipped [x]
+
+| File | What it does |
+| ---- | ------------ |
+| `package.json` | `@sqds/grid@3.1.2` SDK installed |
+| `src/lib/grid/client.ts` | `getGridClient()` factory, Foundation co-signer pubkey, fee-exempt wallet list (defaults to test wallet `3Mp5...`), setup-fee constants (0.024 SOL setup / 0.01 SOL refund) |
+| `src/lib/grid/accounts.ts` | `createWalletAccount(userPubkey)` (wallet auth) + `initiateEmailAccount(email)` + `getAccount()`. 2-of-2 threshold hardcoded |
+| `scripts/grid-accounts-migration.sql` | Supabase tables: `sol_user_accounts` (smart-account ↔ wallet/email mapping) + `sol_migration_status` (legacy depositors who need to migrate) |
+| `src/app/api/grid/onboard/route.ts` | POST endpoint. Wallet path: verifies on-chain fee tx, creates 2-of-2 smart account via Grid, persists mapping in Supabase, idempotent. Email path: initiates Privy OTP flow |
+
+### Blockers (need user action) [!]
+
+1. [ ] **Sign up at <https://grid.squads.xyz/dashboard>** — create sandbox + production API keys
+2. [ ] **Set env vars** in `.env.local` and Fly secrets:
+   ```
+   GRID_API_KEY=<sandbox-key-for-dev>
+   GRID_ENVIRONMENT=sandbox
+   FOUNDATION_COSIGNER_PUBKEY=4J9mszyDLi4js4rh8Hq5spNaLCNt4fRozr781zcVBYgv
+   FEE_EXEMPT_WALLETS=3Mp5ArYysNCXxNnUeBnRCaFWGbCzHAiYoJacYK4Hhc2r
+   ACCOUNT_SETUP_FEE_SOL=0.024
+   ACCOUNT_CLOSE_REFUND_SOL=0.01
+   ```
+3. [ ] **Run SQL migration**: `psql $SUPABASE_DB_URL < scripts/grid-accounts-migration.sql` (or paste into Supabase SQL editor)
+4. [ ] **Decide email auth provider** — Privy (default, requires `NEXT_PUBLIC_PRIVY_APP_ID` from <https://dashboard.privy.io>) OR skip email for v1 / wallet-only
+
+### Remaining phases (queued) [ ]
+
+- [ ] **Phase 2b — email completion + Privy widget**
+  - `/api/grid/onboard/complete` — takes OTP code + auth pub key, calls `completeEmailAccount()`, persists to Supabase
+  - React component: email input → OTP entry → Privy auth widget → success
+  - Blocked on: Privy decision (item 4 above)
+
+- [ ] **Phase 3 — deposit flow rewrite (BIG)**
+  - Refactor `deployCapital()` to take `userSmartAccount` param instead of writing to shared Foundation vault PDAs
+  - Kamino legs: USDC supply via Grid account → kToken receipt held by Grid account
+  - ONyc: `take_offer_permissionless` signed by user's Grid account (proposal → vote → execute via 2-of-2)
+  - Solomon: Jupiter swap detour lands USDv in Grid account
+  - `awyUSD` issuance becomes per-user (Grid account holds receipts, Foundation tracks proportional ownership)
+
+- [ ] **Phase 4 — withdraw flow rewrite**
+  - Mirror of Phase 3. User-signed proposal triggers redeem chain (Kamino unwind + ONyc redemption queue + Jupiter reverse-swap)
+  - Async ONyc redemption needs special UI handling (queued state)
+
+- [ ] **Phase 5 — migration tool (existing depositors → Grid)**
+  - `Bo93iNtnSNnJFoQcUdnaNoo2Y74BBhqA76Yc6WnYJZ7D` (David) — $28 net AWY
+  - `26UzcbzTAnApFB9MjhHkDaXZmuuATboFRVnLFtF2sgR1` — $99 Solomon + $10 Oro stranded
+  - `3Mp5ArYysNCXxNnUeBnRCaFWGbCzHAiYoJacYK4Hhc2r` — test wallet, $0 net
+  - `5YGxkEjvenjy5Ac7n7YmesrQuu9jyHY9f4H57d6Muia3` — $1 Solomon + $1 Kamino
+  - For each: compute pro-rata position → create Grid account → move underlying assets out of Foundation multisigs into user's Grid account → burn old receipt tokens, mint Grid-account-owned receipts
+
+- [ ] **Phase 6 — UI: onboarding modal + migration popup**
+  - Onboarding: choose email vs wallet auth at signup
+  - Migration banner: shown to existing depositors. Says **"Migrate by 2026-06-30 — old shared vaults will be sunset"**
+  - Close-account flow: cancel positions → close Grid account → refund 0.01 SOL
+
+- [ ] **Phase 7 — sunset old shared vaults (post-2026-06-30)**
+  - Block new deposits to `fdn-solomon`, `fdn-kamino`, `fdn-oro` shared vaults
+  - Keep withdraw active for non-migrated users (grandfathering)
+  - Move `/api/admin/awy-rebalance` to per-user Grid drain
+  - UI: mark old vaults as "deprecated"
+
+---
+
 ## Flagship — All-Weather Yield (AWY)
 
 **Thesis:** four yield engines with distinct dominant risk drivers (actuarial events · US rate cycle · crypto borrowing demand · Fed funds), so no single macro regime compresses every leg simultaneously.
