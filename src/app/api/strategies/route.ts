@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { FOUNDATION_VAULTS } from "@/lib/vaults";
 import { getOroData } from "@/lib/integrations/oro";
-import { getAwyData } from "@/lib/integrations/awy";
+import { getAwyData, getLeveragedAwyData } from "@/lib/integrations/awy";
 import { isSupabaseConfigured, supabaseAdmin } from "@/lib/supabase-server";
 
 export const dynamic = "force-dynamic";
@@ -75,11 +75,15 @@ async function fetchOroGoldPrice(): Promise<number> {
 
 export async function GET() {
   try {
-    const [kaminoApy, oroGoldPrice, oroData, awyData, tvlMap] = await Promise.all([
+    const [kaminoApy, oroGoldPrice, oroData, awyData, leveragedAwyData, tvlMap] = await Promise.all([
       fetchKaminoApy(),
       fetchOroGoldPrice(),
       getOroData(),
       getAwyData(),
+      getLeveragedAwyData().catch((err) => {
+        console.warn("getLeveragedAwyData failed, omitting leverage meta:", err);
+        return null;
+      }),
       fetchVaultTvlMap(),
     ]);
 
@@ -103,9 +107,9 @@ export async function GET() {
         };
       }
       if (v.protocol === "awy") {
-        // Display the spec target (11.38%) — that's what the basket is engineered
-        // to deliver post-leverage. The live unleveraged blend is exposed in meta
-        // for the composition view that wants to show actual current state.
+        // The headline `apy` stays at the unlevered spec target. Leveraged math is
+        // exposed under `meta.leverage` as a methodology preview (no on-chain
+        // execution yet) — the /awy page renders it alongside the unlevered view.
         return {
           ...v,
           apy: v.apy,
@@ -125,6 +129,7 @@ export async function GET() {
             blendedBaseApy: awyData.blendedBaseApy,
             specBlendedApy: awyData.specBlendedApy,
             fetchedAt: awyData.fetchedAt,
+            leverage: leveragedAwyData,
           },
         };
       }
