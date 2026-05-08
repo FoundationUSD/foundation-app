@@ -145,22 +145,17 @@ export default function AwyPage() {
 
   return (
     <div className="fdn-page">
-      <div className="relative mb-6 overflow-hidden rounded-xl sm:mb-8">
+      <div className="relative mb-3 overflow-hidden rounded-xl">
         <div
           className="art-layer art-strip"
           style={{ backgroundImage: "url('/assets/art/strips/Friezemeanderpattern.png')" }}
         />
-        <div className="art-content relative flex items-end justify-between gap-4 px-1 py-4 sm:px-2 sm:py-5">
+        <div className="art-content relative flex items-center justify-between gap-4 px-1 py-3 sm:px-2">
           <div>
-            <p className="section-label mb-1 sm:mb-2">FOUNDATION</p>
-            <h1 className="page-heading text-xl sm:text-2xl">
+            <p className="section-label mb-0.5">FOUNDATION</p>
+            <h1 className="page-heading text-lg sm:text-xl">
               All-Weather <em>Yield</em>
             </h1>
-            <p className="mt-1 max-w-xl text-sm text-[var(--text-accent)]">
-              A blended real-world asset basket built so that no single macro regime
-              compresses every leg at once. ONyc mints directly at NAV; PRIME and the
-              Maple-proxy slice supply USDC to Kamino; USDv routes through Solomon.
-            </p>
           </div>
           <div className="flex shrink-0 items-center gap-3">
             <Link href="/portfolio" className="fnd-nav-link">
@@ -170,17 +165,11 @@ export default function AwyPage() {
         </div>
       </div>
 
-      <div className="mb-8">
-        <AwyComposition
-          composition={awyMeta?.composition}
-          liveBaseApy={liveBaseApy}
-          apySource={awyMeta?.apySource}
-        />
-      </div>
-
+      {/* Compact leverage strip — slim controller for the displayed APY.
+          Sits directly above the deposit form so the depositor doesn't scroll. */}
       {leverageMeta ? (
-        <div className="mb-8">
-          <LeverageSection
+        <div className="mb-4">
+          <LeverageBar
             data={leverageMeta}
             liveBaseApy={liveBaseApy}
             selectedApy={selectedApy}
@@ -189,15 +178,26 @@ export default function AwyPage() {
         </div>
       ) : null}
 
+      {/* Deposit / withdraw — first thing visible after the leverage bar */}
       {loading && !awy ? (
         <div className="skeleton h-64 rounded-xl" />
       ) : displayedAwy ? (
-        <VaultDetail vault={displayedAwy} />
+        <div className="mb-6">
+          <VaultDetail vault={displayedAwy} />
+        </div>
       ) : (
         <p className="py-12 text-center font-mono text-sm text-[var(--text-accent)]">
           AWY vault not configured.
         </p>
       )}
+
+      {/* Composition + breakdown — moved below the deposit form. Collapsed by
+          default; the depositor opens it only if they want the math. */}
+      <AwyComposition
+        composition={awyMeta?.composition}
+        liveBaseApy={liveBaseApy}
+        apySource={awyMeta?.apySource}
+      />
     </div>
   );
 }
@@ -228,7 +228,13 @@ function clampApy(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
 }
 
-function LeverageSection({
+/**
+ * Compact leverage controller — single horizontal strip above the deposit form.
+ * Three regions on one row at md+: live base APY · slider · selected APY.
+ * Backtest summary collapses into a small caption underneath. Risk + freshness
+ * notes live behind a tiny disclosure to keep the strip ≤ 130px tall.
+ */
+function LeverageBar({
   data,
   liveBaseApy,
   selectedApy,
@@ -249,199 +255,115 @@ function LeverageSection({
     onSelectedApyChange(clampApy(value, liveBaseApy, maxApy));
   };
 
+  const [showDetails, setShowDetails] = useState(false);
+
   return (
-    <div className="art-frame infra-card relative overflow-hidden p-6 sm:p-8">
-      <div className="art-content relative">
-        <div className="mb-7 flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between sm:gap-8">
-          <div className="max-w-xl">
-            <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.2em] text-gold-500">
-              All-Weather Yield · Live Leverage
-            </p>
-            <h3 className="page-heading mb-3 text-xl sm:text-[1.75rem]">
-              Choose the yield. <em>One AWY vault.</em>
-            </h3>
-            <p className="text-[13px] leading-relaxed text-[var(--text-accent)] sm:text-sm">
-              Deposit once into awyUSD, then select the APY setting for that
-              same vault. The base basket stays live, and leverage is applied
-              behind the vault instead of creating a separate deposit product.
-            </p>
-          </div>
-          <div className="flex shrink-0 flex-col items-start gap-1 sm:items-end sm:text-right">
-            <p className="font-mono text-[9px] uppercase tracking-[0.2em] text-gold-500">
-              Selected AWY APY
-            </p>
-            <span className="font-mono text-3xl font-bold tracking-[-0.03em] text-emerald-500 sm:text-[2.75rem]">
-              {fmtPercent(clampedApy)}
-            </span>
-            <span className="font-mono text-[10px] tracking-wider text-[var(--text-accent)]">
-              Synced into vault details and deposit estimate
-            </span>
-            <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 font-mono text-[9px] uppercase tracking-[0.2em] text-emerald-600">
-              Live
-            </span>
-          </div>
+    <div className="rounded-2xl border border-[var(--rule)] bg-[var(--surface)] px-4 py-3 sm:px-5 sm:py-4">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-5">
+        {/* Live base — left */}
+        <div className="flex shrink-0 items-baseline gap-2 md:flex-col md:items-start md:gap-0.5">
+          <p className="font-mono text-[9px] uppercase tracking-[0.2em] text-[var(--text-accent)]">
+            Live base
+          </p>
+          <p className="font-mono text-base font-semibold tracking-tight text-[var(--fg)] md:text-lg">
+            {fmtPercent(liveBaseApy)}
+          </p>
         </div>
 
-        <div className="mb-6 grid gap-4 lg:grid-cols-[1fr_0.9fr]">
-          <div className="relative overflow-hidden rounded-2xl border border-gold-500/30 bg-[var(--surface)] p-5 sm:p-6">
-            <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-gold-400 via-gold-500 to-emerald-500" />
-            <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-gold-500">
-                  AWY APY Control
-                </p>
-                <p className="mt-1 text-[12px] text-[var(--text-accent)]">
-                  Base yield is live. Leverage can be adjusted up to the AWY-model cap.
-                </p>
-              </div>
-              <span className="rounded-full border border-[var(--rule)] bg-[var(--surface-strong)] px-2.5 py-1 font-mono text-[9px] uppercase tracking-[0.2em] text-[var(--text-accent)]">
-                Max {fmtPercent(maxApy)}
-              </span>
-            </div>
-
-            <div className="mb-6 grid gap-3 sm:grid-cols-[1fr_170px] sm:items-end">
-              <div>
-                <label
-                  htmlFor="awy-apy-range"
-                  className="font-mono text-[9px] uppercase tracking-[0.2em] text-[var(--text-accent)]"
-                >
-                  Selected APY
-                </label>
-                <input
-                  id="awy-apy-range"
-                  type="range"
-                  min={liveBaseApy}
-                  max={maxApy}
-                  step={0.1}
-                  value={clampedApy}
-                  onChange={(event) => setApy(Number(event.target.value))}
-                  className="mt-3 h-10 w-full cursor-pointer [accent-color:var(--gold)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-500 focus-visible:ring-offset-2"
-                  style={{
-                    background: `linear-gradient(90deg, var(--gold) 0%, var(--gold) ${rangeFill}%, var(--rule) ${rangeFill}%, var(--rule) 100%)`,
-                  }}
-                />
-              </div>
-              <div>
-                <label
-                  htmlFor="awy-apy-input"
-                  className="mb-1 block font-mono text-[9px] uppercase tracking-[0.2em] text-[var(--text-accent)]"
-                >
-                  Input APY
-                </label>
-                <div className="flex items-center rounded-xl border border-[var(--rule)] bg-[var(--surface-strong)] px-3 py-2">
-                  <input
-                    id="awy-apy-input"
-                    type="number"
-                    min={liveBaseApy}
-                    max={maxApy}
-                    step={0.1}
-                    value={clampedApy.toFixed(1)}
-                    onChange={(event) => setApy(Number(event.target.value))}
-                    className="min-w-0 flex-1 bg-transparent font-mono text-2xl font-bold text-[var(--fg)] focus-visible:outline-none"
-                  />
-                  <span className="font-mono text-sm text-[var(--text-accent)]">%</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-3 gap-2">
-              <SummaryStat
-                label="Live Base"
-                value={fmtPercent(liveBaseApy)}
-                sub="Current basket"
-                tone="neutral"
-              />
-              <SummaryStat
-                label="Selected"
-                value={fmtPercent(clampedApy)}
-                sub="Deposit view"
-                tone="good"
-              />
-              <SummaryStat
-                label="Max"
-                value={fmtPercent(maxApy)}
-                sub="AWY-model cap"
-                tone="warn"
-              />
-            </div>
+        {/* Slider — center, takes remaining width */}
+        <div className="flex-1">
+          <div className="mb-1 flex items-baseline justify-between">
+            <label
+              htmlFor="awy-apy-range"
+              className="font-mono text-[9px] uppercase tracking-[0.2em] text-gold-500"
+            >
+              AWY APY
+            </label>
+            <span className="font-mono text-[9px] tracking-wider text-[var(--text-accent)]">
+              max {fmtPercent(maxApy)}
+            </span>
           </div>
-
-          <div className="rounded-2xl border border-[var(--rule)] bg-[var(--surface)] p-5 sm:p-6">
-            <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.2em] text-gold-500">
-              Backtest Reference
-            </p>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
-              <div className="rounded-xl border border-[var(--rule)] bg-[var(--surface-strong)] p-4">
-                <p className="font-mono text-[9px] uppercase tracking-[0.2em] text-[var(--text-accent)]">
-                  Leveraged backtest
-                </p>
-                <p className="mt-1 font-mono text-3xl font-bold tracking-[-0.04em] text-emerald-500">
-                  {fmtPercent(data.backtest.leveragedApy)}
-                </p>
-                <p className="mt-2 text-[12px] text-[var(--text-accent)]">
-                  {fmtCurrency(data.backtest.startingCapital)} →{" "}
-                  <span className="font-semibold text-[var(--fg)]">
-                    {fmtCurrency(data.backtest.leveragedEndValue)}
-                  </span>
-                </p>
-              </div>
-              <div className="rounded-xl border border-[var(--rule)] bg-[var(--surface-strong)] p-4">
-                <p className="font-mono text-[9px] uppercase tracking-[0.2em] text-[var(--text-accent)]">
-                  Hold backtest
-                </p>
-                <p className="mt-1 font-mono text-3xl font-bold tracking-[-0.04em] text-[var(--fg)]">
-                  {fmtPercent(data.backtest.holdApy)}
-                </p>
-                <p className="mt-2 text-[12px] text-[var(--text-accent)]">
-                  {data.backtest.hoursObserved.toLocaleString()} hours observed since{" "}
-                  {new Date(data.backtest.backtestStart).toLocaleDateString("en-US", {
-                    month: "short",
-                    year: "numeric",
-                    timeZone: "UTC",
-                  })}
-                </p>
-              </div>
-            </div>
-          </div>
+          <input
+            id="awy-apy-range"
+            type="range"
+            min={liveBaseApy}
+            max={maxApy}
+            step={0.1}
+            value={clampedApy}
+            onChange={(event) => setApy(Number(event.target.value))}
+            className="h-2 w-full cursor-pointer appearance-none rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-500"
+            style={{
+              background: `linear-gradient(90deg, var(--gold) 0%, var(--gold) ${rangeFill}%, var(--rule) ${rangeFill}%, var(--rule) 100%)`,
+            }}
+          />
         </div>
 
-        <div className="flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 text-[12px] leading-relaxed text-amber-700 dark:text-amber-400">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-          <div>
-            <span className="font-semibold">Leverage changes risk.</span> Higher
-            selected APY uses more leverage inside the same AWY vault. The max
-            shown here is capped at the AWY-model backtest result, not an
-            uncapped per-leg LTV table.
+        {/* Selected — right, headline number + tiny number input */}
+        <div className="flex shrink-0 items-end gap-3 md:flex-col md:items-end md:gap-0">
+          <p className="font-mono text-[9px] uppercase tracking-[0.2em] text-gold-500">
+            Selected
+          </p>
+          <div className="flex items-baseline gap-1">
+            <input
+              id="awy-apy-input"
+              type="number"
+              min={liveBaseApy}
+              max={maxApy}
+              step={0.1}
+              value={clampedApy.toFixed(1)}
+              onChange={(event) => setApy(Number(event.target.value))}
+              aria-label="Selected APY"
+              className="w-[5.5rem] bg-transparent text-right font-mono text-2xl font-bold tracking-[-0.03em] text-emerald-500 focus-visible:outline-none"
+            />
+            <span className="font-mono text-sm text-emerald-500/80">%</span>
           </div>
         </div>
-
-        <p className="mt-4 font-mono text-[10px] tracking-wider text-[var(--text-accent)]">
-          Base APY from live AWY feeds · leverage cap from FoundationUSD/AWY-model · refreshed{" "}
-          {new Date(data.fetchedAt).toLocaleString()}
-        </p>
       </div>
-    </div>
-  );
-}
 
-function SummaryStat({
-  label,
-  value,
-  sub,
-  tone,
-}: {
-  label: string;
-  value: string;
-  sub: string;
-  tone: "good" | "warn" | "neutral";
-}) {
-  const valueColor =
-    tone === "good" ? "text-emerald-600" : tone === "warn" ? "text-amber-600" : "text-[var(--fg)]";
-  return (
-    <div className="rounded-xl border border-[var(--rule)] bg-[var(--surface)] p-4">
-      <p className="font-mono text-[9px] uppercase tracking-[0.2em] text-[var(--text-accent)]">{label}</p>
-      <p className={`mt-1 font-mono text-2xl font-bold tracking-[-0.02em] ${valueColor}`}>{value}</p>
-      <p className="mt-1 text-[10px] text-[var(--text-accent)]">{sub}</p>
+      {/* Mini caption — backtest reference + tiny details toggle */}
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-[var(--rule)]/60 pt-2">
+        <p className="font-mono text-[10px] tracking-wider text-[var(--text-accent)]">
+          Backtest:{" "}
+          <span className="text-[var(--fg)]">
+            {fmtCurrency(data.backtest.startingCapital)} →{" "}
+            {fmtCurrency(data.backtest.leveragedEndValue)}
+          </span>{" "}
+          ({fmtPercent(data.backtest.leveragedApy)} lev · {fmtPercent(data.backtest.holdApy)} hold) ·
+          since{" "}
+          {new Date(data.backtest.backtestStart).toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+            timeZone: "UTC",
+          })}
+        </p>
+        <button
+          type="button"
+          onClick={() => setShowDetails((v) => !v)}
+          aria-expanded={showDetails}
+          className="inline-flex items-center gap-1 font-mono text-[10px] uppercase tracking-wider text-[var(--text-accent)] transition-colors hover:text-[var(--fg)]"
+        >
+          {showDetails ? "Hide details" : "Risk + sources"}
+          <ChevronDown className={`h-3 w-3 transition-transform ${showDetails ? "rotate-180" : ""}`} />
+        </button>
+      </div>
+
+      {showDetails && (
+        <div className="mt-2 space-y-2">
+          <div className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 p-2.5 text-[11px] leading-relaxed text-amber-700 dark:text-amber-400">
+            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <span>
+              <span className="font-semibold">Leverage changes risk.</span> Higher
+              selected APY applies more leverage inside the same AWY vault, capped
+              at the AWY-model backtest result.
+            </span>
+          </div>
+          <p className="font-mono text-[10px] tracking-wider text-[var(--text-accent)]">
+            Base APY from live AWY feeds · leverage cap from FoundationUSD/AWY-model ·
+            refreshed {new Date(data.fetchedAt).toLocaleString()}
+          </p>
+        </div>
+      )}
     </div>
   );
 }
@@ -489,7 +411,7 @@ function AwyComposition({
   const maxContribution = Math.max(...rows.map((r) => r.contribution));
 
   return (
-    <div className="art-frame infra-card relative overflow-hidden p-6 sm:p-8">
+    <div className="art-frame infra-card relative overflow-hidden p-4 sm:p-5">
       <div
         className="art-layer art-thumb"
         style={{ backgroundImage: "url('/assets/art/StormoftheFourWinds.png')" }}
@@ -497,31 +419,29 @@ function AwyComposition({
       <div className="art-noise" />
 
       <div className="art-content relative">
-        {/* Header */}
-        <div className="mb-7 flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between sm:gap-8">
+        {/* Header — compact */}
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
           <div className="max-w-xl">
-            <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.2em] text-gold-500">
+            <p className="mb-1 font-mono text-[10px] uppercase tracking-[0.2em] text-gold-500">
               All-Weather Yield · AWY
             </p>
-            <h3 className="page-heading mb-3 text-xl sm:text-[1.75rem]">
+            <h3 className="page-heading mb-1.5 text-lg sm:text-xl">
               Four yield engines. <em>One deposit.</em>
             </h3>
-            <p className="text-[13px] leading-relaxed text-[var(--text-accent)] sm:text-sm">
-              Foundation routes each deposit across four independent risk drivers.
-              ONyc is minted directly at NAV via OnRe&apos;s permissionless program;
-              PRIME and the syrupUSDC proxy supply USDC to Kamino lending markets;
-              USDv routes through Solomon for delta-neutral basis yield.
+            <p className="text-[12px] leading-relaxed text-[var(--text-accent)]">
+              ONyc is minted at NAV via OnRe; PRIME and syrupUSDC supply Kamino;
+              USDv routes through Solomon&apos;s basis trade.
             </p>
           </div>
-          <div className="flex shrink-0 flex-col items-start gap-1 sm:items-end sm:text-right">
+          <div className="flex shrink-0 items-baseline gap-3 sm:flex-col sm:items-end sm:gap-0.5 sm:text-right">
             <p className="font-mono text-[9px] uppercase tracking-[0.2em] text-gold-500">
               Live Base APY
             </p>
-            <span className="font-mono text-3xl font-bold tracking-[-0.03em] text-emerald-500 sm:text-[2.75rem]">
+            <span className="font-mono text-2xl font-bold tracking-[-0.03em] text-emerald-500">
               {liveBaseApy.toFixed(2)}%
             </span>
-            <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 font-mono text-[9px] uppercase tracking-[0.2em] text-emerald-600">
-              {apySource === "live-blend" ? "Live Blend" : "Model Fallback"}
+            <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.2em] text-emerald-600">
+              {apySource === "live-blend" ? "Live" : "Model"}
             </span>
           </div>
         </div>
