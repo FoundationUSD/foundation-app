@@ -1,12 +1,74 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowUpRight, ChevronDown, Layers, Zap } from "lucide-react";
+import { ArrowUpRight, ChevronDown, AlertTriangle } from "lucide-react";
 import { useStrategies } from "@/hooks/useStrategies";
 import { VaultDetail } from "@/components/VaultDetail";
 import { AWY_COMPOSITION, type AwyLegSpec, type AwyLegId } from "@/lib/integrations/awy";
+import type { LoopResult } from "@/lib/integrations/awy/leverage";
+import type { FoundationVault } from "@/lib/vaults";
+
+/** Shape mirrors `LeveragedAwyData` from `src/lib/integrations/awy/index.ts`.
+ *  Defined locally to avoid pulling server-only `getLeveragedAwyData` into the
+ *  client bundle (its dynamic imports load Solana / RPC code). Live values
+ *  override the AWY-model baseline server-side, so these fields are non-null. */
+interface LeveragedLegView {
+  id: AwyLegId;
+  asset: string;
+  issuer: string;
+  weightBps: number;
+  underlyingApy: number;
+  ltv: number;
+  liquidationLtv: number;
+  borrowAsset: string | null;
+  borrowApy: number;
+  loop: LoopResult;
+  contributionApy: number;
+  ltvSweep: { ltv: number; netApy: number; leverageMultiple: number; liquidationGap: number; recommended: boolean }[];
+  underlyingSource: "live" | "model";
+  borrowSource: "live" | "model" | "n/a";
+  loopVenueLive: boolean;
+}
+interface LeveragedAwyView {
+  legs: LeveragedLegView[];
+  netApy: number;
+  grossApy: number;
+  borrowDrag: number;
+  legsWithLiveData: number;
+  totalLeveragedLegs: number;
+  fetchedAt: number;
+  backtest: {
+    leveragedApy: number;
+    holdApy: number;
+    startingCapital: number;
+    leveragedEndValue: number;
+    holdEndValue: number;
+    hoursObserved: number;
+    backtestStart: string;
+  };
+}
+
+interface AwyCompositionLegView {
+  id: AwyLegId;
+  asset: string;
+  issuer: string;
+  weightBps: number;
+  specApy: number;
+  liveApy: number;
+  riskDriver: string;
+  source: string;
+  navUsd: number | null;
+}
+
+interface AwyMetaView {
+  apySource?: string;
+  composition?: AwyCompositionLegView[];
+  blendedBaseApy?: number;
+  specBlendedApy?: number;
+  leverage?: LeveragedAwyView | null;
+}
 
 /** Per-leg logo paths. Stored under /public/partners/. */
 const LEG_LOGOS: Record<AwyLegId, string> = {
@@ -50,25 +112,50 @@ const LEG_COLORS: Record<AwyLegId, { stroke: string; fill: string; soft: string;
 export default function AwyPage() {
   const { strategies, loading } = useStrategies();
   const awy = strategies.find((s) => s.protocol === "awy");
+  const awyMeta = awy?.meta as AwyMetaView | undefined;
+  const leverageMeta = awyMeta?.leverage ?? undefined;
+  const liveBaseApy = awy?.apy ?? awyMeta?.blendedBaseApy ?? getSpecCompositionApy();
+  const maxLeverageApy = leverageMeta?.backtest.leveragedApy ?? 21.2;
+  const [selectedApy, setSelectedApy] = useState(maxLeverageApy);
+
+  useEffect(() => {
+    setSelectedApy(maxLeverageApy);
+  }, [maxLeverageApy]);
+
+  const displayedAwy = useMemo<FoundationVault | undefined>(() => {
+    if (!awy) return undefined;
+    return {
+      ...awy,
+      apy: selectedApy,
+      features: [
+        `${selectedApy.toFixed(2)}% selected AWY APY`,
+        "Adjustable leverage on one vault",
+        "4 independent risk drivers",
+        "Quarterly rebalance",
+      ],
+      howItWorks: [
+        "Deposit USDC once into the AWY vault.",
+        "Choose the AWY APY setting shown above. Foundation applies the corresponding leverage policy to the same vault allocation.",
+        "Foundation routes the underlying basket across ONyc, PRIME, syrupUSDC, and sUSDv, then manages leverage within the published cap.",
+        "Your awyUSD balance grows through the Token-2022 InterestBearing extension at the selected AWY rate.",
+        "Withdraw through the same vault. Larger withdrawals may still queue for underlying leg liquidity such as ONyc redemption.",
+      ],
+    };
+  }, [awy, selectedApy]);
 
   return (
-    <div className="fdn-page">
-      <div className="relative mb-6 overflow-hidden rounded-xl sm:mb-8">
+    <div className="fdn-page max-w-[1080px]">
+      <div className="relative mb-3 overflow-hidden rounded-xl">
         <div
           className="art-layer art-strip"
           style={{ backgroundImage: "url('/assets/art/strips/Friezemeanderpattern.png')" }}
         />
-        <div className="art-content relative flex items-end justify-between gap-4 px-1 py-4 sm:px-2 sm:py-5">
+        <div className="art-content relative flex items-center justify-between gap-4 px-1 py-3 sm:px-2">
           <div>
-            <p className="section-label mb-1 sm:mb-2">FOUNDATION</p>
-            <h1 className="page-heading text-xl sm:text-2xl">
+            <p className="section-label mb-0.5">FOUNDATION</p>
+            <h1 className="page-heading text-lg sm:text-xl">
               All-Weather <em>Yield</em>
             </h1>
-            <p className="mt-1 max-w-xl text-sm text-[var(--text-accent)]">
-              A blended real-world asset basket built so that no single macro regime
-              compresses every leg at once. ONyc mints directly at NAV; PRIME and the
-              Maple-proxy slice supply USDC to Kamino; USDv routes through Solomon.
-            </p>
           </div>
           <div className="flex shrink-0 items-center gap-3">
             <Link href="/portfolio" className="fnd-nav-link">
@@ -78,19 +165,244 @@ export default function AwyPage() {
         </div>
       </div>
 
-      <div className="mb-8">
-        <AwyComposition />
-      </div>
-
+      {/* Deposit / withdraw — leverage selector embeds inside the right column,
+          right above the deposit form. No separate full-width strip. */}
       {loading && !awy ? (
         <div className="skeleton h-64 rounded-xl" />
-      ) : awy ? (
-        <VaultDetail vault={awy} />
+      ) : displayedAwy ? (
+        <div className="mb-6">
+          <VaultDetail
+            vault={displayedAwy}
+            actionsTopSlot={
+              leverageMeta ? (
+                <LeverageCard
+                  data={leverageMeta}
+                  liveBaseApy={liveBaseApy}
+                  selectedApy={selectedApy}
+                  onSelectedApyChange={setSelectedApy}
+                />
+              ) : null
+            }
+          />
+        </div>
       ) : (
         <p className="py-12 text-center font-mono text-sm text-[var(--text-accent)]">
           AWY vault not configured.
         </p>
       )}
+
+      {/* Composition + breakdown — moved below the deposit form. Collapsed by
+          default; the depositor opens it only if they want the math. */}
+      <AwyComposition
+        composition={awyMeta?.composition}
+        liveBaseApy={liveBaseApy}
+        apySource={awyMeta?.apySource}
+      />
+    </div>
+  );
+}
+
+const SPEC_COMPOSITION_APY = AWY_COMPOSITION.reduce(
+  (sum, leg) => sum + (leg.baseApy * leg.weightBps) / 10_000,
+  0,
+);
+
+function getSpecCompositionApy() {
+  return Math.round(SPEC_COMPOSITION_APY * 100) / 100;
+}
+
+function fmtPercent(percent: number, digits = 2) {
+  return `${percent.toFixed(digits)}%`;
+}
+
+function fmtCurrency(value: number) {
+  return value.toLocaleString("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 2,
+  });
+}
+
+function clampApy(value: number, min: number, max: number) {
+  if (!Number.isFinite(value)) return min;
+  return Math.min(max, Math.max(min, value));
+}
+
+/**
+ * LeverageCard — sized to fit inside the ~380px right (deposit) column on /awy.
+ * Layout matches established DeFi rate-selectors (Pendle / Morpho):
+ *   - Tiny header label
+ *   - Big mono APY readout (selected)
+ *   - Three preset buttons: Live · Balanced · Max
+ *   - Range slider with editable number input alongside
+ *   - One-line backtest caption + hidden risk/source disclosure
+ *
+ * Lives directly above the Vault Actions card so leverage selection happens
+ * in the same visual track as the deposit form. No extra full-width strip.
+ */
+function LeverageCard({
+  data,
+  liveBaseApy,
+  selectedApy,
+  onSelectedApyChange,
+}: {
+  data: LeveragedAwyView;
+  liveBaseApy: number;
+  selectedApy: number;
+  onSelectedApyChange: (apy: number) => void;
+}) {
+  const maxApy = data.backtest.leveragedApy;
+  const clampedApy = clampApy(selectedApy, liveBaseApy, maxApy);
+  const rangeFill = maxApy > liveBaseApy
+    ? ((clampedApy - liveBaseApy) / (maxApy - liveBaseApy)) * 100
+    : 100;
+  const balancedApy = (liveBaseApy + maxApy) / 2;
+  const isPreset = (target: number) => Math.abs(clampedApy - target) < 0.05;
+
+  const setApy = (value: number) => {
+    onSelectedApyChange(clampApy(value, liveBaseApy, maxApy));
+  };
+
+  const [showDetails, setShowDetails] = useState(false);
+
+  const presets: { label: string; value: number }[] = [
+    { label: "Live", value: liveBaseApy },
+    { label: "Balanced", value: balancedApy },
+    { label: "Max", value: maxApy },
+  ];
+
+  return (
+    <div className="infra-card overflow-hidden">
+      {/* Header bar — matches the Vault Actions header rhythm */}
+      <div className="flex items-center justify-between border-b border-[var(--rule)] px-5 py-4">
+        <h4 className="font-mono text-xs font-medium uppercase tracking-wider text-[var(--fg)]">
+          AWY APY
+        </h4>
+        <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.18em] text-emerald-600">
+          Live
+        </span>
+      </div>
+
+      <div className="px-5 py-4 sm:py-5">
+        {/* Hero readout */}
+        <div className="mb-4 flex items-baseline justify-between">
+          <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-[var(--text-accent)]">
+            Selected
+          </span>
+          <div className="flex items-baseline gap-1">
+            <input
+              id="awy-apy-input"
+              type="number"
+              min={liveBaseApy}
+              max={maxApy}
+              step={0.1}
+              value={clampedApy.toFixed(1)}
+              onChange={(event) => setApy(Number(event.target.value))}
+              aria-label="Selected APY"
+              className="w-[4.5rem] bg-transparent text-right font-mono text-3xl font-bold tracking-[-0.03em] text-emerald-500 focus-visible:outline-none"
+            />
+            <span className="font-mono text-base font-semibold text-emerald-500/80">%</span>
+          </div>
+        </div>
+
+        {/* Slider */}
+        <div className="mb-3">
+          <input
+            id="awy-apy-range"
+            type="range"
+            min={liveBaseApy}
+            max={maxApy}
+            step={0.1}
+            value={clampedApy}
+            onChange={(event) => setApy(Number(event.target.value))}
+            className="h-1.5 w-full cursor-pointer appearance-none rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-500"
+            style={{
+              background: `linear-gradient(90deg, var(--gold) 0%, var(--gold) ${rangeFill}%, var(--rule) ${rangeFill}%, var(--rule) 100%)`,
+            }}
+          />
+          <div className="mt-1 flex justify-between font-mono text-[9px] tracking-wider text-[var(--text-accent)]">
+            <span>{fmtPercent(liveBaseApy, 1)} live</span>
+            <span>{fmtPercent(maxApy, 1)} max</span>
+          </div>
+        </div>
+
+        {/* Preset buttons */}
+        <div className="mb-4 grid grid-cols-3 gap-1.5">
+          {presets.map((p) => {
+            const active = isPreset(p.value);
+            return (
+              <button
+                key={p.label}
+                type="button"
+                onClick={() => setApy(p.value)}
+                className={`rounded-lg border px-2 py-2 text-left transition-all ${
+                  active
+                    ? "border-emerald-500/50 bg-emerald-500/10"
+                    : "border-[var(--rule)] bg-[var(--surface)] hover:bg-[var(--surface-strong)]"
+                }`}
+              >
+                <div className="font-mono text-[9px] uppercase tracking-wider text-[var(--text-accent)]">
+                  {p.label}
+                </div>
+                <div className={`mt-0.5 font-mono text-sm font-semibold tracking-tight ${
+                  active ? "text-emerald-600" : "text-[var(--fg)]"
+                }`}>
+                  {fmtPercent(p.value, 1)}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* One-line backtest caption + details disclosure */}
+        <button
+          type="button"
+          onClick={() => setShowDetails((v) => !v)}
+          aria-expanded={showDetails}
+          className="flex w-full items-center justify-between gap-2 rounded-md text-left text-[10px] tracking-wider text-[var(--text-accent)] hover:text-[var(--fg)]"
+        >
+          <span className="font-mono">
+            Backtest{" "}
+            <span className="text-[var(--fg)]">
+              {fmtCurrency(data.backtest.startingCapital)} →{" "}
+              {fmtCurrency(data.backtest.leveragedEndValue)}
+            </span>
+          </span>
+          <ChevronDown className={`h-3 w-3 transition-transform ${showDetails ? "rotate-180" : ""}`} />
+        </button>
+
+        {showDetails && (
+          <div className="mt-3 space-y-2">
+            <div className="grid grid-cols-2 gap-2 rounded-md border border-[var(--rule)] bg-[var(--surface)] p-2.5 font-mono text-[10px]">
+              <div>
+                <p className="uppercase tracking-wider text-[var(--text-accent)]">Lev backtest</p>
+                <p className="mt-0.5 text-sm font-semibold text-emerald-600">{fmtPercent(data.backtest.leveragedApy)}</p>
+              </div>
+              <div>
+                <p className="uppercase tracking-wider text-[var(--text-accent)]">Hold</p>
+                <p className="mt-0.5 text-sm font-semibold text-[var(--fg)]">{fmtPercent(data.backtest.holdApy)}</p>
+              </div>
+              <div className="col-span-2 text-[var(--text-accent)]">
+                Since{" "}
+                {new Date(data.backtest.backtestStart).toLocaleDateString("en-US", {
+                  month: "short",
+                  day: "numeric",
+                  year: "numeric",
+                  timeZone: "UTC",
+                })}{" "}
+                · {data.backtest.hoursObserved.toLocaleString()} hours
+              </div>
+            </div>
+            <div className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 p-2 text-[10px] leading-relaxed text-amber-700 dark:text-amber-400">
+              <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
+              <span>
+                Higher selected APY applies more leverage inside the same AWY
+                vault, capped at the AWY-model backtest result.
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -99,23 +411,46 @@ export default function AwyPage() {
    AWY composition — visual basket breakdown
    ============================================================ */
 
-function AwyComposition() {
+function AwyComposition({
+  composition,
+  liveBaseApy,
+  apySource,
+}: {
+  composition?: AwyCompositionLegView[];
+  liveBaseApy: number;
+  apySource?: string;
+}) {
   const [open, setOpen] = useState(false);
+  const liveById = new Map((composition ?? []).map((leg) => [leg.id, leg]));
 
   // Sort by allocation descending for visual hierarchy.
   const rows = [...AWY_COMPOSITION]
-    .map((spec) => ({
-      spec,
-      expectedApy: spec.baseApy,
-      contribution: (spec.baseApy * spec.weightBps) / 10_000,
-    }))
+    .map((spec) => {
+      const live = liveById.get(spec.id);
+      const displaySpec = live
+        ? {
+            ...spec,
+            asset: live.asset,
+            issuer: live.issuer,
+            weightBps: live.weightBps,
+            riskDriver: live.riskDriver,
+          }
+        : spec;
+      const expectedApy = live?.liveApy ?? spec.baseApy;
+      return {
+        spec: displaySpec,
+        expectedApy,
+        source: live?.source ?? "model",
+        contribution: (expectedApy * displaySpec.weightBps) / 10_000,
+      };
+    })
     .sort((a, b) => b.spec.weightBps - a.spec.weightBps);
 
   const netApy = rows.reduce((s, r) => s + r.contribution, 0);
   const maxContribution = Math.max(...rows.map((r) => r.contribution));
 
   return (
-    <div className="art-frame infra-card relative overflow-hidden p-6 sm:p-8">
+    <div className="art-frame infra-card relative overflow-hidden p-4 sm:p-5">
       <div
         className="art-layer art-thumb"
         style={{ backgroundImage: "url('/assets/art/StormoftheFourWinds.png')" }}
@@ -123,31 +458,29 @@ function AwyComposition() {
       <div className="art-noise" />
 
       <div className="art-content relative">
-        {/* Header */}
-        <div className="mb-7 flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between sm:gap-8">
+        {/* Header — compact */}
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
           <div className="max-w-xl">
-            <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.2em] text-gold-500">
+            <p className="mb-1 font-mono text-[10px] uppercase tracking-[0.2em] text-gold-500">
               All-Weather Yield · AWY
             </p>
-            <h3 className="page-heading mb-3 text-xl sm:text-[1.75rem]">
+            <h3 className="page-heading mb-1.5 text-lg sm:text-xl">
               Four yield engines. <em>One deposit.</em>
             </h3>
-            <p className="text-[13px] leading-relaxed text-[var(--text-accent)] sm:text-sm">
-              Foundation routes each deposit across four independent risk drivers.
-              ONyc is minted directly at NAV via OnRe&apos;s permissionless program;
-              PRIME and the syrupUSDC proxy supply USDC to Kamino lending markets;
-              USDv routes through Solomon for delta-neutral basis yield.
+            <p className="text-[12px] leading-relaxed text-[var(--text-accent)]">
+              ONyc is minted at NAV via OnRe; PRIME and syrupUSDC supply Kamino;
+              USDv routes through Solomon&apos;s basis trade.
             </p>
           </div>
-          <div className="flex shrink-0 flex-col items-start gap-1 sm:items-end sm:text-right">
+          <div className="flex shrink-0 items-baseline gap-3 sm:flex-col sm:items-end sm:gap-0.5 sm:text-right">
             <p className="font-mono text-[9px] uppercase tracking-[0.2em] text-gold-500">
-              Target APY
+              Live Base APY
             </p>
-            <span className="font-mono text-3xl font-bold tracking-[-0.03em] text-emerald-500 sm:text-[2.75rem]">
-              {netApy.toFixed(2)}%
+            <span className="font-mono text-2xl font-bold tracking-[-0.03em] text-emerald-500">
+              {liveBaseApy.toFixed(2)}%
             </span>
-            <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 font-mono text-[9px] uppercase tracking-[0.2em] text-emerald-600">
-              Quarterly Rebalance
+            <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.2em] text-emerald-600">
+              {apySource === "live-blend" ? "Live" : "Model"}
             </span>
           </div>
         </div>
@@ -192,14 +525,14 @@ function AwyComposition() {
             type="button"
             onClick={() => setOpen((v) => !v)}
             aria-expanded={open}
-            className="group flex w-full items-center justify-between gap-3 text-left"
+            className="group flex w-full items-center justify-between gap-3 rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-500 focus-visible:ring-offset-2"
           >
             <div>
               <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-gold-500">
                 {open ? "Hide" : "View"} composition breakdown
               </p>
               <p className="mt-0.5 text-[11px] text-[var(--text-accent)]">
-                Per-leg weights, leverage state, expected vs. max APY, and contribution math.
+                Per-leg weights, live base APY, risk drivers, and contribution math.
               </p>
             </div>
             <ChevronDown
@@ -232,7 +565,7 @@ function AwyComposition() {
                         key={r.spec.id}
                         title={`${r.spec.asset}: ${r.contribution.toFixed(2)}%`}
                         style={{
-                          width: `${(r.contribution / netApy) * 100}%`,
+                          width: `${netApy > 0 ? (r.contribution / netApy) * 100 : 0}%`,
                           background: LEG_COLORS[r.spec.id].fill,
                         }}
                         className="transition-all"
@@ -263,13 +596,14 @@ function AwyComposition() {
                       spec={r.spec}
                       expectedApy={r.expectedApy}
                       contribution={r.contribution}
+                      source={r.source}
                       isLargest={r.contribution === maxContribution}
                     />
                   ))}
                 </div>
 
                 <p className="mt-5 font-mono text-[10px] tracking-wider text-[var(--text-accent)]">
-                  Net APY = Σ (weight × expected APY). External leverage on the credit legs is on the roadmap — added once Kamino publishes an ONyc lending reserve.
+                  Base APY = Σ (weight × live leg APY). The leverage control below adjusts the same AWY vault APY, not a second deposit product.
                 </p>
               </div>
             </div>
@@ -284,18 +618,17 @@ function LegCard({
   spec,
   expectedApy,
   contribution,
+  source,
   isLargest,
 }: {
   spec: AwyLegSpec;
   expectedApy: number;
   contribution: number;
+  source: string;
   isLargest: boolean;
 }) {
   const c = LEG_COLORS[spec.id];
   const weightPct = spec.weightBps / 100;
-
-  // Within-leg uplift bar: shows expected as a fraction of max APY.
-  const uplift = spec.maxApy > 0 ? (expectedApy / spec.maxApy) * 100 : 0;
 
   return (
     <div
@@ -326,20 +659,9 @@ function LegCard({
               <span className="font-mono text-base font-bold text-[var(--fg)]">
                 {spec.asset}
               </span>
-              {spec.leveraged ? (
-                <span
-                  className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wider"
-                  style={{ background: c.soft, color: c.text }}
-                >
-                  <Zap className="h-2.5 w-2.5" />
-                  Looped
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1 rounded-md border border-[var(--rule)] bg-[var(--surface-strong)] px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wider text-[var(--text-accent)]">
-                  <Layers className="h-2.5 w-2.5" />
-                  Direct
-                </span>
-              )}
+              <span className="inline-flex items-center gap-1 rounded-md border border-[var(--rule)] bg-[var(--surface-strong)] px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wider text-[var(--text-accent)]">
+                Base leg
+              </span>
             </div>
             <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.15em] text-[var(--text-accent)]">
               {spec.issuer} · {spec.riskDriver}
@@ -353,35 +675,27 @@ function LegCard({
 
       {/* Description */}
       <p className="mb-4 text-[11px] leading-snug text-[var(--text-accent)]">
-        {spec.description}
+        {spec.issuer} exposure inside the base AWY basket. Live source: {source}.
       </p>
-
-      {/* Max → Expected uplift bar */}
-      <div className="mb-3">
-        <div className="mb-1 flex items-baseline justify-between font-mono text-[9px] uppercase tracking-wider text-[var(--text-accent)]">
-          <span>Expected → Max</span>
-          <span>
-            <span className="font-semibold text-[var(--fg)]">{expectedApy.toFixed(1)}%</span>
-            <span className="mx-1">→</span>
-            <span className="text-[var(--fg)]">{spec.maxApy.toFixed(2)}%</span>
-          </span>
-        </div>
-        <div className="relative h-1.5 w-full overflow-hidden rounded-full bg-[var(--rule)]">
-          <div
-            className="h-full rounded-full transition-all"
-            style={{ width: `${uplift}%`, background: c.fill }}
-          />
-        </div>
-      </div>
 
       {/* Footer: contribution */}
       <div className="flex items-center justify-between border-t border-[var(--rule)] pt-3">
-        <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-[var(--text-accent)]">
-          Contribution
-        </span>
-        <span className="font-mono text-sm font-bold tracking-tight text-emerald-500">
-          +{contribution.toFixed(2)}%
-        </span>
+        <div>
+          <span className="block font-mono text-[9px] uppercase tracking-[0.18em] text-[var(--text-accent)]">
+            Live APY
+          </span>
+          <span className="font-mono text-sm font-bold tracking-tight text-[var(--fg)]">
+            {expectedApy.toFixed(2)}%
+          </span>
+        </div>
+        <div className="text-right">
+          <span className="block font-mono text-[9px] uppercase tracking-[0.18em] text-[var(--text-accent)]">
+            Contribution
+          </span>
+          <span className="font-mono text-sm font-bold tracking-tight text-emerald-500">
+            +{contribution.toFixed(2)}%
+          </span>
+        </div>
       </div>
     </div>
   );

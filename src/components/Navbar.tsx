@@ -6,14 +6,16 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { IconWalletMoney, IconCoin, IconNetwork, IconSafe, IconAmplify } from "@/components/Icons";
+import { IconWalletMoney, IconCoin, IconSafe } from "@/components/Icons";
 import { WalletButton } from "@/components/WalletButton";
 import { NotificationBell } from "@/components/NotificationBell";
 
+// AWY is reachable from the Invest grid card and the footer; pulled from the
+// header to keep top nav focused on the active product surface (Invest +
+// Portfolio + Transparency). Compute tab will land on the merge with ft/compute.
 const NAV_TABS = [
   { key: "portfolio", label: "Portfolio", Icon: IconWalletMoney, path: "/portfolio" },
   { key: "invest", label: "Invest", Icon: IconCoin, path: "/" },
-  { key: "awy", label: "AWY", Icon: IconAmplify, path: "/awy" },
   { key: "transparency", label: "Transparency", Icon: IconSafe, path: "/transparency" },
 ];
 
@@ -74,7 +76,6 @@ export function Navbar() {
               const isActive =
                 (tab.key === "portfolio" && pathname === "/portfolio") ||
                 (tab.key === "invest" && (pathname === "/" || pathname.startsWith("/strategy"))) ||
-                (tab.key === "awy" && pathname.startsWith("/awy")) ||
                 (tab.key === "transparency" && pathname === "/transparency");
               return (
                 <Link
@@ -139,8 +140,7 @@ export function Navbar() {
                 const isActive =
                   (tab.key === "portfolio" && pathname === "/portfolio") ||
                   (tab.key === "invest" && (pathname === "/" || pathname.startsWith("/strategy"))) ||
-                  (tab.key === "awy" && pathname.startsWith("/awy")) ||
-                  (tab.key === "transparency" && pathname === "/transparency");
+                    (tab.key === "transparency" && pathname === "/transparency");
                 return (
                   <Link
                     key={tab.key}
