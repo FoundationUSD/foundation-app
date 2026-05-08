@@ -289,23 +289,23 @@ export interface LegLoopConfig {
  */
 export const LEG_LOOP_CONFIG: Record<AwyLegId, LegLoopConfig> = {
   prime: {
-    defaultLtv: 0.67,
-    liquidationLtv: 0.85,
-    ltvCandidates: [0.5, 0.67, 0.8, 0.85],
+    defaultLtv: 0.80,
+    liquidationLtv: 0.90,
+    ltvCandidates: [0.50, 0.67, 0.80, 0.85],
     kaminoMarket: "CqAoLuqWtavaVE8deBjMKe8ZfSt9ghR6Vb8nfsyabyHA",
     leveraged: true,
   },
   onyc: {
-    defaultLtv: 0.5,
-    liquidationLtv: 0.7,
-    ltvCandidates: [0.25, 0.35, 0.5, 0.6, 0.65],
+    defaultLtv: 0.50,
+    liquidationLtv: 0.70,
+    ltvCandidates: [0.25, 0.35, 0.50, 0.60, 0.65],
     kaminoMarket: "47tfyEG9SsdEnUm9cw5kY9BXngQGqu3LBoop9j5uTAv8",
     leveraged: true,
   },
   "syrup-usdc": {
-    defaultLtv: 0.5,
-    liquidationLtv: 0.85,
-    ltvCandidates: [0.25, 0.5, 0.67, 0.8],
+    defaultLtv: 0.80,
+    liquidationLtv: 0.90,
+    ltvCandidates: [0.00, 0.25, 0.50, 0.67, 0.80],
     kaminoMarket: "6WEGfej9B9wjxRs6t4BYpb9iCXd8CpTpJ8fVSNzHCC5y",
     leveraged: true,
   },
