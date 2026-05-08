@@ -12,13 +12,16 @@ export function Footer() {
             Foundation<span className="text-gold-500">.</span>
           </div>
           <p className="max-w-md text-[12px] leading-relaxed text-[var(--text-accent)]">
-            Managed RWA yield on Solana. Squads-multisig vaults with Token-2022 receipt mints.
+            The financing layer for the AI super-cycle. Index funds and managed RWA vaults on Solana,
+            custodied through Squads multisig with Token-2022 receipt mints.
           </p>
           <div className="flex flex-wrap gap-x-4 gap-y-1 font-mono text-[11px] text-[var(--text-accent)]">
             <Link href="/" className="hover:text-[var(--fg)]">Invest</Link>
+            <Link href="/compute" className="hover:text-[var(--fg)]">Compute</Link>
             <Link href="/awy" className="hover:text-[var(--fg)]">AWY</Link>
             <Link href="/portfolio" className="hover:text-[var(--fg)]">Portfolio</Link>
             <Link href="/transparency" className="hover:text-[var(--fg)]">Transparency</Link>
+            <Link href="/security" className="hover:text-[var(--fg)]">Security</Link>
           </div>
           <div className="mt-3 flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-[10px] leading-relaxed text-amber-700 dark:text-amber-400">
             <span className="mt-1 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" />

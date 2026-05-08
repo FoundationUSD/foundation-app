@@ -1,10 +1,11 @@
 /**
  * Foundation Managed Vaults — Squads multisig + Token-2022 InterestBearing receipt mint.
  *
- * Solomon:    LIVE — soloUSD
- * Kamino:     LIVE — kmnoUSD
- * Oro:        LIVE — oroUSD
- * AWY:        LIVE — awyUSD  (4-leg blended RWA basket; flagship)
+ * Solomon:    LIVE          — soloUSD
+ * Kamino:     LIVE          — kmnoUSD
+ * Oro:        COMING SOON   — oroUSD
+ * AWY:        LIVE          — awyUSD  (4-leg blended RWA basket)
+ * Compute:    COMING SOON   — fcyUSD  (Foundation Compute Yield index — AI infra debt)
  */
 
 export interface FoundationVault {
@@ -19,7 +20,7 @@ export interface FoundationVault {
    *  e.g. "sUSDV" / "PRIME" / "$GOLD" / "All-Weather Yield" / "Forge Basket". */
   assetName: string;
   strategy: string;
-  protocol: "solomon" | "kamino" | "oro" | "awy";
+  protocol: "solomon" | "kamino" | "oro" | "awy" | "compute";
   /**
    * Source classification surfaced by the Invest page filter.
    *  - "foundation": composed and managed by Foundation itself (e.g. AWY blended basket).
@@ -75,8 +76,8 @@ export const FOUNDATION_VAULTS: FoundationVault[] = [
   },
   {
     id: "fdn-kamino",
-    name: "Kamino",
-    provider: "Kamino",
+    name: "Hastra",
+    provider: "Hastra",
     assetName: "PRIME",
     strategy: "PRIME Credit Yield",
     protocol: "kamino",
@@ -168,5 +169,39 @@ export const FOUNDATION_VAULTS: FoundationVault[] = [
     usdcAccount: process.env.NEXT_PUBLIC_AWY_USDC_ATA || "",
     mint: process.env.NEXT_PUBLIC_AWY_MINT || "",
     multisig: process.env.VAULT_AWY_MULTISIG || "",
+  },
+  {
+    id: "fdn-compute",
+    name: "Compute",
+    provider: "Foundation",
+    assetName: "Foundation Compute Yield",
+    strategy: "AI Infrastructure Debt",
+    protocol: "compute",
+    category: "foundation",
+    description:
+      "A rules-based index vault tracking yield from on-chain AI compute infrastructure debt. Capital allocates across eligible compute-credit constituents — initial set GAIB and sUSDai — with a structurally different third constituent (datacenter construction debt) on the roadmap. Yield comes from real financing activity: interest, lease, and debt repayments. No emissions, no points.",
+    underlying: "Compute credit index: GAIB + sUSDai (USD.AI)",
+    riskTier: "growth",
+    // Headline midpoint of the 15–25% range cited in the deck. Will be replaced
+    // by a live blend (weight × constituent APY) once GAIB / USD.AI feeds wire.
+    apy: 17,
+    receiptToken: "fcyUSD",
+    features: [
+      "Single-deposit AI infrastructure debt exposure",
+      "Rules-based index methodology",
+      "Yield from interest, lease, and debt repayments — no emissions",
+      "10% management fee on yield · 0.3% mint/redeem",
+    ],
+    howItWorks: [
+      "Deposit USDC into the FCY vault.",
+      "Foundation routes the deposit into eligible compute-yield constituents per the published index methodology (initial set: GAIB, sUSDai).",
+      "Yield accrues into an appreciating fcyUSD receipt token via the Token-2022 InterestBearing extension.",
+      "Withdraw any time. Foundation unwinds the underlying constituents and returns USDC at NAV.",
+    ],
+    status: "coming_soon",
+    vaultPda: process.env.NEXT_PUBLIC_COMPUTE_VAULT_PDA || "",
+    usdcAccount: process.env.NEXT_PUBLIC_COMPUTE_USDC_ATA || "",
+    mint: process.env.NEXT_PUBLIC_COMPUTE_MINT || "",
+    multisig: process.env.VAULT_COMPUTE_MULTISIG || "",
   },
 ];

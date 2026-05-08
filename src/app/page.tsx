@@ -7,23 +7,18 @@ import { useRouter } from "next/navigation";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { ArrowUpRight, ArrowRight, ArrowLeft } from "lucide-react";
 import { useStrategies } from "@/hooks/useStrategies";
-import { YieldCalculator } from "@/components/YieldCalculator";
 import { VaultDetail } from "@/components/VaultDetail";
 import { WalletModal } from "@/components/WalletModal";
 import { formatAPY, formatUsdCompact } from "@/lib/utils";
 import type { FoundationVault } from "@/lib/vaults";
 
-const RISK_CONFIG: Record<string, { label: string }> = {
-  conservative: { label: "Conservative" },
-  moderate: { label: "Moderate" },
-  growth: { label: "Growth" },
-};
-
 const PROTOCOL_LOGO: Record<string, string> = {
   solomon: "/partners/solomon-circle.png",
-  kamino: "/partners/kamino.png",
+  kamino: "/partners/prime.png",
   oro: "/partners/oro.png",
   awy: "/assets/awy.png",
+  // Compute uses the Foundation rounded logo until a dedicated FCY mark exists.
+  compute: "/partners/rounded-nobg.png",
 };
 
 /**
@@ -39,6 +34,8 @@ const PROTOCOL_ART: Record<string, string> = {
   kamino: "/assets/art/athenian_pediment_fragment.png",
   oro: "/assets/art/coinhoardForOro.png",
   awy: "/assets/art/GoddessDemeterforAWY.png",
+  // Compute → Atlas (titan bearing the world): the financing layer carrying the AI build-out.
+  compute: "/assets/art/atlasForAWYamplified.png",
 };
 
 export default function HomePage() {
@@ -49,11 +46,15 @@ export default function HomePage() {
   const [selectedVault, setSelectedVault] = useState<FoundationVault | null>(null);
   const [activeFilter, setActiveFilter] = useState<"all" | "foundation" | "partner">("all");
 
-  // AWY has its own dedicated /awy detail route with the four-leg composition view.
-  // Other vaults render inline in this page via VaultDetail.
+  // AWY and Compute have their own dedicated detail routes — composite/index products
+  // with full methodology pages. Other vaults render inline via VaultDetail.
   const goToVault = (v: FoundationVault) => {
     if (v.protocol === "awy") {
       router.push("/awy");
+      return;
+    }
+    if (v.protocol === "compute") {
+      router.push("/compute");
       return;
     }
     setSelectedVault(v);
@@ -73,8 +74,6 @@ export default function HomePage() {
 
   // Not connected — landing
   if (!wallet.connected) {
-    const bestApy = strategies.length > 0 ? Math.max(...strategies.map((s) => s.apy)) : 0;
-
     return (
       <div className="fdn-page">
         {/* Hero — caryatid colonnade backdrop, gold hairline frame */}
@@ -89,30 +88,55 @@ export default function HomePage() {
               <Image src="/partners/rounded-nobg.png" alt="Foundation" width={48} height={48} />
             </div>
             <h1 className="page-heading mb-4 text-2xl sm:mb-5 sm:text-[3.2rem]">
-              Managed RWA Yield
+              The financing layer
               <br />
-              <em>on Solana</em>
+              <em>for the AI super-cycle.</em>
             </h1>
-            <p className="mx-auto mb-8 max-w-lg text-sm leading-relaxed text-[var(--text-accent)] sm:mb-10 sm:text-[15px]">
-              Deposit USDC and Foundation routes it into curated real-world asset
-              strategies on Solana. Custody runs through Squads multisig. Withdrawals
-              are open at any time.
+            <p className="mx-auto mb-8 max-w-xl text-sm leading-relaxed text-[var(--text-accent)] sm:mb-10 sm:text-[15px]">
+              Foundation builds index funds and managed vaults for on-chain yield.
+              Deposit USDC, hold an appreciating receipt token, earn from real
+              financing activity — not emissions. Custody runs through Squads
+              multisig. Withdrawals are open at any time.
             </p>
-            <button onClick={() => setWalletModalOpen(true)} className="btn-primary inline-flex items-center gap-2">
-              Connect Wallet <ArrowRight className="h-3.5 w-3.5" />
-            </button>
+            <div className="flex flex-col items-center justify-center gap-3 sm:flex-row">
+              <Link href="/compute" className="btn-primary inline-flex items-center gap-2">
+                Explore Compute Vault <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+              <button
+                onClick={() => setWalletModalOpen(true)}
+                className="inline-flex items-center gap-2 rounded-md border border-[var(--rule)] bg-[var(--surface)] px-4 py-2.5 font-mono text-[11px] uppercase tracking-wider text-[var(--fg)] transition-colors hover:bg-[var(--surface-strong)]"
+              >
+                Connect Wallet
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* How It Works */}
+        {/* How It Works — vault-agnostic so it covers both AWY and FCY */}
         <div className="mb-14 sm:mb-20">
           <h2 className="section-label mb-6 sm:mb-10">How It Works</h2>
           <div className="grid gap-6 sm:gap-10 md:grid-cols-4">
             {[
-              { n: "01", title: "Deposit USDC", desc: "Connect wallet and deposit into any Foundation vault." },
-              { n: "02", title: "Receive Token", desc: "Get soloUSD, kmnoUSD, or oroUSD. Balance grows with yield." },
-              { n: "03", title: "We Manage", desc: "Foundation deploys USDC into the strategy via Squads multisig." },
-              { n: "04", title: "Withdraw", desc: "Burn vault tokens anytime to get USDC back with accrued yield." },
+              {
+                n: "01",
+                title: "Deposit USDC",
+                desc: "Pick a vault — Compute Yield (FCY) or All-Weather Yield (AWY) — and deposit USDC.",
+              },
+              {
+                n: "02",
+                title: "Foundation Routes",
+                desc: "A Squads multisig holds the deposit and routes it into the underlying strategy per a published methodology.",
+              },
+              {
+                n: "03",
+                title: "Yield Accrues",
+                desc: "Your receipt token (fcyUSD, awyUSD, …) grows automatically via the Token-2022 InterestBearing extension.",
+              },
+              {
+                n: "04",
+                title: "Withdraw Anytime",
+                desc: "Burn the receipt token to redeem USDC with accrued yield. No lockup on liquid legs.",
+              },
             ].map((item) => (
               <div key={item.n}>
                 <span className="mb-2 block font-mono text-[10px] tracking-[0.2em] text-gold-500">{item.n}</span>
@@ -236,10 +260,6 @@ export default function HomePage() {
                 </section>
               )}
 
-              <section className="mt-10">
-                <h2 className="section-label mb-4">Project Your Yield</h2>
-                <YieldCalculator liveStrategies={strategies} />
-              </section>
             </>
           )}
         </>
@@ -252,7 +272,6 @@ export default function HomePage() {
    Vault Card — matches AppFrontend strategy card
    ============================================================ */
 function VaultCard({ vault, onSelect }: { vault: FoundationVault; onSelect: () => void }) {
-  const risk = RISK_CONFIG[vault.riskTier];
   const logo = PROTOCOL_LOGO[vault.protocol];
   const isLive = vault.status === "live";
 

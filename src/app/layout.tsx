@@ -29,25 +29,25 @@ const dmMono = DM_Mono({
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "https://fdnusd.com"),
-  title: "Foundation: Managed RWA Yield on Solana",
+  title: "Foundation: The financing layer for the AI super-cycle",
   description:
-    "Deposit USDC into managed RWA vaults. Earn yield from Solomon basis trades, Kamino PRIME lending, and Oro tokenized gold. All on Solana via Squads multisig.",
+    "Index funds and managed RWA vaults on Solana. Compute Yield (FCY) — on-chain AI infrastructure debt — plus All-Weather Yield (AWY). USDC in, appreciating receipt token out, custodied via Squads multisig.",
   icons: {
     icon: "/favicon.png",
     apple: "/favicon.png",
   },
   openGraph: {
-    title: "Foundation: Managed RWA Yield on Solana",
+    title: "Foundation: The financing layer for the AI super-cycle",
     description:
-      "Deposit USDC into managed RWA vaults. Solomon, Kamino, Oro strategies on Solana.",
+      "On-chain index funds for AI infrastructure debt and RWA yield. Compute Vault (FCY) + All-Weather Yield (AWY) on Solana.",
     type: "website",
     siteName: "Foundation",
   },
   twitter: {
     card: "summary",
-    title: "Foundation: Managed RWA Yield on Solana",
+    title: "Foundation: The financing layer for the AI super-cycle",
     description:
-      "Deposit USDC into managed RWA vaults. Solomon, Kamino, Oro strategies on Solana.",
+      "On-chain index funds for AI infrastructure debt and RWA yield. Compute Vault (FCY) + All-Weather Yield (AWY) on Solana.",
   },
 };
 
