@@ -57,9 +57,9 @@ export const AWY_COMPOSITION: AwyLegSpec[] = [
     weightBps: 3500,
     baseApy: 12.0,   // live: OnRe getApy() returns ~12% APR
     maxApy: 15.5,    // post-leverage target once Kamino reserve published
-    leveraged: false,
+    leveraged: true,
     riskDriver: "Actuarial events",
-    description: "Reinsurance receipts via OnRe's permissionless mint at NAV.",
+    description: "Reinsurance receipts via OnRe's permissionless mint at NAV. Loop venue pending Kamino reserve publication; leveraged math is methodology-only until then.",
   },
   {
     id: "prime",
@@ -68,9 +68,9 @@ export const AWY_COMPOSITION: AwyLegSpec[] = [
     weightBps: 2500,
     baseApy: 5.4,    // live: Kamino PRIME-market USDC supply
     maxApy: 13.8,    // post-leverage target
-    leveraged: false,
+    leveraged: true,
     riskDriver: "US rate cycle",
-    description: "USDC supplied to Kamino's Figure-PRIME lending market. kToken receipt held by the vault PDA.",
+    description: "USDC supplied to Kamino's Figure-PRIME lending market. kToken receipt held by the vault PDA. Loop venue available; leveraged math previewed on /awy.",
   },
   {
     id: "syrup-usdc",
@@ -79,7 +79,7 @@ export const AWY_COMPOSITION: AwyLegSpec[] = [
     weightBps: 2000,
     baseApy: 4.2,    // live: Kamino Main USDC supply (proxy — Maple has no Solana lending program)
     maxApy: 11.5,    // post-leverage target
-    leveraged: false,
+    leveraged: true,
     riskDriver: "Crypto borrowing demand",
     description: "USDC supplied to Kamino's Main market as a proxy for Maple's institutional lending — Maple has no Solana-native lending program yet.",
   },
@@ -135,6 +135,175 @@ export function getSpecBlendedApy(): number {
     0,
   );
   return Math.round(total * 100) / 100;
+}
+
+/* ============================================================
+   Leverage layer — methodology preview, no on-chain execution yet.
+   See `./leverage.ts` for math, `./kamino-borrow.ts` for live data.
+   ============================================================ */
+
+export type {
+  LtvCandidate,
+  PortfolioBacktest,
+  PortfolioContribution,
+  LoopResult,
+  LegLoopConfig,
+} from "./leverage";
+
+export interface LeveragedLeg {
+  id: AwyLegId;
+  asset: string;
+  issuer: string;
+  weightBps: number;
+  /** Decimal: 0.07 = 7%. Live underlying APY pulled from `getAwyData()`. */
+  underlyingApy: number;
+  /** Decimal LTV applied for the headline. 0 for unlevered legs. */
+  ltv: number;
+  liquidationLtv: number;
+  /** Chosen borrow asset (lowest mean APY in the leg's market). */
+  borrowAsset: string;
+  /** Reserve ID of the chosen borrow asset, if available. */
+  borrowReserve: string;
+  /** Mean borrow APY across the lookback window (decimal). */
+  borrowApy: number;
+  /** Per-leg loop math output. */
+  loop: import("./leverage").LoopResult;
+  /** weight × loop.netApy. */
+  contributionApy: number;
+  /** LTV sweep candidates for the UI. */
+  ltvSweep: import("./leverage").LtvCandidate[];
+  /** "live" if the borrow APY came from the Kamino API; "spec-fallback" otherwise. */
+  borrowSource: "live" | "spec-fallback";
+  /** True for legs where on-chain looping is currently available. */
+  loopVenueLive: boolean;
+}
+
+export interface LeveragedAwyData {
+  legs: LeveragedLeg[];
+  /** Blended portfolio net APY across all legs (decimal). */
+  netApy: number;
+  /** Sum of weighted gross APYs (decimal). */
+  grossApy: number;
+  /** Sum of weighted borrow drag (decimal). */
+  borrowDrag: number;
+  /** ms since epoch when this snapshot was generated. */
+  fetchedAt: number;
+}
+
+/**
+ * Loop-venue availability per leg. Mirrors the on-chain reality:
+ *   PRIME      — Kamino multiply available today (the leg's underlying is already on Kamino)
+ *   syrupUSDC  — proxy on Kamino Main, multiply available
+ *   ONyc       — blocked on Kamino publishing an ONyc lending reserve
+ *   Solomon    — never looped (basis trade embeds perp leverage internally)
+ */
+const LOOP_VENUE_LIVE: Record<AwyLegId, boolean> = {
+  prime: true,
+  "syrup-usdc": true,
+  onyc: false,
+  solomon: false,
+};
+
+/**
+ * Aggregate the leveraged view of AWY: per-leg loop math with live underlying
+ * APY and live Kamino borrow rates, plus a portfolio net APY. Falls back to
+ * spec values per-leg on any external failure.
+ *
+ * Pure methodology preview — no on-chain leverage is executed by this call.
+ */
+export async function getLeveragedAwyData(): Promise<LeveragedAwyData> {
+  const [{ LEG_LOOP_CONFIG, loopMath, evaluateLtvSweep, buildPortfolioBacktest }, { pickCheapestBorrow }, awyData] =
+    await Promise.all([
+      import("./leverage"),
+      import("./kamino-borrow"),
+      getAwyData(),
+    ]);
+
+  // For each leg, resolve underlying APY (from live AWY data) + borrow APY
+  // (from Kamino API or spec). Then run loop math + LTV sweep.
+  const perLeg = await Promise.all(
+    AWY_COMPOSITION.map(async (spec) => {
+      const cfg = LEG_LOOP_CONFIG[spec.id];
+      const live = awyData.legs.find((l) => l.id === spec.id);
+      const underlyingApy = (live?.liveApy ?? spec.baseApy) / 100; // decimal
+
+      if (!cfg.leveraged || cfg.defaultLtv === 0) {
+        // Unlevered leg — still a row in the leveraged blend; just no loop.
+        return {
+          id: spec.id,
+          asset: spec.asset,
+          issuer: spec.issuer,
+          weightBps: spec.weightBps,
+          underlyingApy,
+          ltv: 0,
+          liquidationLtv: 0,
+          borrowAsset: "n/a",
+          borrowReserve: "",
+          borrowApy: 0,
+          loop: {
+            leverageMultiple: 1,
+            grossApy: underlyingApy,
+            borrowDrag: 0,
+            netApy: underlyingApy,
+          },
+          contributionApy: (spec.weightBps / 10_000) * underlyingApy,
+          ltvSweep: [],
+          borrowSource: "spec-fallback" as const,
+          loopVenueLive: LOOP_VENUE_LIVE[spec.id],
+        };
+      }
+
+      // Conservative spec fallback: use the per-leg base APY as the borrow proxy.
+      // (Reasonable upper bound when Kamino is unreachable; in practice the live
+      // borrow APY is materially lower than the leg's underlying yield.)
+      const specFallbackApy = Math.max(0.04, spec.baseApy / 100 * 0.6);
+
+      const borrowPick = await pickCheapestBorrow(cfg.kaminoMarket, { specFallbackApy });
+      const loop = loopMath(underlyingApy, cfg.defaultLtv, borrowPick.meanApy);
+      const sweep = evaluateLtvSweep({
+        underlyingApy,
+        borrowApy: borrowPick.meanApy,
+        liquidationLtv: cfg.liquidationLtv,
+        candidates: cfg.ltvCandidates,
+      });
+
+      return {
+        id: spec.id,
+        asset: spec.asset,
+        issuer: spec.issuer,
+        weightBps: spec.weightBps,
+        underlyingApy,
+        ltv: cfg.defaultLtv,
+        liquidationLtv: cfg.liquidationLtv,
+        borrowAsset: borrowPick.asset,
+        borrowReserve: borrowPick.reserveId,
+        borrowApy: borrowPick.meanApy,
+        loop,
+        contributionApy: (spec.weightBps / 10_000) * loop.netApy,
+        ltvSweep: sweep,
+        borrowSource: borrowPick.source,
+        loopVenueLive: LOOP_VENUE_LIVE[spec.id],
+      };
+    }),
+  );
+
+  const portfolio = buildPortfolioBacktest(
+    perLeg.map((l) => ({
+      id: l.id,
+      underlyingApy: l.underlyingApy,
+      ltv: l.ltv,
+      borrowApy: l.borrowApy,
+      weightBps: l.weightBps,
+    })),
+  );
+
+  return {
+    legs: perLeg,
+    netApy: portfolio.netApy,
+    grossApy: portfolio.grossApy,
+    borrowDrag: portfolio.borrowDrag,
+    fetchedAt: Date.now(),
+  };
 }
 
 /**
