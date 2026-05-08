@@ -1,18 +1,43 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
-import { Mail, Check, Loader2 } from "lucide-react";
+import { Mail, Check, Loader2, Sparkles } from "lucide-react";
 
-/**
- * Footer email subscribe form. Optionally attaches the connected wallet so
- * the user gets per-position notifications (deposit/withdrawal confirmations).
- */
-export function SubscribeForm() {
+type SubscribeVariant = "newsletter" | "waitlist";
+
+interface SubscribeFormProps {
+  /**
+   * "newsletter" — default footer/global signup. Generic copy ("Email updates").
+   * "waitlist"   — leverage / new-product waitlist. Captures ?ref=CODE attribution
+   *                and tags the subscriber row with a `source` so we can route
+   *                launch announcements to the right cohort.
+   */
+  variant?: SubscribeVariant;
+  /** Source label persisted on the subscriber row. Defaults to "newsletter" /
+   *  "waitlist". Used by the AWY leverage banner to send "awy-leverage-waitlist". */
+  source?: string;
+}
+
+export function SubscribeForm({ variant = "newsletter", source }: SubscribeFormProps) {
   const wallet = useWallet();
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "sent" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
+  const [refCode, setRefCode] = useState<string | null>(null);
+
+  const isWaitlist = variant === "waitlist";
+  const resolvedSource = source ?? (isWaitlist ? "waitlist" : "newsletter");
+
+  // Capture ?ref=CODE for waitlist attribution. Stored alongside the subscriber
+  // row; future referral migration will read these on signup. window-based to
+  // keep this form SSG-friendly (no Suspense boundary needed).
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const ref = params.get("ref");
+    if (ref) setRefCode(ref);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,6 +51,8 @@ export function SubscribeForm() {
         body: JSON.stringify({
           email,
           wallet: wallet.publicKey?.toBase58(),
+          source: resolvedSource,
+          ref: refCode,
         }),
       });
       const json = await res.json();
@@ -44,8 +71,12 @@ export function SubscribeForm() {
         <div className="mx-auto mb-2 flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
           <Check className="h-4 w-4" />
         </div>
-        <p className="text-sm text-[var(--fg)]">Check your inbox</p>
-        <p className="mt-1 text-[11px] text-[var(--text-accent)]">We sent you a confirmation link.</p>
+        <p className="text-sm text-[var(--fg)]">
+          {isWaitlist ? "You're on the list" : "Check your inbox"}
+        </p>
+        <p className="mt-1 text-[11px] text-[var(--text-accent)]">
+          {isWaitlist ? "We'll email you the moment it ships." : "We sent you a confirmation link."}
+        </p>
       </div>
     );
   }
@@ -53,13 +84,19 @@ export function SubscribeForm() {
   return (
     <form onSubmit={handleSubmit} className="space-y-2">
       <div className="flex items-center gap-2">
-        <Mail className="h-3.5 w-3.5 text-[var(--text-accent)]" />
+        {isWaitlist ? (
+          <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+        ) : (
+          <Mail className="h-3.5 w-3.5 text-[var(--text-accent)]" />
+        )}
         <span className="font-mono text-[10px] uppercase tracking-wider text-[var(--text-accent)]">
-          Email updates
+          {isWaitlist ? "Waitlist" : "Email updates"}
         </span>
       </div>
       <p className="text-[11px] leading-relaxed text-[var(--text-accent)]">
-        Material APY changes (&gt;2%), your deposit/withdrawal confirmations, new vault launches.
+        {isWaitlist
+          ? "Get a notification with the vault address, audit report, and final parameters the moment we go live."
+          : "Material APY changes (>2%), your deposit/withdrawal confirmations, new vault launches."}
       </p>
       <div className="flex flex-col gap-2 sm:flex-row">
         <input
@@ -78,13 +115,16 @@ export function SubscribeForm() {
           className="flex items-center justify-center gap-1.5 rounded-md bg-[var(--navy)] px-4 py-2 font-mono text-[10px] uppercase tracking-wider text-white transition-opacity hover:opacity-90 disabled:opacity-40"
         >
           {status === "loading" ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
-          Subscribe
+          {isWaitlist ? "Notify Me" : "Subscribe"}
         </button>
       </div>
-      {error && (
-        <p className="text-[11px] text-rose-600 dark:text-rose-400">{error}</p>
+      {refCode && isWaitlist && (
+        <p className="font-mono text-[10px] tracking-wider text-[var(--text-accent)]">
+          Referral: <span className="text-[var(--fg)]">{refCode}</span>
+        </p>
       )}
-      {wallet.publicKey && (
+      {error && <p className="text-[11px] text-rose-600 dark:text-rose-400">{error}</p>}
+      {wallet.publicKey && !isWaitlist && (
         <p className="font-mono text-[9px] text-[var(--muted)]">
           Linked to {wallet.publicKey.toBase58().slice(0, 4)}…{wallet.publicKey.toBase58().slice(-4)}
         </p>
