@@ -20,7 +20,7 @@
  * fetch with spec-fallback). Until then, callers should use `getSpecBlendedApy()`.
  */
 
-export type ComputeConstituentId = "gaib" | "susdai" | "datacenter-debt";
+export type ComputeConstituentId = "gaib" | "susdai" | "gigawatt";
 
 export interface ComputeConstituentSpec {
   id: ComputeConstituentId;
@@ -76,15 +76,15 @@ export const COMPUTE_CONSTITUENTS: ComputeConstituentSpec[] = [
     href: "https://usd.ai",
   },
   {
-    id: "datacenter-debt",
-    asset: "Datacenter Debt",
+    id: "gigawatt",
+    asset: "Gigawatt Credit",
     issuer: "TBD",
     weightBps: 0,
     baseApy: 0,
     maxApy: 0,
-    riskDriver: "Datacenter construction & power",
+    riskDriver: "Power & GW-scale build-out",
     description:
-      "Roadmap. A structurally different third constituent — likely datacenter construction debt or power infrastructure financing — to be added once a comparable on-chain primitive becomes available.",
+      "Roadmap. Gigawatt-scale datacenter construction debt and power infrastructure financing — the layer beneath the chips. Sized to the $35–60B/GW capex profile of new AI campuses. Activates once a comparable on-chain primitive becomes available.",
     roadmap: true,
   },
 ];

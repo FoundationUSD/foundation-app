@@ -28,7 +28,7 @@ const CONSTITUENT_COLORS: Record<
     soft: "rgba(59, 130, 246, 0.10)",
     text: "rgb(29, 78, 216)",
   },
-  "datacenter-debt": {
+  gigawatt: {
     stroke: "rgb(168, 85, 247)",
     fill: "rgb(168, 85, 247)",
     soft: "rgba(168, 85, 247, 0.10)",
@@ -39,7 +39,7 @@ const CONSTITUENT_COLORS: Record<
 const CONSTITUENT_ICON: Record<ComputeConstituentId, typeof Cpu> = {
   gaib: Server,
   susdai: Cpu,
-  "datacenter-debt": Zap,
+  gigawatt: Zap,
 };
 
 export default function ComputePage() {
