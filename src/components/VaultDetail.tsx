@@ -38,7 +38,15 @@ const PROTOCOL_LOGO: Record<string, string> = {
 
 const USDC_MINT_PK = new PublicKey("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
 
-export function VaultDetail({ vault }: { vault: FoundationVault }) {
+export function VaultDetail({
+  vault,
+  actionsTopSlot,
+}: {
+  vault: FoundationVault;
+  /** Optional content rendered inside the right column, above VaultActions.
+   *  AWY uses this to embed the leverage selector beside the deposit form. */
+  actionsTopSlot?: React.ReactNode;
+}) {
   const risk = RISK_CONFIG[vault.riskTier];
   const logo = PROTOCOL_LOGO[vault.protocol];
   const [tab, setTab] = useState<"details" | "historical">("details");
@@ -129,7 +137,8 @@ export function VaultDetail({ vault }: { vault: FoundationVault }) {
           )}
         </div>
 
-        <div>
+        <div className="space-y-3">
+          {actionsTopSlot}
           {vault.status === "live" ? (
             <VaultActions vault={vault} />
           ) : (
