@@ -1,0 +1,5 @@
+Contact: mailto:v@fdnusd.com
+Expires: 2027-05-06T00:00:00.000Z
+Preferred-Languages: en
+Canonical: https://demo.fdnusd.com/.well-known/security.txt
+Policy: https://fdnusd.com
