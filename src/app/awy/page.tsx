@@ -144,7 +144,7 @@ export default function AwyPage() {
   }, [awy, selectedApy]);
 
   return (
-    <div className="fdn-page">
+    <div className="fdn-page max-w-[1040px]">
       <div className="relative mb-3 overflow-hidden rounded-xl">
         <div
           className="art-layer art-strip"
