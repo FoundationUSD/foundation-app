@@ -35,7 +35,7 @@ interface TxRecord {
 
 const VAULT_ICONS: Record<string, string> = {
   solomon: "/partners/solomon-circle.png",
-  kamino: "/partners/kamino.png",
+  kamino: "/partners/prime.png",
   oro: "/partners/oro.png",
 };
 

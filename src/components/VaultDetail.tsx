@@ -31,7 +31,7 @@ const RISK_CONFIG: Record<string, { label: string }> = {
 
 const PROTOCOL_LOGO: Record<string, string> = {
   solomon: "/partners/solomon-circle.png",
-  kamino: "/partners/kamino.png",
+  kamino: "/partners/prime.png",
   oro: "/partners/oro.png",
   awy: "/assets/awy.png",
 };

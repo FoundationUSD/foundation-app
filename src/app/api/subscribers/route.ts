@@ -25,15 +25,14 @@ export async function POST(req: NextRequest) {
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json({ success: false, error: "Invalid JSON" }, { status: 400 });
+    body = {};
   }
 
-  const email = (body.email || "").trim().toLowerCase();
+  const email = (body.email ?? "").trim().toLowerCase();
   if (!EMAIL_RX.test(email) || email.length > 200) {
     return NextResponse.json({ success: false, error: "Invalid email" }, { status: 400 });
   }
 
-  // Wallet is optional, but if provided must be valid
   if (body.wallet) {
     const err = validatePublicKey("wallet", body.wallet);
     if (err) return NextResponse.json({ success: false, error: err.message }, { status: 400 });
@@ -51,7 +50,6 @@ export async function POST(req: NextRequest) {
   };
   const prefs = { ...defaultPrefs, ...(body.prefs || {}) };
 
-  // Upsert (re-subscribing replays verification)
   const { error } = await supabaseAdmin
     .from("sol_subscribers")
     .upsert(
