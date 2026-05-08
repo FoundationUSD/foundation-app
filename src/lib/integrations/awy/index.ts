@@ -155,37 +155,45 @@ export interface LeveragedLeg {
   asset: string;
   issuer: string;
   weightBps: number;
-  /** Decimal: 0.07 = 7%. Live underlying APY pulled from `getAwyData()`. */
-  underlyingApy: number;
+  /** Decimal: 0.07 = 7%. Strictly live — null when no live underlying APY available. */
+  underlyingApy: number | null;
   /** Decimal LTV applied for the headline. 0 for unlevered legs. */
   ltv: number;
   liquidationLtv: number;
-  /** Chosen borrow asset (lowest mean APY in the leg's market). */
-  borrowAsset: string;
+  /** Chosen borrow asset (lowest mean APY in the leg's market). null if no live data. */
+  borrowAsset: string | null;
   /** Reserve ID of the chosen borrow asset, if available. */
   borrowReserve: string;
-  /** Mean borrow APY across the lookback window (decimal). */
-  borrowApy: number;
-  /** Per-leg loop math output. */
-  loop: import("./leverage").LoopResult;
-  /** weight × loop.netApy. */
-  contributionApy: number;
-  /** LTV sweep candidates for the UI. */
+  /** Mean borrow APY across the lookback window (decimal). null if no live data. */
+  borrowApy: number | null;
+  /** Per-leg loop math output. null when underlying or borrow APY isn't live. */
+  loop: import("./leverage").LoopResult | null;
+  /** weight × loop.netApy. null when loop math couldn't run. */
+  contributionApy: number | null;
+  /** LTV sweep candidates for the UI. Empty when borrow APY isn't live. */
   ltvSweep: import("./leverage").LtvCandidate[];
-  /** "live" if the borrow APY came from the Kamino API; "spec-fallback" otherwise. */
-  borrowSource: "live" | "spec-fallback";
+  /** Underlying APY data source. */
+  underlyingSource: "live" | "unavailable";
+  /** Borrow APY data source. "n/a" for unlevered legs. */
+  borrowSource: "live" | "unavailable" | "n/a";
   /** True for legs where on-chain looping is currently available. */
   loopVenueLive: boolean;
+  /** True iff all inputs were live and loop math ran. */
+  loopReady: boolean;
 }
 
 export interface LeveragedAwyData {
   legs: LeveragedLeg[];
-  /** Blended portfolio net APY across all legs (decimal). */
-  netApy: number;
-  /** Sum of weighted gross APYs (decimal). */
-  grossApy: number;
-  /** Sum of weighted borrow drag (decimal). */
-  borrowDrag: number;
+  /** Blended portfolio net APY across legs that ran the loop (decimal). null if no leg has live data. */
+  netApy: number | null;
+  /** Sum of weighted gross APYs across loop-ready legs (decimal). */
+  grossApy: number | null;
+  /** Sum of weighted borrow drag across loop-ready legs (decimal). */
+  borrowDrag: number | null;
+  /** Number of legs whose loop math ran with live data. */
+  legsWithLiveData: number;
+  /** Total leveraged legs (excludes unlevered). */
+  totalLeveragedLegs: number;
   /** ms since epoch when this snapshot was generated. */
   fetchedAt: number;
 }
@@ -212,57 +220,95 @@ const LOOP_VENUE_LIVE: Record<AwyLegId, boolean> = {
  * Pure methodology preview — no on-chain leverage is executed by this call.
  */
 export async function getLeveragedAwyData(): Promise<LeveragedAwyData> {
-  const [{ LEG_LOOP_CONFIG, loopMath, evaluateLtvSweep, buildPortfolioBacktest }, { pickCheapestBorrow }, awyData] =
+  const [{ LEG_LOOP_CONFIG, loopMath, evaluateLtvSweep }, { pickCheapestBorrow }, awyData] =
     await Promise.all([
       import("./leverage"),
       import("./kamino-borrow"),
       getAwyData(),
     ]);
 
-  // For each leg, resolve underlying APY (from live AWY data) + borrow APY
-  // (from Kamino API or spec). Then run loop math + LTV sweep.
-  const perLeg = await Promise.all(
-    AWY_COMPOSITION.map(async (spec) => {
+  // Strict live-data discipline: a leg gets loop math only when both its
+  // underlying APY and its Kamino borrow APY are live. No hardcoded APY ever
+  // flows into the headline number — when data is unavailable, the leg
+  // surfaces as "live data unavailable" instead of an invented value.
+  const perLeg: LeveragedLeg[] = await Promise.all(
+    AWY_COMPOSITION.map(async (spec): Promise<LeveragedLeg> => {
       const cfg = LEG_LOOP_CONFIG[spec.id];
       const live = awyData.legs.find((l) => l.id === spec.id);
-      const underlyingApy = (live?.liveApy ?? spec.baseApy) / 100; // decimal
+      const liveUnderlying =
+        live && Number.isFinite(live.liveApy) && live.liveApy > 0 && live.source !== "spec-fallback"
+          ? live.liveApy / 100
+          : null;
+      const underlyingSource: "live" | "unavailable" = liveUnderlying !== null ? "live" : "unavailable";
 
+      // Unlevered leg: surface live underlying APY directly, no loop.
       if (!cfg.leveraged || cfg.defaultLtv === 0) {
-        // Unlevered leg — still a row in the leveraged blend; just no loop.
+        const ready = liveUnderlying !== null;
         return {
           id: spec.id,
           asset: spec.asset,
           issuer: spec.issuer,
           weightBps: spec.weightBps,
-          underlyingApy,
+          underlyingApy: liveUnderlying,
           ltv: 0,
           liquidationLtv: 0,
-          borrowAsset: "n/a",
+          borrowAsset: null,
           borrowReserve: "",
-          borrowApy: 0,
-          loop: {
-            leverageMultiple: 1,
-            grossApy: underlyingApy,
-            borrowDrag: 0,
-            netApy: underlyingApy,
-          },
-          contributionApy: (spec.weightBps / 10_000) * underlyingApy,
+          borrowApy: null,
+          loop: ready
+            ? {
+                leverageMultiple: 1,
+                grossApy: liveUnderlying!,
+                borrowDrag: 0,
+                netApy: liveUnderlying!,
+              }
+            : null,
+          contributionApy: ready ? (spec.weightBps / 10_000) * liveUnderlying! : null,
           ltvSweep: [],
-          borrowSource: "spec-fallback" as const,
+          underlyingSource,
+          borrowSource: "n/a",
           loopVenueLive: LOOP_VENUE_LIVE[spec.id],
+          loopReady: ready,
         };
       }
 
-      // Conservative spec fallback: use the per-leg base APY as the borrow proxy.
-      // (Reasonable upper bound when Kamino is unreachable; in practice the live
-      // borrow APY is materially lower than the leg's underlying yield.)
-      const specFallbackApy = Math.max(0.04, spec.baseApy / 100 * 0.6);
+      // Leveraged leg: try to fetch live borrow data. We pass specFallbackApy=NaN so
+      // any spec-fallback path inside the client returns NaN, which we then detect
+      // and treat as "no live data". No hardcoded APY enters the loop math.
+      const borrowPick = await pickCheapestBorrow(cfg.kaminoMarket, { specFallbackApy: NaN });
+      const liveBorrow =
+        borrowPick.source === "live" && Number.isFinite(borrowPick.meanApy)
+          ? borrowPick.meanApy
+          : null;
+      const borrowSource: "live" | "unavailable" = liveBorrow !== null ? "live" : "unavailable";
 
-      const borrowPick = await pickCheapestBorrow(cfg.kaminoMarket, { specFallbackApy });
-      const loop = loopMath(underlyingApy, cfg.defaultLtv, borrowPick.meanApy);
+      // Without live underlying OR live borrow we don't fabricate numbers.
+      if (liveUnderlying === null || liveBorrow === null) {
+        return {
+          id: spec.id,
+          asset: spec.asset,
+          issuer: spec.issuer,
+          weightBps: spec.weightBps,
+          underlyingApy: liveUnderlying,
+          ltv: cfg.defaultLtv,
+          liquidationLtv: cfg.liquidationLtv,
+          borrowAsset: liveBorrow !== null ? borrowPick.asset : null,
+          borrowReserve: borrowPick.reserveId,
+          borrowApy: liveBorrow,
+          loop: null,
+          contributionApy: null,
+          ltvSweep: [],
+          underlyingSource,
+          borrowSource,
+          loopVenueLive: LOOP_VENUE_LIVE[spec.id],
+          loopReady: false,
+        };
+      }
+
+      const loop = loopMath(liveUnderlying, cfg.defaultLtv, liveBorrow);
       const sweep = evaluateLtvSweep({
-        underlyingApy,
-        borrowApy: borrowPick.meanApy,
+        underlyingApy: liveUnderlying,
+        borrowApy: liveBorrow,
         liquidationLtv: cfg.liquidationLtv,
         candidates: cfg.ltvCandidates,
       });
@@ -272,36 +318,54 @@ export async function getLeveragedAwyData(): Promise<LeveragedAwyData> {
         asset: spec.asset,
         issuer: spec.issuer,
         weightBps: spec.weightBps,
-        underlyingApy,
+        underlyingApy: liveUnderlying,
         ltv: cfg.defaultLtv,
         liquidationLtv: cfg.liquidationLtv,
         borrowAsset: borrowPick.asset,
         borrowReserve: borrowPick.reserveId,
-        borrowApy: borrowPick.meanApy,
+        borrowApy: liveBorrow,
         loop,
         contributionApy: (spec.weightBps / 10_000) * loop.netApy,
         ltvSweep: sweep,
-        borrowSource: borrowPick.source,
+        underlyingSource,
+        borrowSource,
         loopVenueLive: LOOP_VENUE_LIVE[spec.id],
+        loopReady: true,
       };
     }),
   );
 
-  const portfolio = buildPortfolioBacktest(
-    perLeg.map((l) => ({
-      id: l.id,
-      underlyingApy: l.underlyingApy,
-      ltv: l.ltv,
-      borrowApy: l.borrowApy,
-      weightBps: l.weightBps,
-    })),
-  );
+  // Portfolio aggregates only legs whose loop ran with live data. If a leg's
+  // data was unavailable, its weight contributes 0 — the surfaced number is
+  // honest about being incomplete.
+  const ready = perLeg.filter((l) => l.loopReady && l.loop !== null);
+  let netApy: number | null = null;
+  let grossApy: number | null = null;
+  let borrowDrag: number | null = null;
+  if (ready.length > 0) {
+    netApy = 0;
+    grossApy = 0;
+    borrowDrag = 0;
+    for (const l of ready) {
+      const w = l.weightBps / 10_000;
+      netApy += w * l.loop!.netApy;
+      grossApy += w * l.loop!.grossApy;
+      borrowDrag += w * l.loop!.borrowDrag;
+    }
+  }
+
+  const totalLeveragedLegs = AWY_COMPOSITION.filter(
+    (s) => LEG_LOOP_CONFIG[s.id].leveraged && LEG_LOOP_CONFIG[s.id].defaultLtv > 0,
+  ).length;
+  const legsWithLiveData = ready.filter((l) => l.ltv > 0).length;
 
   return {
     legs: perLeg,
-    netApy: portfolio.netApy,
-    grossApy: portfolio.grossApy,
-    borrowDrag: portfolio.borrowDrag,
+    netApy,
+    grossApy,
+    borrowDrag,
+    legsWithLiveData,
+    totalLeveragedLegs,
     fetchedAt: Date.now(),
   };
 }

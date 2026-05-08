@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { FOUNDATION_VAULTS } from "@/lib/vaults";
 import { getOroData } from "@/lib/integrations/oro";
 import { getAwyData, getLeveragedAwyData } from "@/lib/integrations/awy";
+import { getSolomonData } from "@/lib/integrations/solomon";
 import { isSupabaseConfigured, supabaseAdmin } from "@/lib/supabase-server";
 
 export const dynamic = "force-dynamic";
@@ -75,7 +76,7 @@ async function fetchOroGoldPrice(): Promise<number> {
 
 export async function GET() {
   try {
-    const [kaminoApy, oroGoldPrice, oroData, awyData, leveragedAwyData, tvlMap] = await Promise.all([
+    const [kaminoApy, oroGoldPrice, oroData, awyData, leveragedAwyData, solomonData, tvlMap] = await Promise.all([
       fetchKaminoApy(),
       fetchOroGoldPrice(),
       getOroData(),
@@ -84,12 +85,28 @@ export async function GET() {
         console.warn("getLeveragedAwyData failed, omitting leverage meta:", err);
         return null;
       }),
+      getSolomonData().catch((err) => {
+        console.warn("getSolomonData failed, falling back to vault registry value:", err);
+        return null;
+      }),
       fetchVaultTvlMap(),
     ]);
 
     const vaults = FOUNDATION_VAULTS.map((v) => {
       const tvlUsd = tvlMap[v.id] ?? 0;
       if (v.protocol === "kamino" && kaminoApy > 0) return { ...v, apy: kaminoApy, tvlUsd };
+      if (v.protocol === "solomon") {
+        const liveApy = solomonData?.estimatedApy;
+        return {
+          ...v,
+          apy: Number.isFinite(liveApy) && liveApy! > 0 ? liveApy! : v.apy,
+          tvlUsd,
+          meta: {
+            apySource: liveApy && liveApy > 0 ? "solomon-onchain" : "spec-fallback",
+            navUsdv: solomonData?.exchangeRate ?? null,
+          },
+        };
+      }
       if (v.protocol === "oro") {
         // Prefer ORO's authoritative API; fall back to Jupiter-derived price.
         const spot = oroGoldPrice || oroData.pricePerGoldUsd;
@@ -107,14 +124,19 @@ export async function GET() {
         };
       }
       if (v.protocol === "awy") {
-        // The headline `apy` stays at the unlevered spec target. Leveraged math is
-        // exposed under `meta.leverage` as a methodology preview (no on-chain
-        // execution yet) — the /awy page renders it alongside the unlevered view.
+        // Headline APY tracks the LIVE blended yield from per-leg fetchers; only
+        // falls back to the registry default if every leg's data path is down.
+        // Leveraged math is exposed under `meta.leverage` as a methodology
+        // preview (no on-chain execution yet).
+        const liveBlended = Number.isFinite(awyData.blendedBaseApy) && awyData.blendedBaseApy > 0
+          ? awyData.blendedBaseApy
+          : null;
         return {
           ...v,
-          apy: v.apy,
+          apy: liveBlended ?? v.apy,
           tvlUsd,
           meta: {
+            apySource: liveBlended !== null ? "live-blend" : "spec-fallback",
             composition: awyData.legs.map((leg) => ({
               id: leg.id,
               asset: leg.asset,

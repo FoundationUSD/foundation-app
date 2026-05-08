@@ -11,28 +11,34 @@ import { AWY_COMPOSITION, type AwyLegSpec, type AwyLegId } from "@/lib/integrati
 
 /** Shape mirrors `LeveragedAwyData` from `src/lib/integrations/awy/index.ts`.
  *  Defined locally to avoid pulling server-only `getLeveragedAwyData` into the
- *  client bundle (its dynamic imports load `pg`, `node:*`, etc.). */
+ *  client bundle (its dynamic imports load Solana / RPC code). All APY fields
+ *  are nullable because the server refuses to invent numbers when live data
+ *  is unavailable. */
 interface LeveragedLegView {
   id: AwyLegId;
   asset: string;
   issuer: string;
   weightBps: number;
-  underlyingApy: number;
+  underlyingApy: number | null;
   ltv: number;
   liquidationLtv: number;
-  borrowAsset: string;
-  borrowApy: number;
-  loop: { leverageMultiple: number; grossApy: number; borrowDrag: number; netApy: number };
-  contributionApy: number;
+  borrowAsset: string | null;
+  borrowApy: number | null;
+  loop: { leverageMultiple: number; grossApy: number; borrowDrag: number; netApy: number } | null;
+  contributionApy: number | null;
   ltvSweep: { ltv: number; netApy: number; leverageMultiple: number; liquidationGap: number; recommended: boolean }[];
-  borrowSource: "live" | "spec-fallback";
+  underlyingSource: "live" | "unavailable";
+  borrowSource: "live" | "unavailable" | "n/a";
   loopVenueLive: boolean;
+  loopReady: boolean;
 }
 interface LeveragedAwyView {
   legs: LeveragedLegView[];
-  netApy: number;
-  grossApy: number;
-  borrowDrag: number;
+  netApy: number | null;
+  grossApy: number | null;
+  borrowDrag: number | null;
+  legsWithLiveData: number;
+  totalLeveragedLegs: number;
   fetchedAt: number;
 }
 
@@ -136,9 +142,11 @@ export default function AwyPage() {
    ============================================================ */
 
 function LeverageSection({ data }: { data: LeveragedAwyView }) {
-  const fmtPct = (decimal: number, digits = 2) => `${(decimal * 100).toFixed(digits)}%`;
+  const fmtPct = (decimal: number | null, digits = 2) =>
+    decimal === null || !Number.isFinite(decimal) ? "—" : `${(decimal * 100).toFixed(digits)}%`;
   const leveragedLegs = data.legs.filter((l) => l.ltv > 0);
-  const liveCount = leveragedLegs.filter((l) => l.loopVenueLive).length;
+  const venueLiveCount = leveragedLegs.filter((l) => l.loopVenueLive).length;
+  const headlineReady = data.netApy !== null && data.legsWithLiveData === data.totalLeveragedLegs;
 
   return (
     <div className="art-frame infra-card relative overflow-hidden p-6 sm:p-8">
@@ -155,10 +163,12 @@ function LeverageSection({ data }: { data: LeveragedAwyView }) {
             <p className="text-[13px] leading-relaxed text-[var(--text-accent)] sm:text-sm">
               Methodology preview only. For each leveraged leg, Foundation
               borrows the cheapest stable on Kamino against the leg&apos;s
-              collateral and re-supplies it as more underlying. The blend below
-              is the live model output — no on-chain leverage is executed yet.
-              {liveCount > 0 ? (
-                <> Loop venue live for {liveCount} of {leveragedLegs.length} leveraged legs.</>
+              collateral and re-supplies it as more underlying. Numbers below
+              come strictly from live data — when a leg&apos;s feed is
+              unavailable, it surfaces as &quot;data unavailable&quot; rather
+              than a fabricated value.
+              {venueLiveCount > 0 ? (
+                <> Loop venue live for {venueLiveCount} of {leveragedLegs.length} leveraged legs.</>
               ) : null}
             </p>
           </div>
@@ -168,6 +178,11 @@ function LeverageSection({ data }: { data: LeveragedAwyView }) {
             </p>
             <span className="font-mono text-3xl font-bold tracking-[-0.03em] text-emerald-500 sm:text-[2.75rem]">
               {fmtPct(data.netApy)}
+            </span>
+            <span className="font-mono text-[10px] tracking-wider text-[var(--text-accent)]">
+              {headlineReady
+                ? `${data.legsWithLiveData}/${data.totalLeveragedLegs} legs · live data`
+                : `${data.legsWithLiveData}/${data.totalLeveragedLegs} legs · partial data`}
             </span>
             <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 font-mono text-[9px] uppercase tracking-[0.2em] text-amber-600">
               Coming Soon
@@ -200,9 +215,9 @@ function LeverageSection({ data }: { data: LeveragedAwyView }) {
             </thead>
             <tbody className="divide-y divide-[var(--rule)]">
               {data.legs.map((leg) => (
-                <tr key={leg.id}>
+                <tr key={leg.id} className={leg.loopReady ? "" : "opacity-70"}>
                   <td className="px-4 py-2.5">
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <span className="font-semibold text-[var(--fg)]">{leg.asset}</span>
                       {!leg.loopVenueLive && leg.ltv > 0 && (
                         <span
@@ -217,6 +232,14 @@ function LeverageSection({ data }: { data: LeveragedAwyView }) {
                           unlevered
                         </span>
                       )}
+                      {!leg.loopReady && (
+                        <span
+                          className="rounded-md bg-rose-500/10 px-1.5 py-0.5 text-[9px] uppercase tracking-wider text-rose-600"
+                          title="Live data unavailable for this leg"
+                        >
+                          data unavailable
+                        </span>
+                      )}
                     </div>
                     <div className="text-[10px] text-[var(--text-accent)]">{leg.issuer}</div>
                   </td>
@@ -227,39 +250,41 @@ function LeverageSection({ data }: { data: LeveragedAwyView }) {
                   </td>
                   <td className="px-3 py-2.5">
                     {leg.ltv > 0 ? (
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-[var(--fg)]">{leg.borrowAsset}</span>
-                        {leg.borrowSource === "spec-fallback" && (
-                          <span
-                            className="rounded-md bg-[var(--surface-strong)] px-1.5 py-0.5 text-[9px] uppercase tracking-wider text-[var(--text-accent)]"
-                            title="Borrow APY fell back to spec — Kamino API unreachable"
-                          >
-                            spec
-                          </span>
-                        )}
-                      </div>
+                      <span className="text-[var(--fg)]">{leg.borrowAsset ?? "—"}</span>
                     ) : (
                       <span className="text-[var(--text-accent)]">—</span>
                     )}
                   </td>
                   <td className="px-3 py-2.5 text-right">
-                    {leg.ltv > 0 ? <span className="text-amber-600">{fmtPct(leg.borrowApy)}</span> : <span className="text-[var(--text-accent)]">—</span>}
+                    {leg.ltv > 0 && leg.borrowApy !== null ? (
+                      <span className="text-amber-600">{fmtPct(leg.borrowApy)}</span>
+                    ) : (
+                      <span className="text-[var(--text-accent)]">—</span>
+                    )}
                   </td>
-                  <td className="px-3 py-2.5 text-right text-[var(--fg)]">{leg.loop.leverageMultiple.toFixed(2)}×</td>
-                  <td className="px-3 py-2.5 text-right font-semibold text-emerald-600">{fmtPct(leg.loop.netApy)}</td>
-                  <td className="px-3 py-2.5 text-right font-semibold text-emerald-500">+{fmtPct(leg.contributionApy)}</td>
+                  <td className="px-3 py-2.5 text-right text-[var(--fg)]">
+                    {leg.loop ? `${leg.loop.leverageMultiple.toFixed(2)}×` : "—"}
+                  </td>
+                  <td className="px-3 py-2.5 text-right font-semibold text-emerald-600">
+                    {leg.loop ? fmtPct(leg.loop.netApy) : "—"}
+                  </td>
+                  <td className="px-3 py-2.5 text-right font-semibold text-emerald-500">
+                    {leg.contributionApy !== null ? `+${fmtPct(leg.contributionApy)}` : "—"}
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
 
-        {/* LTV sweep per leveraged leg */}
-        {leveragedLegs.length > 0 && (
+        {/* LTV sweep per leveraged leg — only legs with live data render a sweep */}
+        {leveragedLegs.some((l) => l.ltvSweep.length > 0) && (
           <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {leveragedLegs.map((leg) => (
-              <LtvSweepCard key={leg.id} leg={leg} />
-            ))}
+            {leveragedLegs
+              .filter((l) => l.ltvSweep.length > 0 && l.borrowApy !== null)
+              .map((leg) => (
+                <LtvSweepCard key={leg.id} leg={leg} />
+              ))}
           </div>
         )}
 
@@ -327,7 +352,8 @@ function SummaryStat({
 }
 
 function LtvSweepCard({ leg }: { leg: LeveragedLegView }) {
-  const fmtPct = (d: number, digits = 2) => `${(d * 100).toFixed(digits)}%`;
+  const fmtPct = (d: number | null, digits = 2) =>
+    d === null || !Number.isFinite(d) ? "—" : `${(d * 100).toFixed(digits)}%`;
   return (
     <div className="rounded-xl border border-[var(--rule)] bg-[var(--surface)] p-4">
       <div className="mb-3 flex items-baseline justify-between">
