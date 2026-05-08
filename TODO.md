@@ -107,29 +107,44 @@ OnRe and Maple have not yet published canonical Solana mints, so the ONyc and sy
 
 When the missing mints publish, set `NEXT_PUBLIC_ONYC_MINT` and `NEXT_PUBLIC_SYRUP_USDC_MINT` and the per-leg branches in `deployToAwy()` will automatically take over.
 
-### Amplify line (AWY-Amplified shipped 2026-04-27 as `coming_soon`)
+### AWY Leverage (methodology preview — 2026-05-08)
 
-> **Status:** Frontend page and composition data shipped at `/amplify`. Provisioning of the `awylUSD` mint and on-chain looping helpers remains queued. Foundation launches the unlevered AWY first and ships Amplify once the loop venue plumbing is reviewed.
+> **Status:** Methodology surfaced on the existing `/awy` page (no new vault, no new SKU). On-chain leverage execution is the next-PR scope. The earlier `/amplify` route + `awylUSD` separate-vault design has been retired in favour of layering leverage on `fdn-awy` itself.
 
-Composition reference (UI source of truth in `src/lib/amplify.ts`):
+**What shipped this PR:**
 
-| Asset     | Issuer  | Weight | Leveraged | Max APY | Expected APY | Contribution |
-| --------- | ------- | ------ | --------- | ------- | ------------ | ------------ |
-| USDH      | Solomon | 20%    | no        | 9.0%    | 9.0%         | 1.80%        |
-| PRIME     | Figure  | 25%    | yes       | 13.80%  | 11.8%        | 2.95%        |
-| ONyc      | OnRe    | 35%    | yes       | 15.50%  | 13.5%        | 4.73%        |
-| syrupUSDC | Maple   | 20%    | yes       | 11.50%  | 9.5%         | 1.90%        |
-|           |         |        |           |         | **Net**      | **11.38%**   |
+| File | Purpose |
+| ---- | ------- |
+| `src/lib/integrations/awy/leverage.ts` | Pure math: `loopMath`, `simulateStaticLtv`, `evaluateLtvSweep`, `buildPortfolioBacktest`, `LEG_LOOP_CONFIG` |
+| `src/lib/integrations/awy/kamino-borrow.ts` | Kamino API client: `fetchReserves`, `fetchBorrowRateHistory`, `pickCheapestBorrow`. Spec-fallback on any failure |
+| `src/lib/integrations/awy/index.ts` | New `getLeveragedAwyData()` aggregator wires live underlying + live borrow + loop math + LTV sweep |
+| `src/app/api/strategies/route.ts` | AWY entry now emits `meta.leverage` alongside `meta.composition` |
+| `src/app/awy/page.tsx` | New "Leverage Preview" section: per-leg math table, LTV sweep cards, risk note, waitlist (`source=awy-leverage-waitlist`) |
+| `src/components/Navbar.tsx` | AWY tab pulled from header. Reachable via Invest grid card + footer |
+| `src/components/SubscribeForm.tsx` | `variant="waitlist"`, configurable `source` field |
 
-A second Amplify product, **Oro Amplified**, ships on the same page as `coming_soon`. Single-leg loop on $GOLD against USDC borrow on Kamino, target net APY 7.0 percent. Receipt token `oroLUSD`. Carries directional gold price risk in addition to the borrow cost; positioned for users who want concentrated leveraged gold exposure rather than diversification.
+Math is sourced from the private repo `github.com/FoundationUSD/AWY-model` (Jupyter notebooks per leg + master `kamino_usdc_borrow_analysis.ipynb`). Borrow rate history fetched live from `https://api.kamino.finance/kamino-market/{market}/reserves/{reserve}/metrics/history` per request.
 
-Open questions before live looping:
+Per-leg defaults (from `LEG_LOOP_CONFIG`):
 
-- Liquidation defense per leg. Kamino is the working venue for PRIME, ONyc routing (placeholder), syrupUSDC routing (placeholder). Each adds a distinct liquidation surface; auto-deleverage policy needs a written spec before any on-chain leverage runs.
-- Anchor swap from USDY into USDH means dropping the Treasury anchor in the Amplified composition. The basket loses direct Fed funds exposure as one of its four independent drivers. Document the regime-coverage difference vs unlevered AWY in the transparency tab when Amplify goes live.
-- Is leverage opt-in per user (separate vault `awylUSD`, current plan) or baked into a single vault token? Opt-in is the safer brand decision and matches the current frontend split.
-- Compliance read on marketing a leveraged RWA basket to retail. Likely needs different positioning than the conservative basket.
-- [ ] Schedule design review session before wiring any on-chain looping helpers.
+| Leg       | Issuer  | Weight | Default LTV | Liquidation LTV | Loop venue            |
+| --------- | ------- | ------ | ----------- | --------------- | --------------------- |
+| ONyc      | OnRe    | 35%    | 50%         | 70%             | pending Kamino reserve |
+| PRIME     | Hastra  | 25%    | 67%         | 85%             | live (Kamino multiply) |
+| syrupUSDC | Maple   | 20%    | 50%         | 85%             | live (Kamino Main)     |
+| Solomon   | Solomon | 20%    | unlevered   | n/a             | n/a (perp leverage internal) |
+
+Borrow asset selection per leg is dynamic: `pickCheapestBorrow` ranks {USDC, USDS, PYUSD, CASH} by mean APY across the 30-day window and picks the lowest. UI badges `spec` when the API call fell back.
+
+**Next-PR scope (on-chain execution):**
+
+- [ ] On-chain Kamino multiply CPI for the PRIME leg (the only fully-live venue today). Mirror `deployToKamino` but adds a borrow + re-supply cycle.
+- [ ] Decide receipt-token shape: extend `awyUSD` with a per-user leverage tier flag, or mint a separate `awylUSD`. Current plan says "extend" since the user asked for one product, not two.
+- [ ] `deployToAwyLeveraged()` in `src/lib/deploy-capital.ts` — leg-by-leg loop, gated per-leg by `LOOP_VENUE_LIVE`.
+- [ ] Liquidation health monitor: cron pulls per-leg LTV, auto-deleverages if any leg crosses `liquidation_ltv − 5pp`. Auto-deleverage policy spec must be written first.
+- [ ] Compliance review on marketing leveraged RWA to retail (likely needs different positioning vs the unlevered basket).
+- [ ] Wire ONyc + syrupUSDC venues once their Kamino reserves publish (currently flagged `loopVenueLive: false` in `LOOP_VENUE_LIVE`).
+- [ ] Anchor swap of USDY → USDH discussion (drops Treasury anchor) — only relevant if we revisit composition; not load-bearing this PR.
 
 ### Open work — MVP (managed-vault pattern)
 
