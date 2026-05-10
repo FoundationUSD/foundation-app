@@ -30,6 +30,9 @@ export interface FoundationVault {
   underlying: string;
   riskTier: "conservative" | "moderate" | "growth";
   apy: number;
+  /** Leverage multiple applied to the PRIME slice via Kamino Multiply.
+   *  Unset for unlevered vaults. 2 = 50% LTV target. 3 = 67% LTV target. */
+  leverage?: number;
   receiptToken: string;
   features: string[];
   howItWorks: string[];
@@ -168,5 +171,73 @@ export const FOUNDATION_VAULTS: FoundationVault[] = [
     usdcAccount: process.env.NEXT_PUBLIC_AWY_USDC_ATA || "",
     mint: process.env.NEXT_PUBLIC_AWY_MINT || "",
     multisig: process.env.VAULT_AWY_MULTISIG || "",
+  },
+  {
+    id: "fdn-awy-2x",
+    name: "AWY 2x",
+    provider: "Foundation",
+    assetName: "All-Weather Yield · 2x",
+    strategy: "Levered All-Weather Yield",
+    protocol: "awy",
+    category: "foundation",
+    description:
+      "AWY base basket with the PRIME credit slice levered ~2x via Kamino Multiply (50 percent target LTV). Net APY = base blended yield + (PRIME supply − borrow spread × leverage). Liquidation gap stays above 30 percentage points to PRIME's 80 percent threshold. ONyc, syrupUSDC, and USDv slices remain unlevered.",
+    underlying: "AWY basket · PRIME slice 2x via Kamino Multiply",
+    riskTier: "moderate",
+    apy: 14,
+    leverage: 2,
+    receiptToken: "awy2xUSD",
+    features: [
+      "~14% target APY",
+      "PRIME slice 2x via Kamino Multiply",
+      "30+ pp gap to liquidation",
+      "Quarterly rebalance · async ONyc redemption",
+    ],
+    howItWorks: [
+      "Deposit USDC into the AWY 2x Squads multisig vault.",
+      "Foundation routes the deposit across the four AWY legs at standard weights, then opens a Kamino Multiply position on the PRIME slice at 50 percent target LTV (~2x exposure).",
+      "Levered net APY = unlevered blend + (PRIME supply − cheapest stable borrow) × leverage on the PRIME slice. Updated to the awy2xUSD InterestBearing rate by the rate cron.",
+      "Your awy2xUSD balance grows automatically through the Token-2022 InterestBearing extension at the live levered rate.",
+      "Withdraw any time — Foundation unwinds the multiply position and returns USDC. Larger withdrawals may queue an ONyc redemption (24–72h fulfillment).",
+    ],
+    status: "live",
+    vaultPda: process.env.NEXT_PUBLIC_AWY2X_VAULT_PDA || "",
+    usdcAccount: process.env.NEXT_PUBLIC_AWY2X_USDC_ATA || "",
+    mint: process.env.NEXT_PUBLIC_AWY2X_MINT || "",
+    multisig: process.env.VAULT_AWY2X_MULTISIG || "",
+  },
+  {
+    id: "fdn-awy-3x",
+    name: "AWY 3x",
+    provider: "Foundation",
+    assetName: "All-Weather Yield · 3x",
+    strategy: "Max Levered All-Weather Yield",
+    protocol: "awy",
+    category: "foundation",
+    description:
+      "AWY base basket with the PRIME credit slice levered ~3x via Kamino Multiply (67 percent target LTV). Higher net APY than the 2x tier with a tighter 13 percentage-point gap to PRIME's 80 percent liquidation threshold. ONyc, syrupUSDC, and USDv slices remain unlevered.",
+    underlying: "AWY basket · PRIME slice 3x via Kamino Multiply",
+    riskTier: "growth",
+    apy: 21,
+    leverage: 3,
+    receiptToken: "awy3xUSD",
+    features: [
+      "~21% target APY",
+      "PRIME slice 3x via Kamino Multiply",
+      "13 pp gap to liquidation",
+      "Quarterly rebalance · async ONyc redemption",
+    ],
+    howItWorks: [
+      "Deposit USDC into the AWY 3x Squads multisig vault.",
+      "Foundation routes the deposit across the four AWY legs at standard weights, then opens a Kamino Multiply position on the PRIME slice at 67 percent target LTV (~3x exposure).",
+      "Levered net APY = unlevered blend + (PRIME supply − cheapest stable borrow) × leverage on the PRIME slice. Updated to the awy3xUSD InterestBearing rate by the rate cron.",
+      "Your awy3xUSD balance grows automatically through the Token-2022 InterestBearing extension at the live levered rate.",
+      "Withdraw any time — Foundation unwinds the multiply position and returns USDC. Larger withdrawals may queue an ONyc redemption (24–72h fulfillment).",
+    ],
+    status: "live",
+    vaultPda: process.env.NEXT_PUBLIC_AWY3X_VAULT_PDA || "",
+    usdcAccount: process.env.NEXT_PUBLIC_AWY3X_USDC_ATA || "",
+    mint: process.env.NEXT_PUBLIC_AWY3X_MINT || "",
+    multisig: process.env.VAULT_AWY3X_MULTISIG || "",
   },
 ];

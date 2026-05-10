@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { FOUNDATION_VAULTS } from "@/lib/vaults";
 import { getOroData } from "@/lib/integrations/oro";
-import { getAwyData, getLeveragedAwyData } from "@/lib/integrations/awy";
+import { getAwyData, getLeveragedAwyData, getLeveragedAwyDataForTier } from "@/lib/integrations/awy";
 import { getSolomonData } from "@/lib/integrations/solomon";
 import { isSupabaseConfigured, supabaseAdmin } from "@/lib/supabase-server";
 
@@ -76,7 +76,7 @@ async function fetchOroGoldPrice(): Promise<number> {
 
 export async function GET() {
   try {
-    const [kaminoApy, oroGoldPrice, oroData, awyData, leveragedAwyData, solomonData, tvlMap] = await Promise.all([
+    const [kaminoApy, oroGoldPrice, oroData, awyData, leveragedAwyData, awy2xData, awy3xData, solomonData, tvlMap] = await Promise.all([
       fetchKaminoApy(),
       fetchOroGoldPrice(),
       getOroData(),
@@ -85,6 +85,8 @@ export async function GET() {
         console.warn("getLeveragedAwyData failed, omitting leverage meta:", err);
         return null;
       }),
+      getLeveragedAwyDataForTier("2x").catch(() => null),
+      getLeveragedAwyDataForTier("3x").catch(() => null),
       getSolomonData().catch((err) => {
         console.warn("getSolomonData failed, falling back to vault registry value:", err);
         return null;
@@ -124,19 +126,33 @@ export async function GET() {
         };
       }
       if (v.protocol === "awy") {
-        // Headline APY tracks the LIVE blended yield from per-leg fetchers; only
-        // falls back to the registry default if every leg's data path is down.
-        // Leveraged math is exposed under `meta.leverage` as a methodology
-        // preview (no on-chain execution yet).
-        const liveBlended = Number.isFinite(awyData.blendedBaseApy) && awyData.blendedBaseApy > 0
-          ? awyData.blendedBaseApy
-          : null;
+        // Tier-specific APY: base AWY uses unlevered blend; 2x and 3x emit
+        // their tier-specific levered net APY (matches the on-chain
+        // iterated-loop config in deploy-capital.ts and the rate the cron
+        // pushes to each receipt mint).
+        let apy = v.apy;
+        let apySource = "spec-fallback";
+        if (v.id === "fdn-awy-2x" && awy2xData && awy2xData.netApy > 0) {
+          apy = awy2xData.netApy * 100;
+          apySource = "live-2x";
+        } else if (v.id === "fdn-awy-3x" && awy3xData && awy3xData.netApy > 0) {
+          apy = awy3xData.netApy * 100;
+          apySource = "live-3x";
+        } else if (v.id === "fdn-awy") {
+          const liveBlended = Number.isFinite(awyData.blendedBaseApy) && awyData.blendedBaseApy > 0
+            ? awyData.blendedBaseApy
+            : null;
+          if (liveBlended !== null) {
+            apy = liveBlended;
+            apySource = "live-blend";
+          }
+        }
         return {
           ...v,
-          apy: liveBlended ?? v.apy,
+          apy,
           tvlUsd,
           meta: {
-            apySource: liveBlended !== null ? "live-blend" : "spec-fallback",
+            apySource,
             composition: awyData.legs.map((leg) => ({
               id: leg.id,
               asset: leg.asset,
