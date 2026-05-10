@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { Inter, Cormorant_Garamond, DM_Mono } from "next/font/google";
-import Script from "next/script";
 import { WalletProvider } from "@/components/WalletProvider";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
@@ -29,25 +28,25 @@ const dmMono = DM_Mono({
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "https://fdnusd.com"),
-  title: "Foundation: Managed RWA Yield on Solana",
+  title: "Foundation: The financing layer for the AI super-cycle",
   description:
-    "Deposit USDC into managed RWA vaults. Earn yield from Solomon basis trades, Kamino PRIME lending, and Oro tokenized gold. All on Solana via Squads multisig.",
+    "Index funds and managed RWA vaults on Solana. Compute Yield (FCY) — on-chain AI infrastructure debt — plus All-Weather Yield (AWY). USDC in, appreciating receipt token out, custodied via Squads multisig.",
   icons: {
     icon: "/favicon.png",
     apple: "/favicon.png",
   },
   openGraph: {
-    title: "Foundation: Managed RWA Yield on Solana",
+    title: "Foundation: The financing layer for the AI super-cycle",
     description:
-      "Deposit USDC into managed RWA vaults. Solomon, Kamino, Oro strategies on Solana.",
+      "On-chain index funds for AI infrastructure debt and RWA yield. Compute Vault (FCY) + All-Weather Yield (AWY) on Solana.",
     type: "website",
     siteName: "Foundation",
   },
   twitter: {
     card: "summary",
-    title: "Foundation: Managed RWA Yield on Solana",
+    title: "Foundation: The financing layer for the AI super-cycle",
     description:
-      "Deposit USDC into managed RWA vaults. Solomon, Kamino, Oro strategies on Solana.",
+      "On-chain index funds for AI infrastructure debt and RWA yield. Compute Vault (FCY) + All-Weather Yield (AWY) on Solana.",
   },
 };
 
@@ -58,13 +57,18 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${inter.variable} ${cormorant.variable} ${dmMono.variable}`} suppressHydrationWarning>
+      <head>
+        {/* Prevent FOUC: apply saved theme synchronously before first paint.
+            Plain inline script — Server Component renders this into the static
+            HTML, so it executes before React hydrates and dodges the
+            "scripts inside React components" warning that next/script trips. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{var d=document.documentElement,m=localStorage.getItem('darkMode');if(m==='true'){d.classList.remove('light')}else{d.classList.add('light')}}catch(e){document.documentElement.classList.add('light')}`,
+          }}
+        />
+      </head>
       <body className="min-h-screen antialiased">
-        {/* Prevent FOUC: apply saved theme before paint. next/script with
-            beforeInteractive ensures it runs in <head> before React hydrates. */}
-        <Script
-          id="theme-init"
-          strategy="beforeInteractive"
-        >{`try{var d=document.documentElement,m=localStorage.getItem('darkMode');if(m==='true'){d.classList.remove('light')}else{d.classList.add('light')}}catch(e){document.documentElement.classList.add('light')}`}</Script>
         <NoiseBackground />
         <WalletProvider>
           <Navbar />

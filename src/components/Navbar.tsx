@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { IconWalletMoney, IconCoin, IconSafe } from "@/components/Icons";
+import { Cpu } from "lucide-react";
 import { WalletButton } from "@/components/WalletButton";
 import { NotificationBell } from "@/components/NotificationBell";
 
@@ -16,6 +17,7 @@ import { NotificationBell } from "@/components/NotificationBell";
 const NAV_TABS = [
   { key: "portfolio", label: "Portfolio", Icon: IconWalletMoney, path: "/portfolio" },
   { key: "invest", label: "Invest", Icon: IconCoin, path: "/" },
+  { key: "compute", label: "Compute", Icon: Cpu, path: "/compute" },
   { key: "transparency", label: "Transparency", Icon: IconSafe, path: "/transparency" },
 ];
 
@@ -76,6 +78,7 @@ export function Navbar() {
               const isActive =
                 (tab.key === "portfolio" && pathname === "/portfolio") ||
                 (tab.key === "invest" && (pathname === "/" || pathname.startsWith("/strategy"))) ||
+                (tab.key === "compute" && pathname.startsWith("/compute")) ||
                 (tab.key === "transparency" && pathname === "/transparency");
               return (
                 <Link
