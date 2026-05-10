@@ -46,11 +46,19 @@ const USDV_MINT = new PublicKey("Ex5DaKYMCN6QWFA4n67TmMwsH8MJV68RX6YXTmVM532C");
 const KAMINO_API = "https://api.kamino.finance";
 const KAMINO_PRIME_MARKET = "CqAoLuqWtavaVE8deBjMKe8ZfSt9ghR6Vb8nfsyabyHA";
 const KAMINO_PRIME_USDC_RESERVE = "9GJ9GBRwCp4pHmWrQ43L5xpc9Vykg7jnfwcFGN8FoHYu";
+// PRIME stable borrow reserves — used by levered AWY tiers' iterated loop.
+// USDS is the canonical levered-loop borrow asset per AWY-model (lowest mean
+// borrow APY in the 30-day backtest). Fall back to PYUSD if USDS borrow
+// liquidity is exhausted.
+const KAMINO_PRIME_USDS_RESERVE = "7SzMWArC8WAenndXFmRyfvcvrNPodqUFkmPrmmoRZvn4";
 // Main market — used as the syrupUSDC leg's routing rail until Maple ships
 // a Solana-native lending program. We supply USDC and earn the main market
 // supply rate; this is documented as a proxy in the AWY composition copy.
 const KAMINO_MAIN_MARKET = "7u3HeHxYDLhnCoErrtycNokbQYbWGzLs6JSDqGAv5PfF";
 const KAMINO_MAIN_USDC_RESERVE = "D6q6wuQSrifJKZYpR1M8R4YawnLDtDsMmWM1NbBmgJ59";
+// Main market PYUSD borrow reserve — cheapest stable borrow on Main per the
+// AWY-model 30-day backtest. Used by the syrupUSDC slice's levered loop.
+const KAMINO_MAIN_PYUSD_RESERVE = "2gc9Dm1eB6UgVYFBUN9bWks6Kes9PbWSaPaa9DqyvEiN";
 
 const JUPITER_API = "https://lite-api.jup.ag/swap/v1";
 
@@ -67,7 +75,7 @@ const ORO_GRAIL_SLIPPAGE_BPS = Number(process.env.ORO_GRAIL_SLIPPAGE_BPS) || 50;
  * Retry wrapper for external HTTP APIs. Backs off on 503/504/network errors;
  * surfaces 4xx immediately (those are real client errors, not transient).
  */
-async function fetchWithRetry(url: string, init?: RequestInit, attempts = 3): Promise<Response> {
+export async function fetchWithRetry(url: string, init?: RequestInit, attempts = 3): Promise<Response> {
   let lastErr: unknown;
   for (let i = 0; i < attempts; i++) {
     try {
@@ -145,6 +153,9 @@ export async function deployCapital(
         return await deployToOro(usdcAmount);
       case "awy":
         return await deployToAwy(usdcAmount);
+      case "awy2x":
+      case "awy3x":
+        return await deployToAwyLevered(vaultName, usdcAmount);
       default:
         return { success: false, error: `Unknown vault: ${vaultName}` };
     }
@@ -172,6 +183,9 @@ export async function withdrawCapital(
         return await withdrawFromOro(usdcAmount);
       case "awy":
         return await withdrawFromAwy(usdcAmount);
+      case "awy2x":
+      case "awy3x":
+        return await withdrawFromAwyLevered(vaultName, usdcAmount);
       default:
         return { success: false, error: `Unknown vault: ${vaultName}` };
     }
@@ -179,6 +193,247 @@ export async function withdrawCapital(
     console.error(`withdrawCapital(${vaultName}) failed:`, error);
     return { success: false, error: error instanceof Error ? error.message : "Withdrawal failed" };
   }
+}
+
+// ============================================================
+// AWY Levered (2x / 3x) — real on-chain leverage via iterated klend loop
+// ============================================================
+//
+// Per AWY-model spec:
+//   - PRIME slice: USDC supply / USDS borrow on PRIME market
+//   - syrupUSDC slice: USDC supply / PYUSD borrow on Main market (proxy)
+//   - ONyc slice: stays unlevered (Kamino reserve not published yet)
+//   - Solomon slice: stays unlevered (perp leverage internal to the basis trade)
+//
+// Tier configs:
+//   AWY 2x: 50% target LTV, 4 rounds → ~1.94x effective on levered legs
+//   AWY 3x: 80% target LTV, 5 rounds → ~4.10x effective on levered legs
+//
+// Round semantics: round N supplies USDC, then borrows L × supplied. Final
+// round skips borrow so the position lands at the converged collateral
+// without an extra debt slice. Effective leverage = total_collateral /
+// initial_deposit. Real obligation, real liquidation risk; cron pushes the
+// resulting net APY to the receipt mint.
+
+interface AwyLeveredTier {
+  /** Target LTV for both PRIME and syrupUSDC iterated loops (decimal). */
+  ltv: number;
+  /** Number of supply→borrow rounds. */
+  rounds: number;
+}
+
+const AWY_TIER_2X: AwyLeveredTier = { ltv: 0.50, rounds: 4 };
+const AWY_TIER_3X: AwyLeveredTier = { ltv: 0.80, rounds: 5 };
+
+async function deployToAwyLevered(
+  vaultName: "awy2x" | "awy3x",
+  usdcAmount: number,
+): Promise<{ success: boolean; tx?: string; error?: string; meta?: AwyLegResult[] }> {
+  const tier = vaultName === "awy2x" ? AWY_TIER_2X : AWY_TIER_3X;
+  const vault = getVaultAddresses(vaultName);
+  const { runIteratedLoop } = await import("@/lib/integrations/kamino-loop");
+
+  const onycAmt    = Math.floor((usdcAmount * AWY_WEIGHTS_BPS.onyc)  / 10_000);
+  const primeAmt   = Math.floor((usdcAmount * AWY_WEIGHTS_BPS.prime) / 10_000);
+  const syrupAmt   = Math.floor((usdcAmount * AWY_WEIGHTS_BPS.syrup) / 10_000);
+  const solomonAmt = usdcAmount - onycAmt - primeAmt - syrupAmt;
+
+  const results: AwyLegResult[] = [];
+
+  // PRIME slice — levered via iterated loop on PRIME market USDC/USDS.
+  if (primeAmt > 0) {
+    try {
+      const loop = await runIteratedLoop({
+        vaultName,
+        market: KAMINO_PRIME_MARKET,
+        supplyReserve: KAMINO_PRIME_USDC_RESERVE,
+        borrowReserve: KAMINO_PRIME_USDS_RESERVE,
+        initialUsdc: BigInt(primeAmt),
+        targetLtv: tier.ltv,
+        rounds: tier.rounds,
+      });
+      console.log(
+        `${vaultName}[prime]: levered ${primeAmt / 1e6} USDC at ${(tier.ltv * 100).toFixed(0)}% LTV ` +
+        `→ ${loop.effectiveLeverage.toFixed(2)}x effective`,
+      );
+      results.push({
+        leg: "prime",
+        status: "deployed",
+        tx: loop.rounds[0]?.supplyTx,
+        amountUsdc: primeAmt,
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error(`${vaultName}[prime] LEVERED LOOP FAILED:`, msg);
+      results.push({ leg: "prime", status: "failed", amountUsdc: primeAmt, error: msg });
+    }
+  }
+
+  // syrupUSDC slice — levered via iterated loop on Main market USDC/PYUSD.
+  if (syrupAmt > 0) {
+    try {
+      const loop = await runIteratedLoop({
+        vaultName,
+        market: KAMINO_MAIN_MARKET,
+        supplyReserve: KAMINO_MAIN_USDC_RESERVE,
+        borrowReserve: KAMINO_MAIN_PYUSD_RESERVE,
+        initialUsdc: BigInt(syrupAmt),
+        targetLtv: tier.ltv,
+        rounds: tier.rounds,
+      });
+      console.log(
+        `${vaultName}[syrup]: levered ${syrupAmt / 1e6} USDC at ${(tier.ltv * 100).toFixed(0)}% LTV ` +
+        `→ ${loop.effectiveLeverage.toFixed(2)}x effective`,
+      );
+      results.push({
+        leg: "syrup-usdc",
+        status: "deployed",
+        tx: loop.rounds[0]?.supplyTx,
+        amountUsdc: syrupAmt,
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error(`${vaultName}[syrup] LEVERED LOOP FAILED:`, msg);
+      results.push({ leg: "syrup-usdc", status: "failed", amountUsdc: syrupAmt, error: msg });
+    }
+  }
+
+  // ONyc slice — unlevered take_offer at NAV (Kamino reserve not published).
+  if (onycAmt > 0) {
+    try {
+      const { buildOnycTakeOfferIxs } = await import("@/lib/integrations/awy/onyc");
+      const plan = await buildOnycTakeOfferIxs({
+        user: vault.vaultPda,
+        feePayer: vault.vaultPda,
+        usdcAmount: BigInt(onycAmt),
+      });
+      const sig = await executeVaultTransaction(vaultName, plan.instructions);
+      results.push({ leg: "onyc", status: "deployed", tx: sig, amountUsdc: onycAmt });
+    } catch (e) {
+      results.push({ leg: "onyc", status: "failed", amountUsdc: onycAmt, error: e instanceof Error ? e.message : String(e) });
+    }
+  }
+
+  // Solomon slice — unlevered USDC → USDv swap (basis trade has internal leverage).
+  if (solomonAmt > 0) {
+    try {
+      const swapSig = await jupiterSwap({
+        vaultName,
+        vaultPda: vault.vaultPda,
+        inputMint: USDC_MINT,
+        outputMint: USDV_MINT,
+        amount: solomonAmt,
+        slippageBps: DEFAULT_SLIPPAGE_BPS,
+      });
+      results.push({ leg: "solomon", status: "deployed", tx: swapSig, amountUsdc: solomonAmt });
+    } catch (e) {
+      results.push({ leg: "solomon", status: "failed", amountUsdc: solomonAmt, error: e instanceof Error ? e.message : String(e) });
+    }
+  }
+
+  const firstDeployedTx = results.find((r) => r.status === "deployed")?.tx;
+  const allFailed = results.length > 0 && results.every((r) => r.status === "failed");
+
+  console.log(
+    `${vaultName} levered deploy(${usdcAmount / 1e6} USDC):`,
+    results.map((r) => `${r.leg}=${r.status}`).join(" "),
+  );
+
+  return {
+    success: !allFailed,
+    tx: firstDeployedTx,
+    meta: results,
+    error: allFailed ? `All ${vaultName} legs failed` : undefined,
+  };
+}
+
+async function withdrawFromAwyLevered(
+  vaultName: "awy2x" | "awy3x",
+  usdcAmount: number,
+): Promise<{ success: boolean; tx?: string; error?: string }> {
+  const vault = getVaultAddresses(vaultName);
+  const connection = getConnection();
+  const { unwindIteratedLoop } = await import("@/lib/integrations/kamino-loop");
+  let remaining = usdcAmount;
+  let lastTx: string | undefined;
+
+  // 1. Idle USDC in vault PDA's USDC ATA (cheapest, instant).
+  const usdcBalRes = await connection.getTokenAccountBalance(vault.usdcAta!).catch(() => null);
+  const idleUsdc = usdcBalRes ? Number(usdcBalRes.value.amount) : 0;
+  if (idleUsdc >= remaining) {
+    return { success: true };
+  }
+  remaining -= idleUsdc;
+
+  // 2. Unwind PRIME levered loop. Repays USDS debt, withdraws USDC collateral.
+  if (remaining > 0) {
+    try {
+      const u = await unwindIteratedLoop({
+        vaultName,
+        market: KAMINO_PRIME_MARKET,
+        supplyReserve: KAMINO_PRIME_USDC_RESERVE,
+        borrowReserve: KAMINO_PRIME_USDS_RESERVE,
+        targetUsdcOut: BigInt(remaining),
+      });
+      if (u.txs.length > 0) lastTx = u.txs[u.txs.length - 1];
+      remaining -= Number(u.usdcReturned);
+      console.log(`${vaultName} withdraw: PRIME unwind freed ${Number(u.usdcReturned) / 1e6} USDC`);
+      if (remaining <= 0) return { success: true, tx: lastTx };
+    } catch (e) {
+      console.error(`${vaultName} withdraw: PRIME unwind failed:`, e);
+    }
+  }
+
+  // 3. Unwind syrupUSDC levered loop on Main market.
+  if (remaining > 0) {
+    try {
+      const u = await unwindIteratedLoop({
+        vaultName,
+        market: KAMINO_MAIN_MARKET,
+        supplyReserve: KAMINO_MAIN_USDC_RESERVE,
+        borrowReserve: KAMINO_MAIN_PYUSD_RESERVE,
+        targetUsdcOut: BigInt(remaining),
+      });
+      if (u.txs.length > 0) lastTx = u.txs[u.txs.length - 1];
+      remaining -= Number(u.usdcReturned);
+      console.log(`${vaultName} withdraw: Main unwind freed ${Number(u.usdcReturned) / 1e6} USDC`);
+      if (remaining <= 0) return { success: true, tx: lastTx };
+    } catch (e) {
+      console.error(`${vaultName} withdraw: Main unwind failed:`, e);
+    }
+  }
+
+  // 4. Reverse-swap idle USDv (Solomon leg) → USDC if there's still a gap.
+  if (remaining > 0) {
+    const usdvAta = getAssociatedTokenAddressSync(USDV_MINT, vault.vaultPda, true, TOKEN_PROGRAM_ID);
+    const usdvBalRes = await connection.getTokenAccountBalance(usdvAta).catch(() => null);
+    const usdvBalance = usdvBalRes ? Number(usdvBalRes.value.amount) : 0;
+    if (usdvBalance > 0) {
+      const swapAmt = Math.min(usdvBalance, remaining * 1000);
+      try {
+        const sig = await jupiterSwap({
+          vaultName,
+          vaultPda: vault.vaultPda,
+          inputMint: USDV_MINT,
+          outputMint: USDC_MINT,
+          amount: swapAmt,
+          slippageBps: REVERSE_SLIPPAGE_BPS,
+        });
+        lastTx = sig;
+        console.log(`${vaultName} withdraw: reverse-swapped ${swapAmt / 1e9} USDv → USDC`);
+      } catch (e) {
+        console.error(`${vaultName} withdraw: USDv reverse-swap failed:`, e);
+      }
+    }
+  }
+
+  if (!lastTx) {
+    return {
+      success: false,
+      error: `${vaultName}: insufficient liquidity across levered legs to service withdrawal`,
+    };
+  }
+  return { success: true, tx: lastTx };
 }
 
 // ============================================================
@@ -868,7 +1123,7 @@ async function jupiterSwap(params: {
  * lets us pass them through to the Squads vault tx wrapper, which keeps the
  * compiled v0 message under the 1232-byte limit.
  */
-async function deserializeTxInstructions(
+export async function deserializeTxInstructions(
   txBase64: string,
 ): Promise<{ instructions: TransactionInstruction[]; lookupTableAccounts: AddressLookupTableAccount[] }> {
   const buffer = Buffer.from(txBase64, "base64");

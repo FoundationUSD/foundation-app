@@ -43,6 +43,16 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Reject deposits to coming_soon vaults — defense in depth even though the
+    // UI shouldn't surface the deposit form for these.
+    const vaultDef = FOUNDATION_VAULTS.find((v) => v.id === vaultId);
+    if (vaultDef?.status === "coming_soon") {
+      return NextResponse.json(
+        { success: false, error: `${vaultDef.name} is coming soon — deposits not yet enabled` },
+        { status: 403 },
+      );
+    }
+
     const vault = getVaultAddresses(vaultName);
     if (!vault.mint) {
       return NextResponse.json(

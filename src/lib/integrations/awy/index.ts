@@ -390,6 +390,150 @@ export async function getLeveragedAwyData(): Promise<LeveragedAwyData> {
 }
 
 /**
+ * Tier-specific levered AWY data. Used by the rate cron to push tier-appropriate
+ * net APY to `awy2xUSD` / `awy3xUSD` mints.
+ *
+ * Tier mapping per AWY-model:
+ *   - 2x: PRIME 50% LTV, syrup 50% LTV, ONyc + Solomon unlevered
+ *   - 3x: PRIME 80% LTV (model max), syrup 80% LTV, ONyc + Solomon unlevered
+ *
+ * ONyc stays unlevered in both tiers because Kamino has not yet published an
+ * ONyc lending reserve. When that lands, plug in the per-tier LTV override
+ * here and the cron picks it up automatically.
+ */
+export async function getLeveragedAwyDataForTier(
+  tier: "2x" | "3x",
+): Promise<LeveragedAwyData> {
+  const tierLtv = tier === "2x" ? 0.50 : 0.80;
+  const ltvOverrides: Partial<Record<AwyLegId, number>> = {
+    prime: tierLtv,
+    "syrup-usdc": tierLtv,
+    // ONyc + Solomon use their LEG_LOOP_CONFIG defaults (unlevered for both).
+  };
+
+  const [{ LEG_LOOP_CONFIG, loopMath, evaluateLtvSweep }, { pickCheapestBorrow }, awyData] =
+    await Promise.all([
+      import("./leverage"),
+      import("./kamino-borrow"),
+      getAwyData(),
+    ]);
+
+  const perLeg: LeveragedLeg[] = await Promise.all(
+    AWY_COMPOSITION.map(async (spec): Promise<LeveragedLeg> => {
+      const cfg = LEG_LOOP_CONFIG[spec.id];
+      const live = awyData.legs.find((l) => l.id === spec.id);
+      const liveUnderlying =
+        live && Number.isFinite(live.liveApy) && live.liveApy > 0 && live.source !== "spec-fallback"
+          ? live.liveApy / 100
+          : null;
+      const underlyingApy = liveUnderlying ?? spec.baseApy / 100;
+      const underlyingSource: "live" | "model" = liveUnderlying !== null ? "live" : "model";
+
+      // Tier-specific LTV: override if defined for this leg, else use config default.
+      const effectiveLtv = ltvOverrides[spec.id] ?? cfg.defaultLtv;
+
+      if (!cfg.leveraged || effectiveLtv === 0) {
+        const loop = {
+          leverageMultiple: 1,
+          grossApy: underlyingApy,
+          borrowDrag: 0,
+          netApy: underlyingApy,
+        };
+        return {
+          id: spec.id,
+          asset: spec.asset,
+          issuer: spec.issuer,
+          weightBps: spec.weightBps,
+          underlyingApy,
+          ltv: 0,
+          liquidationLtv: 0,
+          borrowAsset: null,
+          borrowReserve: "",
+          borrowApy: 0,
+          loop,
+          contributionApy: (spec.weightBps / 10_000) * underlyingApy,
+          ltvSweep: [],
+          underlyingSource,
+          borrowSource: "n/a",
+          loopVenueLive: LOOP_VENUE_LIVE[spec.id],
+        };
+      }
+
+      let liveBorrow: number | null = null;
+      let borrowAsset = MODEL_BORROW_ASSET[spec.id];
+      let borrowReserve = "";
+      let borrowSource: "live" | "model" = "model";
+
+      try {
+        const borrowPick = await pickCheapestBorrow(cfg.kaminoMarket, { specFallbackApy: NaN });
+        if (borrowPick.source === "live" && Number.isFinite(borrowPick.meanApy)) {
+          liveBorrow = borrowPick.meanApy;
+          borrowAsset = borrowPick.asset;
+          borrowReserve = borrowPick.reserveId;
+          borrowSource = "live";
+        }
+      } catch {}
+
+      const borrowApy = liveBorrow ?? MODEL_MEAN_BORROW_APY[spec.id];
+      const loop = loopMath(underlyingApy, effectiveLtv, borrowApy);
+      const sweep = evaluateLtvSweep({
+        underlyingApy,
+        borrowApy,
+        liquidationLtv: cfg.liquidationLtv,
+        candidates: cfg.ltvCandidates,
+      });
+
+      return {
+        id: spec.id,
+        asset: spec.asset,
+        issuer: spec.issuer,
+        weightBps: spec.weightBps,
+        underlyingApy,
+        ltv: effectiveLtv,
+        liquidationLtv: cfg.liquidationLtv,
+        borrowAsset,
+        borrowReserve,
+        borrowApy,
+        loop,
+        contributionApy: (spec.weightBps / 10_000) * loop.netApy,
+        ltvSweep: sweep,
+        underlyingSource,
+        borrowSource,
+        loopVenueLive: LOOP_VENUE_LIVE[spec.id],
+      };
+    }),
+  );
+
+  let netApy = 0;
+  let grossApy = 0;
+  let borrowDrag = 0;
+  for (const l of perLeg) {
+    const w = l.weightBps / 10_000;
+    netApy += w * l.loop.netApy;
+    grossApy += w * l.loop.grossApy;
+    borrowDrag += w * l.loop.borrowDrag;
+  }
+
+  const totalLeveragedLegs = AWY_COMPOSITION.filter(
+    (s) => LEG_LOOP_CONFIG[s.id].leveraged && (ltvOverrides[s.id] ?? LEG_LOOP_CONFIG[s.id].defaultLtv) > 0,
+  ).length;
+  const legsWithLiveData = perLeg.filter(
+    (l) => l.ltv > 0 && l.borrowSource === "live",
+  ).length;
+
+  return {
+    legs: perLeg,
+    netApy,
+    grossApy,
+    borrowDrag,
+    legsWithLiveData,
+    totalLeveragedLegs,
+    fetchedAt: Date.now(),
+    backtest: MODEL_BACKTEST,
+  };
+}
+
+/**
  * Fetch live per-leg data. Each reader is fault-tolerant — a single leg failing falls
  * back to its spec value rather than blowing up the whole basket. Total failure budget
  * is implicit: if every leg falls back, blendedBaseApy === specBlendedApy.

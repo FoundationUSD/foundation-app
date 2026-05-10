@@ -39,6 +39,8 @@ const MINT_NAMES: Record<string, string> = {
   drift: "driftUSD",
   oro: "oroUSD",
   awy: "awyUSD",
+  awy2x: "awy2xUSD",
+  awy3x: "awy3xUSD",
 };
 
 async function main() {
@@ -48,7 +50,7 @@ async function main() {
 
   if (!secret) { console.error("Set VAULT_AUTHORITY_SECRET"); process.exit(1); }
   if (!vaultName || !MINT_NAMES[vaultName]) {
-    console.error("Set VAULT_NAME to: solomon | kamino | drift | oro | awy");
+    console.error("Set VAULT_NAME to: solomon | kamino | drift | oro | awy | awy2x | awy3x");
     process.exit(1);
   }
 

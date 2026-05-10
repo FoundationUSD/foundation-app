@@ -99,8 +99,21 @@ async function fetchAwyApy(): Promise<number> {
   return data.blendedBaseApy > 0 ? data.blendedBaseApy : data.specBlendedApy;
 }
 
+/**
+ * Tier-specific levered AWY APY. The leverage tier matches the on-chain
+ * iterated-loop config in deploy-capital.ts (50% LTV for 2x, 80% LTV for 3x).
+ * Returns net APY in percent (decimal × 100), matching the convention used by
+ * the other fetchers.
+ */
+async function fetchAwyLeveredApy(tier: "2x" | "3x"): Promise<number> {
+  const { getLeveragedAwyDataForTier } = await import("@/lib/integrations/awy");
+  const data = await getLeveragedAwyDataForTier(tier);
+  // netApy is in decimal form (0.21 = 21%). Convert to percent.
+  return data.netApy > 0 ? data.netApy * 100 : 0;
+}
+
 type VaultRate = {
-  name: "solomon" | "kamino" | "oro" | "awy";
+  name: "solomon" | "kamino" | "oro" | "awy" | "awy2x" | "awy3x";
   envMint: string;
   fetchApy: () => Promise<number>;
   haircut: number; // Foundation fee %
@@ -111,6 +124,8 @@ const VAULT_RATES: VaultRate[] = [
   { name: "kamino", envMint: "NEXT_PUBLIC_KAMINO_MINT", fetchApy: fetchKaminoApy, haircut: 0.10 },
   { name: "oro", envMint: "NEXT_PUBLIC_ORO_MINT", fetchApy: fetchOroApy, haircut: 0.10 },
   { name: "awy", envMint: "NEXT_PUBLIC_AWY_MINT", fetchApy: fetchAwyApy, haircut: 0.10 },
+  { name: "awy2x", envMint: "NEXT_PUBLIC_AWY2X_MINT", fetchApy: () => fetchAwyLeveredApy("2x"), haircut: 0.10 },
+  { name: "awy3x", envMint: "NEXT_PUBLIC_AWY3X_MINT", fetchApy: () => fetchAwyLeveredApy("3x"), haircut: 0.10 },
 ];
 
 /**
@@ -145,7 +160,10 @@ export async function GET(req: NextRequest) {
       }
 
       const netApy = liveApy * (1 - vr.haircut);
-      const newRateBps = Math.max(50, Math.min(2000, Math.round(netApy * 100)));
+      // Cap at 2500 bps (25%) to leave headroom for levered AWY tiers
+      // (AWY 3x targets ~21% net per AWY-model). Floor at 50 bps to filter
+      // failed reads from a 0% rate push.
+      const newRateBps = Math.max(50, Math.min(2500, Math.round(netApy * 100)));
 
       // Build updateRateInterestBearingMint instruction
       const { createUpdateRateInterestBearingMintInstruction } = await import("@solana/spl-token");

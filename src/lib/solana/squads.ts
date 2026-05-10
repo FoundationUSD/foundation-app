@@ -38,7 +38,7 @@ function getConnection(): Connection {
   return _connection;
 }
 
-export type VaultName = "solomon" | "kamino" | "oro" | "awy";
+export type VaultName = "solomon" | "kamino" | "oro" | "awy" | "awy2x" | "awy3x";
 
 /**
  * Get vault addresses for a specific vault by name.
@@ -71,6 +71,8 @@ export function vaultIdToName(vaultId: string): VaultName {
     "fdn-kamino": "kamino",
     "fdn-oro": "oro",
     "fdn-awy": "awy",
+    "fdn-awy-2x": "awy2x",
+    "fdn-awy-3x": "awy3x",
   };
   const name = map[vaultId];
   if (!name) throw new Error(`Unknown vault ID: ${vaultId}`);

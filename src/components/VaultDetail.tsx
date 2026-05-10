@@ -15,7 +15,7 @@ import {
   TOKEN_2022_PROGRAM_ID,
   getAssociatedTokenAddressSync,
   createTransferInstruction,
-  createBurnInstruction,
+  createApproveCheckedInstruction,
 } from "@solana/spl-token";
 import { VaultHistoryChart } from "@/components/VaultHistoryChart";
 import { formatAPY } from "@/lib/utils";
@@ -185,6 +185,32 @@ function DepositForm({ vault }: { vault: FoundationVault }) {
   const wallet = useWallet();
   const geo = useGeoGate();
   const [amount, setAmount] = useState("");
+  // Existing position (receipt token balance, on-chain). Shown above the
+  // input so users who have already deposited can see their stake without
+  // switching to the withdraw tab.
+  const [positionRaw, setPositionRaw] = useState<bigint>(BigInt(0));
+
+  useEffect(() => {
+    if (!wallet.publicKey || !vault.mint) {
+      setPositionRaw(BigInt(0));
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const mintPk = new PublicKey(vault.mint!);
+        const userAta = getAssociatedTokenAddressSync(mintPk, wallet.publicKey!, false, TOKEN_2022_PROGRAM_ID);
+        const res = await connection.getTokenAccountBalance(userAta).catch(() => null);
+        if (cancelled) return;
+        setPositionRaw(res?.value?.amount ? BigInt(res.value.amount) : BigInt(0));
+      } catch {
+        if (!cancelled) setPositionRaw(BigInt(0));
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [wallet.publicKey, vault.id, vault.mint, connection]);
+
+  const positionDisplay = Number(positionRaw) / 1e6;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [txSig, setTxSig] = useState<string | null>(null);
@@ -246,9 +272,19 @@ function DepositForm({ vault }: { vault: FoundationVault }) {
 
   return (
     <form onSubmit={handleDeposit}>
-      <p className="mb-4 font-mono text-[10px] text-[var(--text-accent)]">
+      <p className="mb-2 font-mono text-[10px] text-[var(--text-accent)]">
         {vault.provider} · {vault.assetName} · {formatAPY(vault.apy)} APY
       </p>
+      {positionDisplay > 0 && (
+        <div className="mb-3 flex items-center justify-between rounded-md border border-emerald-500/20 bg-emerald-500/5 px-2.5 py-1.5">
+          <span className="font-mono text-[10px] uppercase tracking-wider text-[var(--text-accent)]">
+            Your position
+          </span>
+          <span className="font-mono text-[11px] font-semibold text-emerald-600">
+            {positionDisplay.toFixed(6).replace(/\.?0+$/, "")} {vault.receiptToken}
+          </span>
+        </div>
+      )}
       {geoBlocksAwy && (
         <div className="mb-4 rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2.5 text-[11px] leading-relaxed text-amber-700 dark:text-amber-400">
           <span className="font-mono uppercase tracking-wider">Restricted</span> — AWY deposits
@@ -281,78 +317,191 @@ function WithdrawForm({ vault }: { vault: FoundationVault }) {
   const { connection } = useConnection();
   const wallet = useWallet();
   const [amount, setAmount] = useState("");
-  const [balance, setBalance] = useState(0);
+  // On-chain receipt token balance. Recovery flow: this can be 0 while the
+  // ledger entitlement is still > 0 (past failed burns left the ledger ahead
+  // of the chain).
+  const [rawBalance, setRawBalance] = useState<bigint>(BigInt(0));
+  // Ledger entitlement (USDC) — what the user is *owed*.
+  const [entitlementUsdc, setEntitlementUsdc] = useState<number>(0);
+  // Max withdrawable RIGHT NOW — min(entitlement, vault recoverable).
+  // Server-computed in /api/user/portfolio so the form never asks for
+  // more than the vault can actually pay.
+  const [maxWithdrawableUsdc, setMaxWithdrawableUsdc] = useState<number>(0);
+  const [balanceLoading, setBalanceLoading] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [txSig, setTxSig] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  // The cap on what the user can type. Always ≤ entitlement.
+  const balance = maxWithdrawableUsdc;
+
+  const refresh = async () => {
+    if (!wallet.publicKey || !vault.mint) {
+      setRawBalance(BigInt(0));
+      setEntitlementUsdc(0);
+      setBalanceLoading(false);
+      return;
+    }
+    setBalanceLoading(true);
+    try {
+      const mintPk = new PublicKey(vault.mint!);
+      const userAta = getAssociatedTokenAddressSync(mintPk, wallet.publicKey!, false, TOKEN_2022_PROGRAM_ID);
+      const [chainRes, ledgerRes] = await Promise.all([
+        connection.getTokenAccountBalance(userAta).catch(() => null),
+        fetch(`/api/user/portfolio?wallet=${wallet.publicKey!.toBase58()}`).then((r) => r.json()).catch(() => null),
+      ]);
+      const raw = chainRes?.value?.amount ? BigInt(chainRes.value.amount) : BigInt(0);
+      setRawBalance(raw);
+      const pos = ledgerRes?.data?.find((p: { vaultId: string }) => p.vaultId === vault.id);
+      setEntitlementUsdc(pos ? Number(pos.depositedUsdc) : 0);
+      setMaxWithdrawableUsdc(pos ? Number(pos.maxWithdrawableUsdc ?? pos.depositedUsdc) : 0);
+    } catch {
+      setRawBalance(BigInt(0));
+      setEntitlementUsdc(0);
+      setMaxWithdrawableUsdc(0);
+    } finally {
+      setBalanceLoading(false);
+    }
+  };
 
   useEffect(() => {
-    if (!wallet.publicKey) return;
+    let cancelled = false;
     (async () => {
-      try {
-        const res = await fetch(`/api/user/portfolio?wallet=${wallet.publicKey!.toBase58()}`);
-        const json = await res.json();
-        const pos = json.data?.find((p: { vaultId: string }) => p.vaultId === vault.id);
-        setBalance(pos ? pos.depositedUsdc : 0);
-      } catch { setBalance(0); }
+      if (!cancelled) await refresh();
     })();
-  }, [wallet.publicKey, vault.id]);
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wallet.publicKey, vault.id, vault.mint]);
 
-  const handleWithdraw = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!wallet.publicKey || !wallet.signTransaction || !vault.mint) return;
-    const num = parseFloat(amount);
-    if (isNaN(num) || num <= 0 || num > balance) { setError(num > balance ? "Exceeds balance" : "Enter valid amount"); return; }
-
-    setLoading(true); setError(null); setTxSig(null);
-    try {
-      const lamports = Math.floor(num * 1e6);
-      const mintPk = new PublicKey(vault.mint);
-      const userAta = getAssociatedTokenAddressSync(mintPk, wallet.publicKey, false, TOKEN_2022_PROGRAM_ID);
-      const ix = createBurnInstruction(userAta, mintPk, wallet.publicKey, lamports, [], TOKEN_2022_PROGRAM_ID);
-      const feeIx = SystemProgram.transfer({
+  /**
+   * Sign the user-side fee tx that authorises the withdrawal:
+   *   - Pays PROTOCOL_FEE_SOL to the vault authority (the protocol fee)
+   *   - Includes an Approve ix granting vault PDA delegate authority over
+   *     the receipt-token ATA when needed (so the server can burn on the
+   *     user's behalf inside the atomic Squads tx).
+   *
+   * The signature returned here is what the server idempotency-checks against
+   * sol_withdrawals.burn_tx. One signed tx == one withdrawal.
+   */
+  const signFeeAndApprove = async (includeApprove: boolean) => {
+    if (!wallet.publicKey || !wallet.signTransaction || !vault.mint) {
+      throw new Error("Wallet not ready");
+    }
+    const ixs = [];
+    ixs.push(
+      SystemProgram.transfer({
         fromPubkey: wallet.publicKey,
         toPubkey: new PublicKey(VAULT_AUTHORITY_PUBKEY),
         lamports: Math.floor(PROTOCOL_FEE_SOL * LAMPORTS_PER_SOL),
-      });
-      const tx = new Transaction().add(ix, feeIx);
-      const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
-      tx.recentBlockhash = blockhash;
-      tx.feePayer = wallet.publicKey;
-      const signed = await wallet.signTransaction(tx);
-      const sig = await connection.sendRawTransaction(signed.serialize());
-      await connection.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, "confirmed");
+      }),
+    );
+    if (includeApprove) {
+      const mintPk = new PublicKey(vault.mint);
+      const userAta = getAssociatedTokenAddressSync(mintPk, wallet.publicKey, false, TOKEN_2022_PROGRAM_ID);
+      const UNLIMITED = BigInt("18446744073709551615"); // u64::MAX
+      ixs.push(
+        createApproveCheckedInstruction(
+          userAta,
+          mintPk,
+          new PublicKey(vault.vaultPda),
+          wallet.publicKey,
+          UNLIMITED,
+          6,
+          [],
+          TOKEN_2022_PROGRAM_ID,
+        ),
+      );
+    }
+    const tx = new Transaction().add(...ixs);
+    const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
+    tx.recentBlockhash = blockhash;
+    tx.feePayer = wallet.publicKey;
+    const signed = await wallet.signTransaction(tx);
+    const sig = await connection.sendRawTransaction(signed.serialize());
+    await connection.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, "confirmed");
+    return sig;
+  };
+
+  const handleWithdraw = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!wallet.publicKey || !vault.mint) return;
+    const num = parseFloat(amount);
+    if (isNaN(num) || num <= 0 || num > balance + 1e-9) {
+      setError(num > balance ? "Exceeds entitlement" : "Enter valid amount");
+      return;
+    }
+
+    setLoading(true); setError(null); setTxSig(null);
+    try {
+      const baseUnits = Math.floor(num * 1e6);
+      // Sign the fee tx (with Approve included if user holds receipt tokens).
+      // Recovery flow (rawBalance == 0) skips Approve since there's nothing
+      // to burn. First-time withdraw with tokens always includes Approve so
+      // the server can burn via delegate inside its atomic Squads tx.
+      const feeTxSignature = await signFeeAndApprove(rawBalance > BigInt(0));
 
       const res = await fetch("/api/withdraw", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ vaultId: vault.id, burnTxSignature: sig, userWallet: wallet.publicKey.toBase58() }),
+        body: JSON.stringify({
+          vaultId: vault.id,
+          amount: baseUnits,
+          userWallet: wallet.publicKey!.toBase58(),
+          feeTxSignature,
+        }),
       });
       const json = await res.json();
-      if (!json.success) throw new Error(json.error);
-      setTxSig(sig);
+      if (!json.success) throw new Error(json.error || "Withdrawal failed");
+      setTxSig(json.data?.transferTx || feeTxSignature);
+      const usdcOut = (Number(json.data?.usdcReturned ?? 0) / 1e6).toFixed(4);
+      setSuccessMsg(`Received ${usdcOut} USDC.`);
       setAmount("");
-      setBalance((b) => b - num);
+      await refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Withdrawal failed");
     } finally { setLoading(false); }
   };
 
-  if (txSig) return <TxSuccess sig={txSig} label="Withdrawal Successful" sub={`${vault.receiptToken} burned. USDC sent to your wallet.`} onReset={() => setTxSig(null)} />;
+  if (txSig) return <TxSuccess sig={txSig} label="Withdrawal Successful" sub={successMsg || "USDC sent to your wallet."} onReset={() => { setTxSig(null); setSuccessMsg(null); }} />;
+
+  // If the user's entitlement is bigger than what's actually withdrawable
+  // right now (vault liquidity short of full entitlement), surface that
+  // honestly so they understand "Available now" vs "Owed".
+  const chainBalance = Number(rawBalance) / 1e6;
+  const liquidityCapped = !balanceLoading && entitlementUsdc > 0 && maxWithdrawableUsdc < entitlementUsdc - 0.000001;
+  const recoveryHint = !balanceLoading && entitlementUsdc > 0.01 && chainBalance < entitlementUsdc - 0.01;
 
   return (
     <form onSubmit={handleWithdraw}>
       <div className="mb-3 flex items-center justify-between">
         <span className="font-mono text-[10px] text-[var(--text-accent)]">
-          Burn {vault.receiptToken} · receive USDC
+          Withdraw USDC
         </span>
-        {balance > 0 && (
-          <span className="font-mono text-[10px] font-medium text-[var(--fg)] bg-[var(--surface-strong)] border border-[var(--rule)] rounded px-2 py-0.5">
-            Bal: {balance.toFixed(2)}
+        {balanceLoading ? (
+          <span className="font-mono text-[10px] text-[var(--text-accent)]">
+            <Loader2 className="inline h-3 w-3 animate-spin" />
           </span>
-        )}
+        ) : entitlementUsdc > 0 ? (
+          <span className="font-mono text-[10px] font-medium text-[var(--fg)] bg-[var(--surface-strong)] border border-[var(--rule)] rounded px-2 py-0.5">
+            Available: {balance.toFixed(6).replace(/\.?0+$/, "")} USDC
+          </span>
+        ) : null}
       </div>
-      <AmountInput value={amount} onChange={setAmount} token={vault.receiptToken} onMax={() => setAmount(balance.toFixed(2))} />
+      {liquidityCapped && (
+        <p className="mb-3 rounded-md border border-amber-500/20 bg-amber-500/5 px-2.5 py-1.5 font-mono text-[10px] leading-relaxed text-amber-700 dark:text-amber-400">
+          You&apos;re owed {entitlementUsdc.toFixed(4)} USDC total, but only{" "}
+          {maxWithdrawableUsdc.toFixed(4)} is withdrawable right now (vault
+          liquidity). The rest auto-covers from yields over time.
+        </p>
+      )}
+      {recoveryHint && !liquidityCapped && (
+        <p className="mb-3 rounded-md border border-emerald-500/20 bg-emerald-500/5 px-2.5 py-1.5 font-mono text-[10px] leading-relaxed text-emerald-700 dark:text-emerald-400">
+          Recovery available: a previous withdraw burned tokens but never returned
+          USDC. Click Withdraw — the server pays your full entitlement directly.
+        </p>
+      )}
+      <AmountInput value={amount} onChange={setAmount} token="USDC" onMax={() => setAmount(balance.toString())} />
       {amount && parseFloat(amount) > 0 && (
         <div className="mb-4 space-y-1">
           <Row label="You receive" value={`~${parseFloat(amount).toFixed(2)} USDC`} />
@@ -360,8 +509,8 @@ function WithdrawForm({ vault }: { vault: FoundationVault }) {
         </div>
       )}
       {error && <p className="mb-3 font-mono text-[10px] text-red-500">{error}</p>}
-      <button type="submit" disabled={loading || !amount || parseFloat(amount) <= 0 || balance <= 0} className="aw-submit">
-        {loading ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Burning...</> : "Withdraw USDC"}
+      <button type="submit" disabled={loading || balanceLoading || !amount || parseFloat(amount) <= 0 || balance <= 0} className="aw-submit">
+        {loading ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Withdrawing...</> : "Withdraw USDC"}
       </button>
     </form>
   );

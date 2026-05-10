@@ -64,10 +64,16 @@ export default function HomePage() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [selectedVault]);
 
+  // AWY 2x and 3x are leverage *settings* on the AWY product, not separate
+  // SKUs. They live on-chain (their own vaults + receipt mints) but are
+  // routed through the single AWY card on /awy. Hide from the invest grid.
+  const surfacedStrategies = strategies.filter(
+    (v) => v.id !== "fdn-awy-2x" && v.id !== "fdn-awy-3x",
+  );
   // Filter by category. Foundation = AWY (Foundation-composed basket); Partner =
   // pass-through partner integrations (Solomon, Kamino, Oro). "All" shows everything.
   const visibleStrategies =
-    activeFilter === "all" ? strategies : strategies.filter((v) => v.category === activeFilter);
+    activeFilter === "all" ? surfacedStrategies : surfacedStrategies.filter((v) => v.category === activeFilter);
   const activeStrategies = visibleStrategies.filter((v) => v.status === "live");
   const comingSoonStrategies = visibleStrategies.filter((v) => v.status === "coming_soon");
 
