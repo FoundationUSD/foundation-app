@@ -78,3 +78,8 @@ tests-integration/dist/
 # anchor idl output (commit the program's IDL only if explicitly intended)
 programs/target/idl/
 programs/target/types/
+# fly
+fly.toml
+
+#todo
+TODO.md

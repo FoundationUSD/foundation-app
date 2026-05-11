@@ -44,7 +44,7 @@ export interface AwyLegSpec {
  * All APY values sourced from the FoundationUSD/AWY-model notebook
  * (`kamino_usdc_borrow_analysis.ipynb`), Cell 1 `MARKET_CONFIGS`.
  *
- * sUSDv updated to 7.1% per Eugene (7-day cooldown, dropped APY, cannot use as buffer).
+ * sUSDv updated to 7.1% (7-day cooldown, dropped APY, cannot be used as buffer).
  */
 export const AWY_COMPOSITION: AwyLegSpec[] = [
   {
@@ -85,7 +85,7 @@ export const AWY_COMPOSITION: AwyLegSpec[] = [
     asset: "sUSDv",
     issuer: "Solomon",
     weightBps: 2000,
-    baseApy: 7.10,   // model: underlying_apy = 0.071 — Eugene: dropped to 7.1%, 7-day cooldown
+    baseApy: 7.10,   // model: underlying_apy = 0.071 — dropped to 7.1% post 7-day cooldown
     maxApy: 7.10,
     leveraged: false,
     riskDriver: "Basis spread",
