@@ -7,14 +7,18 @@
  * That means a Solana program cannot atomically deposit USDC and end up
  * holding syrupUSDC with its underlying yield.
  *
- * For the AWY routing we therefore supply the slice into Kamino's Main
+ * For the AWY routing we therefore supply the slice into Kamino's Syrup
  * market USDC reserve — same operational rail as PRIME — and earn Kamino's
  * USDC supply APY there. This isn't true Maple yield but it's the cleanest
  * mainnet-addressable proxy until Maple ships a Solana-native lending
  * program (or until Hastra/Figure publishes a syrupUSDC alt rail).
  *
+ * Naming note: the user-facing name for this venue is "Syrup". Kamino's
+ * API id for the same market is `"main"` (legacy); the registry in
+ * `kamino.ts` aliases the two — we look up by id `"main"` here.
+ *
  *   Verified syrupUSDC mint:  AvZZF1YaZDziPY2RCK4oJrRVrbN3mTD9NL24hPeaZeUj  (SPL, 6 dec)
- *   Live APY source:          Kamino Main market USDC supply
+ *   Live APY source:          Kamino Syrup market USDC supply
  *   Reference yield:          Maple canonical Eth pool via DefiLlama (informational)
  */
 
@@ -24,7 +28,7 @@ const SYRUP_USDC_MINT_MAINNET =
   process.env.NEXT_PUBLIC_SYRUP_USDC_MINT ||
   "AvZZF1YaZDziPY2RCK4oJrRVrbN3mTD9NL24hPeaZeUj";
 
-const MAIN_MARKET = KAMINO_MARKETS.find((m) => m.id === "main")!.address;
+const SYRUP_MARKET = KAMINO_MARKETS.find((m) => m.id === "main")!.address;
 
 // DefiLlama pool for the canonical Maple Ethereum syrupUSDC pool — used only
 // as a reference / informational fallback, not the routing rate.
@@ -61,14 +65,14 @@ async function fetchLlamaSyrupApy(): Promise<number> {
 
 export async function getSyrupUsdcData(): Promise<SyrupUsdcLiveData> {
   try {
-    const reserves = await getKaminoReserves(MAIN_MARKET);
+    const reserves = await getKaminoReserves(SYRUP_MARKET);
     const usdc = reserves.find((r) => r.symbol.toUpperCase() === "USDC");
     if (usdc && usdc.supplyApy > 0) {
       return {
         apy: usdc.supplyApy * 100,
         nav: 1,
         mint: SYRUP_USDC_MINT_MAINNET,
-        source: "kamino-main-usdc",
+        source: "kamino-syrup-usdc",
       };
     }
   } catch {}

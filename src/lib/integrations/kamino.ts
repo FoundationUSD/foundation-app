@@ -36,10 +36,14 @@ export const KAMINO_MARKETS: KaminoMarketConfig[] = [
     category: "rwa",
   },
   {
+    // `id` stays "main" because that's the venue's id on Kamino's API.
+    // The user-facing `name` is "Syrup" — where the AWY syrupUSDC slice is
+    // deposited as USDC, earning Kamino's USDC supply APY against Maple
+    // syrupUSDC collateral and other listed assets.
     id: "main",
-    name: "Main Market",
+    name: "Kamino Syrup",
     address: "7u3HeHxYDLhnCoErrtycNokbQYbWGzLs6JSDqGAv5PfF",
-    description: "Kamino's primary lending market — SOL, USDC, and 20+ assets",
+    description: "Kamino's main lending market — USDC supply against syrupUSDC (Maple) and other collateral",
     category: "defi",
   },
 ];

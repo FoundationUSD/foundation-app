@@ -323,18 +323,24 @@ function WithdrawForm({ vault }: { vault: FoundationVault }) {
   const [rawBalance, setRawBalance] = useState<bigint>(BigInt(0));
   // Ledger entitlement (USDC) — what the user is *owed*.
   const [entitlementUsdc, setEntitlementUsdc] = useState<number>(0);
-  // Max withdrawable RIGHT NOW — min(entitlement, vault recoverable).
-  // Server-computed in /api/user/portfolio so the form never asks for
-  // more than the vault can actually pay.
+  // Max withdrawable RIGHT NOW — min(entitlement, vault sync-recoverable).
+  // Server-computed in /api/user/portfolio.
   const [maxWithdrawableUsdc, setMaxWithdrawableUsdc] = useState<number>(0);
+  // Additional capacity via ONyc redemption (async, 24-72h). The form lets
+  // the user request up to (max + pendingViaOnyc) and the API queues an
+  // OnRe redemption for the residual.
+  const [pendingViaOnycUsdc, setPendingViaOnycUsdc] = useState<number>(0);
   const [balanceLoading, setBalanceLoading] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [txSig, setTxSig] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [wasQueued, setWasQueued] = useState(false);
 
-  // The cap on what the user can type. Always ≤ entitlement.
-  const balance = maxWithdrawableUsdc;
+  // Let the user request up to their full entitlement. If liquidity is
+  // short, the server queues the residual via ONyc redemption (24-72h) —
+  // a clean single-status flow rather than an awkward split breakdown.
+  const balance = entitlementUsdc;
 
   const refresh = async () => {
     if (!wallet.publicKey || !vault.mint) {
@@ -356,10 +362,12 @@ function WithdrawForm({ vault }: { vault: FoundationVault }) {
       const pos = ledgerRes?.data?.find((p: { vaultId: string }) => p.vaultId === vault.id);
       setEntitlementUsdc(pos ? Number(pos.depositedUsdc) : 0);
       setMaxWithdrawableUsdc(pos ? Number(pos.maxWithdrawableUsdc ?? pos.depositedUsdc) : 0);
+      setPendingViaOnycUsdc(pos ? Number(pos.pendingViaOnycUsdc ?? 0) : 0);
     } catch {
       setRawBalance(BigInt(0));
       setEntitlementUsdc(0);
       setMaxWithdrawableUsdc(0);
+      setPendingViaOnycUsdc(0);
     } finally {
       setBalanceLoading(false);
     }
@@ -454,8 +462,16 @@ function WithdrawForm({ vault }: { vault: FoundationVault }) {
       const json = await res.json();
       if (!json.success) throw new Error(json.error || "Withdrawal failed");
       setTxSig(json.data?.transferTx || feeTxSignature);
-      const usdcOut = (Number(json.data?.usdcReturned ?? 0) / 1e6).toFixed(4);
-      setSuccessMsg(`Received ${usdcOut} USDC.`);
+      const usdcOut = Number(json.data?.usdcReturned ?? 0) / 1e6;
+      const pendingOnyc = Number(json.data?.pendingOnycUsdc ?? 0) / 1e6;
+      const total = usdcOut + pendingOnyc;
+      const queued = pendingOnyc > 0;
+      setWasQueued(queued);
+      setSuccessMsg(
+        queued
+          ? `${total.toFixed(4)} USDC arrives within 24–72h via ONyc redemption.`
+          : `Received ${usdcOut.toFixed(4)} USDC.`,
+      );
       setAmount("");
       await refresh();
     } catch (err) {
@@ -463,14 +479,13 @@ function WithdrawForm({ vault }: { vault: FoundationVault }) {
     } finally { setLoading(false); }
   };
 
-  if (txSig) return <TxSuccess sig={txSig} label="Withdrawal Successful" sub={successMsg || "USDC sent to your wallet."} onReset={() => { setTxSig(null); setSuccessMsg(null); }} />;
+  if (txSig) return <TxSuccess sig={txSig} label={wasQueued ? "Withdrawal Queued" : "Withdrawal Successful"} sub={successMsg || "USDC sent to your wallet."} onReset={() => { setTxSig(null); setSuccessMsg(null); setWasQueued(false); }} />;
 
-  // If the user's entitlement is bigger than what's actually withdrawable
-  // right now (vault liquidity short of full entitlement), surface that
-  // honestly so they understand "Available now" vs "Owed".
-  const chainBalance = Number(rawBalance) / 1e6;
-  const liquidityCapped = !balanceLoading && entitlementUsdc > 0 && maxWithdrawableUsdc < entitlementUsdc - 0.000001;
-  const recoveryHint = !balanceLoading && entitlementUsdc > 0.01 && chainBalance < entitlementUsdc - 0.01;
+  // Liquidity-short = any portion of the request will queue via ONyc.
+  // We collapse instant + async into one "queued for 24-72h" status so the
+  // user sees a single, clean outcome rather than a split breakdown.
+  const typedAmount = parseFloat(amount) || 0;
+  const willQueue = !balanceLoading && typedAmount > maxWithdrawableUsdc + 0.000001;
 
   return (
     <form onSubmit={handleWithdraw}>
@@ -488,23 +503,18 @@ function WithdrawForm({ vault }: { vault: FoundationVault }) {
           </span>
         ) : null}
       </div>
-      {liquidityCapped && (
-        <p className="mb-3 rounded-md border border-amber-500/20 bg-amber-500/5 px-2.5 py-1.5 font-mono text-[10px] leading-relaxed text-amber-700 dark:text-amber-400">
-          You&apos;re owed {entitlementUsdc.toFixed(4)} USDC total, but only{" "}
-          {maxWithdrawableUsdc.toFixed(4)} is withdrawable right now (vault
-          liquidity). The rest auto-covers from yields over time.
-        </p>
-      )}
-      {recoveryHint && !liquidityCapped && (
-        <p className="mb-3 rounded-md border border-emerald-500/20 bg-emerald-500/5 px-2.5 py-1.5 font-mono text-[10px] leading-relaxed text-emerald-700 dark:text-emerald-400">
-          Recovery available: a previous withdraw burned tokens but never returned
-          USDC. Click Withdraw — the server pays your full entitlement directly.
+      {willQueue && (
+        <p className="mb-3 rounded-md border border-[var(--rule)] bg-[var(--surface-strong)] px-2.5 py-1.5 font-mono text-[10px] leading-relaxed text-[var(--text-accent)]">
+          Withdrawal will queue as an ONyc redemption — funds arrive within 24–72h.
         </p>
       )}
       <AmountInput value={amount} onChange={setAmount} token="USDC" onMax={() => setAmount(balance.toString())} />
       {amount && parseFloat(amount) > 0 && (
         <div className="mb-4 space-y-1">
-          <Row label="You receive" value={`~${parseFloat(amount).toFixed(2)} USDC`} />
+          <Row
+            label={willQueue ? "You receive (24–72h)" : "You receive"}
+            value={`~${parseFloat(amount).toFixed(2)} USDC`}
+          />
           <Row label="Network fee" value={`${PROTOCOL_FEE_SOL} SOL`} />
         </div>
       )}

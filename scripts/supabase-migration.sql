@@ -57,6 +57,9 @@ CREATE TABLE IF NOT EXISTS sol_withdrawals (
   usdc_returned BIGINT NOT NULL,
   burn_tx TEXT NOT NULL,
   transfer_tx TEXT NOT NULL,
+  -- Optional. For partial-sync + async-ONyc payouts: tracks
+  -- { pending_onyc_usdc, onyc_request_pda, onyc_request_id } until OnRe fulfils.
+  metadata JSONB,
   created_at TIMESTAMPTZ DEFAULT now()
 );
 

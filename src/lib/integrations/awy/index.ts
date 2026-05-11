@@ -213,7 +213,7 @@ export interface LeveragedAwyData {
 /**
  * Loop-venue availability per leg. Mirrors the on-chain reality:
  *   PRIME      — Kamino multiply available today (the leg's underlying is already on Kamino)
- *   syrupUSDC  — proxy on Kamino Main, multiply available
+ *   syrupUSDC  — supplied via Kamino Syrup market (kamino api id: "main"), multiply available
  *   ONyc       — blocked on Kamino publishing an ONyc lending reserve
  *   Solomon    — never looped (basis trade embeds perp leverage internally)
  */

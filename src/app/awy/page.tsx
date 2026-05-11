@@ -67,7 +67,6 @@ const LEG_COLORS: Record<AwyLegId, { stroke: string; fill: string; soft: string;
   },
 };
 
-type TierId = "fdn-awy" | "fdn-awy-2x" | "fdn-awy-3x";
 
 export default function AwyPage() {
   const { strategies, loading } = useStrategies();
@@ -75,22 +74,11 @@ export default function AwyPage() {
   const awyMeta = awy?.meta as AwyMetaView | undefined;
   const liveBaseApy = awy?.apy ?? awyMeta?.blendedBaseApy ?? getSpecCompositionApy();
 
-  // Three discrete tier products. Each is its own on-chain vault (multisig +
-  // Token-2022 receipt mint). Base = unlevered awyUSD; 2x and 3x apply real
-  // iterated klend leverage on the PRIME and syrupUSDC slices.
-  const tierVaults = FOUNDATION_VAULTS.filter((v) =>
-    ["fdn-awy", "fdn-awy-2x", "fdn-awy-3x"].includes(v.id),
-  );
-
-  const [selectedTierId, setSelectedTierId] = useState<TierId>("fdn-awy");
-
-  // For the deposit form, prefer the live strategy data when the selected
-  // tier matches (so APY and TVL are live). Fall back to the registry entry
-  // for tiers not yet returned by /api/strategies.
-  const selectedTierVault =
-    tierVaults.find((v) => v.id === selectedTierId) ?? tierVaults[0];
-  const liveSelected = strategies.find((s) => s.id === selectedTierId);
-  const displayedAwy = liveSelected ?? selectedTierVault;
+  // Single AWY product (unlevered). Levered tiers exist on-chain but are
+  // hidden from the UI for now — keeps the deposit flow simple.
+  const baseVault = FOUNDATION_VAULTS.find((v) => v.id === "fdn-awy");
+  const liveBase = strategies.find((s) => s.id === "fdn-awy");
+  const displayedAwy = liveBase ?? baseVault;
 
   return (
     <div className="fdn-page max-w-[1080px]">
@@ -118,17 +106,7 @@ export default function AwyPage() {
         <div className="skeleton h-64 rounded-xl" />
       ) : displayedAwy ? (
         <div className="mb-6">
-          <VaultDetail
-            vault={displayedAwy}
-            actionsTopSlot={
-              <TierStrip
-                tiers={tierVaults}
-                liveBaseApy={liveBaseApy}
-                selectedTierId={selectedTierId}
-                onSelect={setSelectedTierId}
-              />
-            }
-          />
+          <VaultDetail vault={displayedAwy} />
         </div>
       ) : (
         <p className="py-12 text-center font-mono text-sm text-[var(--text-accent)]">
@@ -155,87 +133,6 @@ const SPEC_COMPOSITION_APY = AWY_COMPOSITION.reduce(
 function getSpecCompositionApy() {
   return Math.round(SPEC_COMPOSITION_APY * 100) / 100;
 }
-
-function fmtPercent(percent: number, digits = 2) {
-  return `${percent.toFixed(digits)}%`;
-}
-
-function fmtCurrency(value: number) {
-  return value.toLocaleString("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 2,
-  });
-}
-
-function clampApy(value: number, min: number, max: number) {
-  if (!Number.isFinite(value)) return min;
-  return Math.min(max, Math.max(min, value));
-}
-
-/**
- * Leverage selector — segmented control reading as one product.
- * Three settings (1x / 2x / 3x) on the same AWY basket. Click swaps the
- * underlying on-chain vault the deposit/withdraw form targets, but the user
- * perceives one continuous AWY product.
- */
-function TierStrip({
-  tiers,
-  liveBaseApy,
-  selectedTierId,
-  onSelect,
-}: {
-  tiers: import("@/lib/vaults").FoundationVault[];
-  liveBaseApy: number;
-  selectedTierId: TierId;
-  onSelect: (id: TierId) => void;
-}) {
-  if (tiers.length === 0) return null;
-  // Order: base → 2x → 3x
-  const ordered = ["fdn-awy", "fdn-awy-2x", "fdn-awy-3x"]
-    .map((id) => tiers.find((t) => t.id === id))
-    .filter((t): t is import("@/lib/vaults").FoundationVault => Boolean(t));
-  return (
-    <div className="mb-3 rounded-xl border border-[var(--rule)] bg-[var(--surface)] p-1">
-      <div className="grid grid-cols-3 gap-1">
-        {ordered.map((tier) => {
-          const isBase = tier.id === "fdn-awy";
-          const apyShown = isBase ? liveBaseApy : tier.apy;
-          const live = tier.status === "live";
-          const selected = tier.id === selectedTierId;
-          const label = isBase ? "1x" : tier.id === "fdn-awy-2x" ? "2x" : "3x";
-          return (
-            <button
-              key={tier.id}
-              type="button"
-              onClick={() => onSelect(tier.id as TierId)}
-              disabled={!live}
-              className={`relative rounded-lg px-3 py-2 text-center transition-all ${
-                !live ? "cursor-not-allowed opacity-60" : "cursor-pointer"
-              } ${
-                selected
-                  ? "bg-emerald-500/10 ring-1 ring-emerald-500/40"
-                  : "hover:bg-[var(--surface-strong)]"
-              }`}
-            >
-              <span className={`block font-mono text-[11px] font-semibold uppercase tracking-wider ${
-                selected ? "text-emerald-600" : "text-[var(--text-accent)]"
-              }`}>
-                {label}
-              </span>
-              <span className={`mt-0.5 block font-mono text-sm font-bold tracking-tight ${
-                selected ? "text-emerald-500" : "text-[var(--fg)]"
-              }`}>
-                {apyShown.toFixed(1)}%
-              </span>
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
 
 /* ============================================================
    AWY composition — visual basket breakdown
@@ -433,7 +330,7 @@ function AwyComposition({
                 </div>
 
                 <p className="mt-5 font-mono text-[10px] tracking-wider text-[var(--text-accent)]">
-                  Base APY = Σ (weight × live leg APY). The leverage control below adjusts the same AWY vault APY, not a second deposit product.
+                  Base APY = Σ (weight × live leg APY).
                 </p>
               </div>
             </div>

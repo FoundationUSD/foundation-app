@@ -262,25 +262,80 @@ export async function POST(req: NextRequest) {
       idle = await connection.getTokenAccountBalance(vaultUsdcAta).then((r) => Number(r.value.amount)).catch(() => 0);
     }
 
-    // Hard requirement: vault must have AT LEAST what was requested.
-    // No partial-fulfilment (bad UX). The /api/user/portfolio endpoint
-    // exposes maxWithdrawableUsdc so the form's Max button is set to the
-    // actual recoverable amount up front — users shouldn't hit this case
-    // unless they typed an amount > maxWithdrawable.
-    if (idle < requestedBaseUnits) {
+    // Sync portion: whatever we can pay from idle right now. If the user asked
+    // for more than that AND the vault holds ONyc that can cover the gap, we
+    // queue an OnRe redemption request for the residual and pay the sync
+    // portion immediately. User comes back in 24-72h to claim the residual.
+    let syncPayableBaseUnits = Math.min(requestedBaseUnits, idle);
+    let residualBaseUnits = requestedBaseUnits - syncPayableBaseUnits;
+
+    // Build ONyc redemption ixs if we need to queue the residual through OnRe.
+    type OnycQueue = { ixs: TransactionInstruction[]; redemptionRequestPda: string; requestId: string; usdc: number };
+    let onycQueue: OnycQueue | null = null;
+    if (residualBaseUnits > 0 && vaultName === "awy") {
+      try {
+        const { buildOnycRedemptionRequestIxs, ONYC_DECIMALS, getOnycData } =
+          await import("@/lib/integrations/awy/onyc");
+        const ONYC_MINT = new PublicKey("5Y8NV33Vv7WbnLfq3zBcKSdYPrk7g2KoiQoe7M2tcxp5");
+        const onycAta = getAssociatedTokenAddressSync(ONYC_MINT, vault.vaultPda, true, TOKEN_PROGRAM_ID);
+        const onycBalRes = await connection.getTokenAccountBalance(onycAta).catch(() => null);
+        const onycBalance = onycBalRes ? BigInt(onycBalRes.value.amount) : BigInt(0);
+
+        const live = await getOnycData().catch(() => ({ nav: null, apy: 0 }));
+        const nav = live.nav && live.nav > 0 ? live.nav : 1;
+        // ONyc base units needed for `residualBaseUnits` USDC worth at NAV.
+        const onycNeededHuman = (residualBaseUnits / 1e6) / nav;
+        const onycNeeded = BigInt(Math.ceil(onycNeededHuman * 10 ** ONYC_DECIMALS));
+        const onycToRedeem = onycBalance < onycNeeded ? onycBalance : onycNeeded;
+
+        if (onycToRedeem > BigInt(0)) {
+          const plan = await buildOnycRedemptionRequestIxs({
+            redeemer: vault.vaultPda,
+            onycAmount: onycToRedeem,
+          });
+          // Cap the residual we'll quote to the user at what this ONyc redemption
+          // can actually deliver (in case the vault didn't have enough ONyc).
+          const onycCoverageUsdc = Math.floor(Number(onycToRedeem) / 10 ** ONYC_DECIMALS * nav * 1e6);
+          if (onycCoverageUsdc < residualBaseUnits) residualBaseUnits = onycCoverageUsdc;
+
+          onycQueue = {
+            ixs: plan.instructions,
+            redemptionRequestPda: plan.redemptionRequestPda.toBase58(),
+            requestId: plan.requestId.toString(),
+            usdc: residualBaseUnits,
+          };
+          console.log(
+            `[withdraw ${vaultName}] queuing ONyc redemption: residual=${residualBaseUnits / 1e6} USDC, ` +
+            `onycAmount=${Number(onycToRedeem) / 10 ** ONYC_DECIMALS}, requestPda=${plan.redemptionRequestPda.toBase58()}`,
+          );
+        }
+      } catch (e) {
+        console.error(`[withdraw ${vaultName}] ONyc queue build failed:`, e);
+      }
+    }
+
+    // If we still can't cover any of the request — fail.
+    if (syncPayableBaseUnits <= 0 && !onycQueue) {
       return NextResponse.json(
         {
           success: false,
-          error: `Max withdrawable right now is ${(idle / 1e6).toFixed(4)} USDC. Try that amount or wait a few minutes for protocol liquidity.`,
+          error: `Vault has insufficient liquidity right now. Idle: ${(idle / 1e6).toFixed(4)} USDC.`,
           data: { maxWithdrawableUsdc: idle / 1e6 },
         },
         { status: 503 },
       );
     }
 
-    // Burn amount stays as computed up top — paid exactly as requested.
-    const burnPayable = burnAmount;
-    const payableBaseUnits = requestedBaseUnits;
+    // Burn proportional to the FULL committed amount (sync paid now + ONyc
+    // queued for later). When the OnRe admin fulfils, the user comes back
+    // and the recovery path (ATA empty, ledger > 0) pays out the residual
+    // — so we burn up front to keep receipt-token supply in lockstep with
+    // outstanding entitlement.
+    const committedBaseUnits = syncPayableBaseUnits + (onycQueue?.usdc ?? 0);
+    const payableBaseUnits = syncPayableBaseUnits;
+    const burnPayable = burnAmount > BigInt(0)
+      ? (BigInt(committedBaseUnits) < burnAmount ? BigInt(committedBaseUnits) : burnAmount)
+      : BigInt(0);
 
     // 7. Build the atomic Squads tx: [optional burn via delegate, transfer USDC].
     const ixs: TransactionInstruction[] = [];
@@ -313,26 +368,33 @@ export async function POST(req: NextRequest) {
         TOKEN_PROGRAM_ID,
       ),
     );
-    ixs.push(
-      createTransferCheckedInstruction(
-        vaultUsdcAta,
-        USDC_MINT,
-        userUsdcAta,
-        vault.vaultPda,
-        BigInt(payableBaseUnits),
-        USDC_DECIMALS,
-        [],
-        TOKEN_PROGRAM_ID,
-      ),
-    );
+    if (payableBaseUnits > 0) {
+      ixs.push(
+        createTransferCheckedInstruction(
+          vaultUsdcAta,
+          USDC_MINT,
+          userUsdcAta,
+          vault.vaultPda,
+          BigInt(payableBaseUnits),
+          USDC_DECIMALS,
+          [],
+          TOKEN_PROGRAM_ID,
+        ),
+      );
+    }
+
+    // Queue ONyc redemption for the async residual in the SAME atomic tx —
+    // either everything succeeds or nothing does.
+    if (onycQueue) ixs.push(...onycQueue.ixs);
 
     const sig = await executeVaultTransaction(vaultName, ixs);
 
     // 8. Log success. burn_tx stores the user-signed fee/approve tx (the
     //    idempotency key — checked at the top of this route). transfer_tx
-    //    stores the server's atomic Squads tx that did the burn + transfer.
-    //    usdc_returned is what was actually paid (may be < requested due to
-    //    slippage); the residual stays in the user's ledger entitlement.
+    //    stores the server's atomic Squads tx (burn + transfer + optional
+    //    ONyc redemption queue). usdc_returned is the sync portion paid out
+    //    immediately; metadata.pending_onyc_usdc tracks the residual the user
+    //    can claim after OnRe fulfils the redemption (24-72h).
     const { error: insertErr } = await supabaseAdmin.from("sol_withdrawals").insert({
       vault_id: vaultId,
       wallet: userWallet,
@@ -340,6 +402,15 @@ export async function POST(req: NextRequest) {
       usdc_returned: payableBaseUnits,
       burn_tx: feeTxSignature,
       transfer_tx: sig,
+      // Store any pending ONyc redemption metadata so the cron / UI can
+      // surface "in progress" state until OnRe admin fulfills.
+      metadata: onycQueue
+        ? {
+            pending_onyc_usdc: onycQueue.usdc,
+            onyc_request_pda: onycQueue.redemptionRequestPda,
+            onyc_request_id: onycQueue.requestId,
+          }
+        : null,
     });
     if (insertErr) {
       // The on-chain tx already happened. Logging failure is non-fatal but
@@ -347,19 +418,20 @@ export async function POST(req: NextRequest) {
       console.error("[withdraw] LEDGER DRIFT — Supabase insert failed after successful tx:", insertErr, "tx:", sig);
     }
 
-    const partial = payableBaseUnits < requestedBaseUnits;
-    const residualBaseUnits = requestedBaseUnits - payableBaseUnits;
+    const pendingOnycUsdc = onycQueue?.usdc ?? 0;
 
     const vaultMeta = FOUNDATION_VAULTS.find((v) => v.id === vaultId);
     notify({
       wallet: userWallet,
       type: "withdrawal",
-      title: `Withdrawal confirmed: ${(payableBaseUnits / 1e6).toFixed(4)} USDC from ${vaultMeta?.receiptToken ?? vaultId}`,
-      body: partial
-        ? `Withdrew ${(payableBaseUnits / 1e6).toFixed(4)} USDC. ${(residualBaseUnits / 1e6).toFixed(4)} USDC stays in your entitlement (slippage on protocol unwind) — claim it on your next withdraw.`
+      title: pendingOnycUsdc > 0
+        ? `Withdrawal in progress: ${(payableBaseUnits / 1e6).toFixed(4)} USDC sent, ${(pendingOnycUsdc / 1e6).toFixed(4)} USDC redeeming from ONyc`
+        : `Withdrawal confirmed: ${(payableBaseUnits / 1e6).toFixed(4)} USDC from ${vaultMeta?.receiptToken ?? vaultId}`,
+      body: pendingOnycUsdc > 0
+        ? `Received ${(payableBaseUnits / 1e6).toFixed(4)} USDC. An ONyc redemption is queued for ${(pendingOnycUsdc / 1e6).toFixed(4)} USDC — OnRe admin fulfils within 24-72h. Come back then to withdraw the rest.`
         : `Your withdrawal of ${(payableBaseUnits / 1e6).toFixed(2)} USDC is complete.`,
       link: `${process.env.NEXT_PUBLIC_APP_URL || ""}/portfolio`,
-      metadata: { vault_id: vaultId, usdc: payableBaseUnits, transfer_tx: sig, residual: residualBaseUnits },
+      metadata: { vault_id: vaultId, usdc: payableBaseUnits, transfer_tx: sig, pending_onyc_usdc: pendingOnycUsdc },
     }).catch((e) => console.error("withdraw notify failed:", e));
 
     return NextResponse.json({
@@ -369,8 +441,8 @@ export async function POST(req: NextRequest) {
         usdcReturned: payableBaseUnits,
         sharesBurned: Number(burnPayable),
         requested: requestedBaseUnits,
-        residual: residualBaseUnits,
-        partial,
+        pendingOnycUsdc,
+        onycRequestPda: onycQueue?.redemptionRequestPda ?? null,
       },
     });
   } catch (error) {

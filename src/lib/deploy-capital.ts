@@ -51,12 +51,14 @@ const KAMINO_PRIME_USDC_RESERVE = "9GJ9GBRwCp4pHmWrQ43L5xpc9Vykg7jnfwcFGN8FoHYu"
 // borrow APY in the 30-day backtest). Fall back to PYUSD if USDS borrow
 // liquidity is exhausted.
 const KAMINO_PRIME_USDS_RESERVE = "7SzMWArC8WAenndXFmRyfvcvrNPodqUFkmPrmmoRZvn4";
-// Main market — used as the syrupUSDC leg's routing rail until Maple ships
-// a Solana-native lending program. We supply USDC and earn the main market
-// supply rate; this is documented as a proxy in the AWY composition copy.
+// Kamino Syrup market (Kamino's internal id: "main") — the syrupUSDC leg's
+// routing rail until Maple ships a Solana-native lending program. We supply
+// USDC and earn the Syrup market's USDC supply rate; documented as a proxy
+// in AWY composition copy. We keep the `MAIN` constant names because they
+// match Kamino's API taxonomy; the user-facing name is "Syrup".
 const KAMINO_MAIN_MARKET = "7u3HeHxYDLhnCoErrtycNokbQYbWGzLs6JSDqGAv5PfF";
 const KAMINO_MAIN_USDC_RESERVE = "D6q6wuQSrifJKZYpR1M8R4YawnLDtDsMmWM1NbBmgJ59";
-// Main market PYUSD borrow reserve — cheapest stable borrow on Main per the
+// PYUSD borrow reserve on Kamino Syrup — cheapest stable borrow there per the
 // AWY-model 30-day backtest. Used by the syrupUSDC slice's levered loop.
 const KAMINO_MAIN_PYUSD_RESERVE = "2gc9Dm1eB6UgVYFBUN9bWks6Kes9PbWSaPaa9DqyvEiN";
 
@@ -201,7 +203,7 @@ export async function withdrawCapital(
 //
 // Per AWY-model spec:
 //   - PRIME slice: USDC supply / USDS borrow on PRIME market
-//   - syrupUSDC slice: USDC supply / PYUSD borrow on Main market (proxy)
+//   - syrupUSDC slice: USDC supply / PYUSD borrow on Kamino Syrup market (proxy)
 //   - ONyc slice: stays unlevered (Kamino reserve not published yet)
 //   - Solomon slice: stays unlevered (perp leverage internal to the basis trade)
 //
@@ -269,7 +271,7 @@ async function deployToAwyLevered(
     }
   }
 
-  // syrupUSDC slice — levered via iterated loop on Main market USDC/PYUSD.
+  // syrupUSDC slice — levered via iterated loop on Kamino Syrup USDC/PYUSD.
   if (syrupAmt > 0) {
     try {
       const loop = await runIteratedLoop({
@@ -384,7 +386,7 @@ async function withdrawFromAwyLevered(
     }
   }
 
-  // 3. Unwind syrupUSDC levered loop on Main market.
+  // 3. Unwind syrupUSDC levered loop on Kamino Syrup market.
   if (remaining > 0) {
     try {
       const u = await unwindIteratedLoop({
@@ -450,7 +452,8 @@ function kaminoMarketAddrs(kind: KaminoMarketKind): { market: string; reserve: s
 
 /**
  * Vault-scoped Kamino USDC supply. Routes to either the PRIME RWA market
- * (kind="prime", default) or the Main market (kind="main", used by the AWY
+ * (kind="prime", default) or the Syrup market (kind="main" — Kamino's API
+ * id; the user-facing name is "Kamino Syrup", used by the AWY
  * syrupUSDC leg). The vault PDA owns the kToken receipt; supply yield accrues
  * directly to whichever multisig deposited.
  */
@@ -806,16 +809,18 @@ async function deployToAwy(usdcAmount: number): Promise<{ success: boolean; tx?:
     }
   }
 
-  // ── syrupUSDC leg: route to Kamino Main market USDC supply.
+  // ── syrupUSDC leg: route USDC into the Kamino Syrup market (Kamino's
+  //    `main` market id internally — the user-facing name is "Syrup"
+  //    because that's where Maple's syrupUSDC liquidity lives).
   //    Maple's syrupUSDC on Solana is a CCIP burn-mint token with a Chainlink
   //    mintAuthority — there's no Solana-native lending program that accepts
   //    USDC and pays Maple yield. The closest mainnet-addressable proxy is
-  //    Kamino's Main market USDC supply (~4.2% APY).
+  //    Kamino's Syrup market USDC supply (~4.2% APY).
   if (syrupAmt > 0) {
     try {
       const r = await deployToKamino("awy", syrupAmt, "main");
       if (r.success) {
-        console.log(`AWY[syrup→main]: deposited ${syrupAmt / 1e6} USDC to Kamino Main (${r.tx})`);
+        console.log(`AWY[syrup]: deposited ${syrupAmt / 1e6} USDC to Kamino Syrup (${r.tx})`);
       } else {
         console.error(`AWY[syrup→main] FAILED:`, r.error);
       }
@@ -872,7 +877,7 @@ async function deployToAwy(usdcAmount: number): Promise<{ success: boolean; tx?:
  * Withdraw USDC proportionally from each deployed leg. Service order:
  *   1. Idle USDC (cheapest, instant)
  *   2. Kamino PRIME market (instant via klend redeem)
- *   3. Kamino Main market — where the syrupUSDC slice lives (instant)
+ *   3. Kamino Syrup market — where the syrupUSDC slice lives (instant)
  *   4. USDv reverse-swap via Jupiter (instant; AWY holds base USDv unstaked
  *      so no cooldown applies)
  *   5. ONyc redemption queue (async — OnRe admin fulfills within 24–72h)
@@ -905,17 +910,18 @@ async function withdrawFromAwy(usdcAmount: number): Promise<{ success: boolean; 
     }
   }
 
-  // Then Kamino main market (where the syrupUSDC slice supplies USDC)
+  // Then Kamino Syrup market (where the syrupUSDC slice supplies USDC).
+  // Kamino's internal market id for this venue is "main".
   if (remaining > 0) {
     try {
       const r = await withdrawFromKamino("awy", remaining, "main");
       if (r.success && r.tx) {
         lastTx = r.tx;
-        console.log(`AWY withdraw: pulled ${remaining / 1e6} USDC from Kamino Main, tx: ${r.tx}`);
+        console.log(`AWY withdraw: pulled ${remaining / 1e6} USDC from Kamino Syrup, tx: ${r.tx}`);
         return { success: true, tx: lastTx };
       }
     } catch (e) {
-      console.error("AWY withdraw: Kamino Main pull failed:", e);
+      console.error("AWY withdraw: Kamino Syrup pull failed:", e);
     }
   }
 

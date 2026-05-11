@@ -147,8 +147,8 @@ export const FOUNDATION_VAULTS: FoundationVault[] = [
     protocol: "awy",
     category: "foundation",
     description:
-      "Deposit USDC into a four-leg basket designed to hold its yield across rate cycles, credit cycles, and crypto drawdowns. Foundation allocates 35 percent to OnRe reinsurance receipts (ONyc, minted at NAV via OnRe's permissionless program), 25 percent to Kamino's Figure-PRIME USDC supply, 20 percent to Kamino Main USDC supply (Maple proxy), and 20 percent to Solomon's delta-neutral basis trade (USDv). External leverage on the credit legs is on the roadmap — wired in once Kamino publishes an ONyc lending reserve.",
-    underlying: "Blended: ONyc + Kamino-PRIME + Kamino-Main + USDv",
+      "Deposit USDC into a four-leg basket designed to hold its yield across rate cycles, credit cycles, and crypto drawdowns. Foundation allocates 35 percent to OnRe reinsurance receipts (ONyc, minted at NAV via OnRe's permissionless program), 25 percent to Kamino's Figure-PRIME USDC supply, 20 percent to Kamino Syrup USDC supply (Maple syrupUSDC proxy), and 20 percent to Solomon's delta-neutral basis trade (USDv). External leverage on the credit legs is on the roadmap — wired in once Kamino publishes an ONyc lending reserve.",
+    underlying: "Blended: ONyc + Kamino-PRIME + Kamino-Syrup + USDv",
     riskTier: "moderate",
     // Spec-target — the actual on-chain awyUSD interest rate is set by the
     // update-rate cron from awyData.blendedBaseApy (live data per leg).

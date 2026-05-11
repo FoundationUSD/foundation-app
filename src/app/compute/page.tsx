@@ -9,7 +9,7 @@ import {
   type ComputeConstituentSpec,
   type ComputeConstituentId,
 } from "@/lib/integrations/compute";
-import { SubscribeForm } from "@/components/SubscribeForm";
+import { FcyWaitlistModal } from "@/components/FcyWaitlistModal";
 
 const CONSTITUENT_COLORS: Record<
   ComputeConstituentId,
@@ -30,6 +30,7 @@ export default function ComputePage() {
   const blendedApy = getSpecBlendedApy();
   const active = COMPUTE_CONSTITUENTS.filter((c) => !c.roadmap);
   const roadmap = COMPUTE_CONSTITUENTS.filter((c) => c.roadmap);
+  const [waitlistOpen, setWaitlistOpen] = useState(false);
 
   return (
     <div className="fdn-page max-w-[920px]">
@@ -53,7 +54,7 @@ export default function ComputePage() {
       </div>
 
       {/* Hero with art + waitlist + target APY */}
-      <Hero blendedApy={blendedApy} />
+      <Hero blendedApy={blendedApy} onJoinWaitlist={() => setWaitlistOpen(true)} />
 
       {/* Stat strip — three key numbers, gives the page punch */}
       <StatStrip blendedApy={blendedApy} activeCount={active.length} />
@@ -66,6 +67,9 @@ export default function ComputePage() {
 
       {/* FAQ */}
       <FaqSection />
+
+      {/* Shared OTP + referral modal — same Supabase auth-otp flow as landing. */}
+      <FcyWaitlistModal open={waitlistOpen} onClose={() => setWaitlistOpen(false)} />
     </div>
   );
 }
@@ -74,7 +78,7 @@ export default function ComputePage() {
    Hero — Atlas art + waitlist + headline APY
    ============================================================ */
 
-function Hero({ blendedApy }: { blendedApy: number }) {
+function Hero({ blendedApy, onJoinWaitlist }: { blendedApy: number; onJoinWaitlist: () => void }) {
   return (
     <section className="art-frame infra-card relative mb-6 overflow-hidden">
       <div
@@ -111,15 +115,25 @@ function Hero({ blendedApy }: { blendedApy: number }) {
           </div>
         </div>
 
-        {/* Waitlist card — primary CTA */}
+        {/* Waitlist card — opens the OTP/referral modal (same flow as landing). */}
         <div className="rounded-xl border border-[var(--rule)] bg-[var(--surface)]/95 p-4 backdrop-blur-sm">
           <p className="mb-1 font-mono text-[10px] uppercase tracking-[0.2em] text-gold-500">
             Get notified
           </p>
-          <h3 className="mb-3 font-serif text-lg font-light text-[var(--fg)]">
+          <h3 className="mb-2 font-serif text-lg font-light text-[var(--fg)]">
             Join the FCY waitlist
           </h3>
-          <SubscribeForm variant="waitlist" />
+          <p className="mb-4 text-[11px] leading-relaxed text-[var(--text-accent)]">
+            Email + 6-digit code. Get your referral link — earn 20% of our fee on
+            friends&apos; yield when FCY launches.
+          </p>
+          <button
+            type="button"
+            onClick={onJoinWaitlist}
+            className="aw-submit w-full"
+          >
+            Reserve your spot
+          </button>
         </div>
       </div>
     </section>
