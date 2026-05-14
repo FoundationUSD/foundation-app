@@ -48,7 +48,8 @@
     "recharts": "^3.8.1",
     "resend": "^6.12.2",
     "tailwind-merge": "^3.5.0",
-    "tweetnacl": "^1.0.3"
+    "tweetnacl": "^1.0.3",
+    "wawoff2": "^2.0.1"
   },
   "devDependencies": {
     "@coral-xyz/anchor": "^0.32.1",

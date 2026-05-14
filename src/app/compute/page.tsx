@@ -9,7 +9,8 @@ import {
   type ComputeConstituentSpec,
   type ComputeConstituentId,
 } from "@/lib/integrations/compute";
-import { FcyWaitlistModal } from "@/components/FcyWaitlistModal";
+import { SignInWithX } from "@/components/SignInWithX";
+import { WaitlistCounter } from "@/components/WaitlistCounter";
 
 const CONSTITUENT_COLORS: Record<
   ComputeConstituentId,
@@ -30,7 +31,6 @@ export default function ComputePage() {
   const blendedApy = getSpecBlendedApy();
   const active = COMPUTE_CONSTITUENTS.filter((c) => !c.roadmap);
   const roadmap = COMPUTE_CONSTITUENTS.filter((c) => c.roadmap);
-  const [waitlistOpen, setWaitlistOpen] = useState(false);
 
   return (
     <div className="fdn-page max-w-[920px]">
@@ -53,23 +53,11 @@ export default function ComputePage() {
         </div>
       </div>
 
-      {/* Hero with art + waitlist + target APY */}
-      <Hero blendedApy={blendedApy} onJoinWaitlist={() => setWaitlistOpen(true)} />
-
-      {/* Stat strip — three key numbers, gives the page punch */}
+      <Hero blendedApy={blendedApy} />
       <StatStrip blendedApy={blendedApy} activeCount={active.length} />
-
-      {/* Index constituents */}
       <ConstituentsSection active={active} roadmap={roadmap} />
-
-      {/* Thesis */}
       <ThesisSection />
-
-      {/* FAQ */}
       <FaqSection />
-
-      {/* Shared OTP + referral modal — same Supabase auth-otp flow as landing. */}
-      <FcyWaitlistModal open={waitlistOpen} onClose={() => setWaitlistOpen(false)} />
     </div>
   );
 }
@@ -78,7 +66,7 @@ export default function ComputePage() {
    Hero — Atlas art + waitlist + headline APY
    ============================================================ */
 
-function Hero({ blendedApy, onJoinWaitlist }: { blendedApy: number; onJoinWaitlist: () => void }) {
+function Hero({ blendedApy }: { blendedApy: number }) {
   return (
     <section className="art-frame infra-card relative mb-6 overflow-hidden">
       <div
@@ -115,7 +103,8 @@ function Hero({ blendedApy, onJoinWaitlist }: { blendedApy: number; onJoinWaitli
           </div>
         </div>
 
-        {/* Waitlist card — opens the OTP/referral modal (same flow as landing). */}
+        {/* Waitlist card — X (Twitter) sign-in only. Email auth lives at
+            /api/auth/* via better-auth but isn't surfaced on /compute. */}
         <div className="rounded-xl border border-[var(--rule)] bg-[var(--surface)]/95 p-4 backdrop-blur-sm">
           <p className="mb-1 font-mono text-[10px] uppercase tracking-[0.2em] text-gold-500">
             Get notified
@@ -124,16 +113,14 @@ function Hero({ blendedApy, onJoinWaitlist }: { blendedApy: number; onJoinWaitli
             Join the FCY waitlist
           </h3>
           <p className="mb-4 text-[11px] leading-relaxed text-[var(--text-accent)]">
-            Email + 6-digit code. Get your referral link — earn 20% of our fee on
-            friends&apos; yield when FCY launches.
+            Sign in with X to claim your spot. We&apos;ll generate your share
+            banner + referral link. Earn 20% of our fee on friends&apos; yield
+            when FCY launches.
           </p>
-          <button
-            type="button"
-            onClick={onJoinWaitlist}
-            className="aw-submit w-full"
-          >
-            Reserve your spot
-          </button>
+          <SignInWithX callbackURL="/alpha/welcome" />
+          <div className="mt-3 border-t border-[var(--rule)] pt-3">
+            <WaitlistCounter />
+          </div>
         </div>
       </div>
     </section>

@@ -18,6 +18,7 @@ import {
   boolean,
   integer,
   numeric,
+  serial,
   uniqueIndex,
   index,
   primaryKey,
@@ -190,6 +191,33 @@ export const referralPayout = pgTable(
 );
 
 /* ============================================================
+   FCY waitlist — X (Twitter) signup profile
+   ============================================================
+   Sits on top of better-auth's `user` row created during the Twitter social
+   sign-in. Holds the X-specific fields plus an optional notification email
+   the user can add post-signup (no verification — it's newsletter-style).
+   waitlistNumber is serial so positions are stable and chronological. */
+export const waitlistProfile = pgTable(
+  "waitlist_profile",
+  {
+    userId: text("user_id")
+      .primaryKey()
+      .references(() => user.id, { onDelete: "cascade" }),
+    xUserId: text("x_user_id").notNull().unique(),
+    xHandle: text("x_handle").notNull(),
+    displayName: text("display_name"),
+    pfpUrl: text("pfp_url"),
+    waitlistNumber: serial("waitlist_number").notNull(),
+    notificationEmail: text("notification_email"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => ({
+    xHandleIdx: index("waitlist_profile_x_handle_idx").on(t.xHandle),
+    numberIdx: uniqueIndex("waitlist_profile_number_idx").on(t.waitlistNumber),
+  }),
+);
+
+/* ============================================================
    Type exports
    ============================================================ */
 
@@ -198,3 +226,4 @@ export type Session = typeof session.$inferSelect;
 export type ReferralCode = typeof referralCode.$inferSelect;
 export type Referral = typeof referral.$inferSelect;
 export type ReferralPayout = typeof referralPayout.$inferSelect;
+export type WaitlistProfile = typeof waitlistProfile.$inferSelect;

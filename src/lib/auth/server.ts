@@ -20,12 +20,17 @@ import { Resend } from "resend";
 import { db } from "@/lib/db";
 import * as schema from "../../../drizzle/schema";
 import { generateReferralCode } from "@/lib/referrals";
+import { upsertWaitlistProfileForUser } from "@/lib/waitlist/profile";
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const EMAIL_FROM = process.env.EMAIL_FROM || "Foundation <notifications@fdnusd.com>";
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 const BETTER_AUTH_SECRET = process.env.BETTER_AUTH_SECRET;
 const BETTER_AUTH_URL = process.env.BETTER_AUTH_URL || APP_URL;
+// X OAuth 2.0 creds — better-auth's social provider key is still "twitter"
+// internally, but the env vars are namespaced X_* to match X's current portal.
+const X_CLIENT_ID = process.env.X_CLIENT_ID;
+const X_CLIENT_SECRET = process.env.X_CLIENT_SECRET;
 
 const resend = RESEND_API_KEY ? new Resend(RESEND_API_KEY) : null;
 
@@ -69,6 +74,98 @@ export const auth = betterAuth({
     enabled: false,
   },
 
+  /* ----------------------------------------------------------
+     Social providers — X (Twitter) for FCY waitlist signup.
+     X OAuth 2.0 does NOT return email; we synthesise one so
+     better-auth's NOT-NULL email constraint is satisfied. The
+     real X handle + PFP land in waitlist_profile via the
+     user.create.after hook below. Users can optionally add a
+     notification email later on /alpha/welcome.
+     ---------------------------------------------------------- */
+  socialProviders:
+    X_CLIENT_ID && X_CLIENT_SECRET
+      ? {
+          twitter: {
+            clientId: X_CLIENT_ID,
+            clientSecret: X_CLIENT_SECRET,
+            // better-auth requests users.read + users.email + tweet.read +
+            // offline.access by default; no scope override needed.
+
+            // Override getUserInfo because better-auth's default returns null
+            // on any non-2xx from /2/users/me and swallows the underlying X
+            // response, leaving us with a generic `unable_to_get_user_info`.
+            // This version logs the real status + body and uses a single
+            // /2/users/me call requesting every field we need.
+            getUserInfo: async (token) => {
+              const accessToken = (token as { accessToken?: string })
+                ?.accessToken;
+              if (!accessToken) {
+                console.error("[twitter] getUserInfo: no access token");
+                return null;
+              }
+
+              const url =
+                "https://api.x.com/2/users/me?user.fields=id,name,username,profile_image_url,confirmed_email";
+              const res = await fetch(url, {
+                headers: { Authorization: `Bearer ${accessToken}` },
+              });
+
+              if (!res.ok) {
+                const body = await res.text().catch(() => "<no body>");
+                console.error(
+                  "[twitter] /2/users/me failed:",
+                  res.status,
+                  res.statusText,
+                  body,
+                );
+                return null;
+              }
+
+              const json = (await res.json()) as {
+                data?: {
+                  id: string;
+                  name?: string;
+                  username?: string;
+                  profile_image_url?: string;
+                  confirmed_email?: string;
+                };
+              };
+              const profile = json?.data;
+              if (!profile?.id) {
+                console.error(
+                  "[twitter] /2/users/me missing data.id:",
+                  JSON.stringify(json),
+                );
+                return null;
+              }
+
+              const username = profile.username ?? profile.id;
+              const name = profile.name ?? username;
+              const image = (profile.profile_image_url ?? "").replace(
+                /_normal(?=\.\w+$)/,
+                "",
+              );
+              // X confirmed email when granted; otherwise synthetic for
+              // better-auth's NOT-NULL email constraint.
+              const email =
+                profile.confirmed_email?.toLowerCase() ||
+                `${profile.id}@x.fdnusd.local`;
+
+              return {
+                user: {
+                  id: profile.id,
+                  name,
+                  email,
+                  image: image || undefined,
+                  emailVerified: Boolean(profile.confirmed_email),
+                },
+                data: { data: profile },
+              };
+            },
+          },
+        }
+      : undefined,
+
   emailVerification: {
     sendOnSignUp: true,
     autoSignInAfterVerification: true,
@@ -109,6 +206,13 @@ export const auth = betterAuth({
             await generateReferralCode(createdUser.id);
           } catch (e) {
             console.error("[auth] referral code generation failed for", createdUser.id, e);
+          }
+          // If this user signed in via Twitter, materialise their waitlist_profile
+          // from the account row better-auth just inserted. Idempotent.
+          try {
+            await upsertWaitlistProfileForUser(createdUser.id);
+          } catch (e) {
+            console.error("[auth] waitlist profile upsert failed for", createdUser.id, e);
           }
         },
       },
