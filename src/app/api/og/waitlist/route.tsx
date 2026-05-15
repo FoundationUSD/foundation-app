@@ -264,7 +264,7 @@ export async function GET(request: Request) {
             style={{
               display: "flex",
               marginTop: 20,
-              fontSize: 13,
+              fontSize: 17,
               color: "rgba(184,150,12,0.85)",
               fontFamily: "DM Mono",
               fontWeight: 500,
@@ -279,8 +279,8 @@ export async function GET(request: Request) {
           <div
             style={{
               display: "flex",
-              marginTop: 10,
-              fontSize: 30,
+              marginTop: 12,
+              fontSize: 38,
               color: GOLD_400,
               fontFamily: "DM Mono",
               fontWeight: 500,
@@ -322,7 +322,7 @@ export async function GET(request: Request) {
             style={{
               display: "flex",
               marginTop: 14,
-              fontSize: 14,
+              fontSize: 18,
               color: GOLD_400,
               fontFamily: "DM Mono",
               fontWeight: 500,
@@ -383,7 +383,7 @@ export async function GET(request: Request) {
             style={{
               display: "flex",
               marginTop: 24,
-              fontSize: 13,
+              fontSize: 17,
               color: GOLD_400,
               fontFamily: "DM Mono",
               fontWeight: 500,
@@ -395,8 +395,8 @@ export async function GET(request: Request) {
           <div
             style={{
               display: "flex",
-              marginTop: 10,
-              fontSize: 11,
+              marginTop: 12,
+              fontSize: 14,
               color: "rgba(184,150,12,0.65)",
               fontFamily: "DM Mono",
               fontWeight: 500,

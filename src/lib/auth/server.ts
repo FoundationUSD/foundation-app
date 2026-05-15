@@ -88,8 +88,14 @@ export const auth = betterAuth({
           twitter: {
             clientId: X_CLIENT_ID,
             clientSecret: X_CLIENT_SECRET,
-            // better-auth requests users.read + users.email + tweet.read +
-            // offline.access by default; no scope override needed.
+            // Drop better-auth's default `users.email` scope: X rejects the
+            // OAuth request with "Something went wrong" when the app hasn't
+            // fully been granted email release on console.x.com — even with
+            // the "Request email from users" toggle on, propagation/save
+            // workflow is finicky. We synthesise an email from the X user id
+            // in getUserInfo below, so dropping the scope is safe.
+            disableDefaultScope: true,
+            scope: ["users.read", "tweet.read", "offline.access"],
 
             // Override getUserInfo because better-auth's default returns null
             // on any non-2xx from /2/users/me and swallows the underlying X
@@ -105,7 +111,7 @@ export const auth = betterAuth({
               }
 
               const url =
-                "https://api.x.com/2/users/me?user.fields=id,name,username,profile_image_url,confirmed_email";
+                "https://api.x.com/2/users/me?user.fields=id,name,username,profile_image_url";
               const res = await fetch(url, {
                 headers: { Authorization: `Bearer ${accessToken}` },
               });
