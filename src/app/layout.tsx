@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, Cormorant_Garamond, DM_Mono } from "next/font/google";
+import Script from "next/script";
 import { WalletProvider } from "@/components/WalletProvider";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
@@ -58,11 +59,8 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${inter.variable} ${cormorant.variable} ${dmMono.variable}`} suppressHydrationWarning>
       <head>
-        {/* Prevent FOUC: apply saved theme synchronously before first paint.
-            Plain inline script — Server Component renders this into the static
-            HTML, so it executes before React hydrates and dodges the
-            "scripts inside React components" warning that next/script trips. */}
         <script
+          suppressHydrationWarning
           dangerouslySetInnerHTML={{
             __html: `try{var d=document.documentElement,m=localStorage.getItem('darkMode');if(m==='true'){d.classList.remove('light')}else{d.classList.add('light')}}catch(e){document.documentElement.classList.add('light')}`,
           }}

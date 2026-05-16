@@ -19,9 +19,10 @@ interface Props {
   tweetText: string;
   /** URL to the rendered banner PNG — the same one used as og:image. */
   ogImageUrl: string;
+  variant?: "default" | "primary";
 }
 
-export function WelcomeActions({ shareUrl, tweetText, ogImageUrl }: Props) {
+export function WelcomeActions({ shareUrl, tweetText, ogImageUrl, variant = "default" }: Props) {
   const [copyState, setCopyState] = useState<"idle" | "copying" | "done" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -72,17 +73,23 @@ export function WelcomeActions({ shareUrl, tweetText, ogImageUrl }: Props) {
         href={intentUrl}
         target="_blank"
         rel="noopener noreferrer"
-        className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-gold-500 px-4 py-2.5 font-mono text-[11px] font-medium uppercase tracking-[0.2em] text-[#0c2340] transition-all hover:bg-gold-400"
+        className={`inline-flex w-full items-center justify-center gap-2 rounded-lg font-mono text-[11px] font-medium uppercase tracking-[0.2em] transition-all ${
+          variant === "primary"
+            ? "bg-gold-500 px-6 py-4 text-navy-900 hover:bg-gold-400 shadow-lg shadow-gold-500/20"
+            : "bg-gold-500 px-4 py-2.5 text-[#0c2340] hover:bg-gold-400"
+        }`}
       >
         <XLogo className="h-3.5 w-3.5" />
-        Share on X
+        Post to X
       </a>
 
       <button
         type="button"
         onClick={copyImage}
         disabled={copyState === "copying"}
-        className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-[var(--rule)] bg-[var(--surface)] px-4 py-2.5 font-mono text-[11px] uppercase tracking-[0.2em] text-[var(--fg)] transition-all hover:border-gold-500/60 hover:text-gold-500 disabled:cursor-not-allowed disabled:opacity-60"
+        className={`inline-flex w-full items-center justify-center gap-2 rounded-lg border border-[var(--rule)] bg-[var(--surface)] px-4 py-2.5 font-mono text-[11px] uppercase tracking-[0.2em] text-[var(--fg)] transition-all hover:border-gold-500/60 hover:text-gold-500 disabled:cursor-not-allowed disabled:opacity-60 ${
+          variant === "primary" ? "hidden" : ""
+        }`}
       >
         {copyState === "copying" ? (
           <>

@@ -18,11 +18,14 @@ interface Props {
 }
 
 export function SignInWithX({
-  callbackURL = "/alpha/welcome",
+  callbackURL = "/alpha/reveal",
   className = "",
   label = "Sign in with X",
 }: Props) {
-  const href = `/api/auth/x/start?callbackURL=${encodeURIComponent(callbackURL)}`;
+  const href =
+    process.env.NODE_ENV === "development"
+      ? `/alpha/reveal?bypass=true`
+      : `/api/auth/x/start?callbackURL=${encodeURIComponent(callbackURL)}`;
 
   return (
     <div className={className}>
@@ -34,6 +37,14 @@ export function SignInWithX({
         <XLogo className="h-3.5 w-3.5" />
         <span>{label}</span>
       </a>
+      
+      {process.env.NODE_ENV === "development" && (
+        <div className="mt-4 text-center">
+          <p className="font-mono text-[9px] uppercase tracking-widest text-emerald-500/60">
+            Developer Mode: Bypassing X Auth
+          </p>
+        </div>
+      )}
     </div>
   );
 }
