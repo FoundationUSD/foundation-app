@@ -8,6 +8,7 @@ import { db } from "@/lib/db";
 import { referralCode } from "../../../../drizzle/schema";
 import { getWaitlistProfileByUserId, upsertWaitlistProfileForUser } from "@/lib/waitlist/profile";
 import { WaitlistProgress } from "@/components/WaitlistProgress";
+import { InviteLinkAction } from "./InviteLinkAction";
 import { WelcomeActions } from "../welcome/WelcomeActions";
 
 export const dynamic = "force-dynamic";
@@ -19,102 +20,101 @@ export default async function AlphaRevealPage({
 }) {
   const params = await searchParams;
   const isBypass = params.bypass === "true";
-  const session = isBypass
-    ? { user: { id: "demo-user-id", name: "Demo User", email: "demo@foundation.app" } }
-    : await auth.api.getSession({ headers: await headers() });
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
 
-  if (!session?.user) redirect("/alpha/join");
+  if (!session && !isBypass) {
+    redirect("/alpha/join");
+  }
 
-  // Fully mock profile if bypass is active to avoid DB dependency
-  let profile = isBypass ? {
-    userId: "demo-user-id",
-    xHandle: "demo",
-    displayName: "Demo User",
-    pfpUrl: "https://abs.twimg.com/sticky/default_profile_images/default_profile_400x400.png",
-    waitlistNumber: 42,
-    notificationEmail: "demo@foundation.app"
-  } : await getWaitlistProfileByUserId(session.user.id);
+  const profile = isBypass
+    ? { xHandle: "demo", waitlistNumber: 42, pfpUrl: null }
+    : await getWaitlistProfileByUserId(session!.user.id);
 
-  if (!isBypass && !profile) profile = await upsertWaitlistProfileForUser(session.user.id);
-  if (!profile) redirect("/compute");
+  if (!profile) {
+    if (session) {
+      await upsertWaitlistProfileForUser(session.user.id, session.user.name || "user");
+      redirect("/alpha/reveal");
+    }
+    redirect("/alpha/join");
+  }
 
-  const [code] = isBypass ? [{ code: "DEMO-CODE" }] : await db
-    .select()
-    .from(referralCode)
-    .where(eq(referralCode.userId, session.user.id))
-    .limit(1);
+  const [code] = isBypass
+    ? [{ code: "DEMO123" }]
+    : await db.select().from(referralCode).where(eq(referralCode.userId, session!.user.id)).limit(1);
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.BETTER_AUTH_URL || "";
   const shareUrl = `${appUrl}/share/${profile.xHandle}`;
   const ogImage = `${appUrl}/api/og/waitlist?handle=${encodeURIComponent(
-    profile.xHandle,
+    profile.xHandle
   )}&number=${profile.waitlistNumber}${
     profile.pfpUrl ? `&pfp_url=${encodeURIComponent(profile.pfpUrl)}` : ""
   }`;
-  const tweetText = `Just claimed Alpha spot #${profile.waitlistNumber} on @fdnusd FCY waitlist — on-chain AI compute debt targeting 17% APY. Real yield, not emissions.\n\n#DeFi #AIInfrastructure\n\n${shareUrl}`;
+  const tweetText = `Just joined the @fdnusd compute yield waitlist. The specialized fund for AI infrastructure — professional-grade yield on Solana. Join: ${shareUrl}`;
 
   return (
     <div className="fdn-page max-w-[1000px]">
-      <WaitlistProgress currentStep={2} />
-
       <div className="animate-fade-up overflow-hidden rounded-2xl border border-[var(--rule)] bg-[var(--surface)] shadow-2xl">
-        <div className="grid grid-cols-1 md:grid-cols-[1.2fr_1fr]">
+        {/* Top Progress Tabs — Integrated into Card */}
+        <div className="border-b border-[var(--rule)]/30 bg-[var(--surface-strong)]/20">
+          <WaitlistProgress currentStep={2} />
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2">
           {/* Left Side — Share Prompt */}
-          <div className="p-8 sm:p-12">
-            <div className="mb-6 flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 font-mono text-[11px] text-emerald-400">
-              <CheckCircle2 className="h-3.5 w-3.5" />
-              <span>@{profile.xHandle} connected</span>
-            </div>
-
-            <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.25em] text-gold-500">
-              One more step · Share your card
-            </p>
-            <h1 className="mb-6 font-serif text-3xl font-light leading-tight text-[var(--fg)] sm:text-5xl">
-              Your card is ready.<br />
-              <em className="text-gold-500">Tell your network.</em>
-            </h1>
-
-            <p className="mb-8 max-w-md text-[14px] leading-relaxed text-[var(--text-accent)]">
-              Post to X to move up the waitlist and unlock your referral earnings.
-              Every friend who joins you earns you 20% of our fee — in USDC, forever.
-            </p>
-
-            {/* Post Preview Card */}
-            <div className="mb-8 rounded-xl border border-[var(--rule)] bg-[var(--surface-strong)]/50 p-6">
-              <div className="flex items-center gap-3 mb-4">
-                {profile.pfpUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={profile.pfpUrl} alt="" className="h-8 w-8 rounded-full border border-gold-500/30" />
-                ) : (
-                  <div className="h-8 w-8 rounded-full bg-gold-500/20" />
-                )}
-                <span className="font-mono text-[12px] font-bold text-[var(--fg)]">@{profile.xHandle}</span>
-              </div>
-              <p className="text-[13px] leading-relaxed text-[var(--fg)] whitespace-pre-wrap">
-                {tweetText.split(shareUrl)[0]}
-                <span className="text-blue-400">{shareUrl}</span>
+          <div className="p-8 sm:p-10">
+            <div className="mt-8 sm:mt-10">
+              <p className="mb-4 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-gold-500">
+                Foundation Alpha · Identity
               </p>
-            </div>
+              <h1 className="mb-6 font-serif text-3xl font-light leading-tight text-[var(--fg)] sm:text-5xl">
+                Your card is ready.<br />
+                Tell your network.
+              </h1>
 
-            <div className="space-y-4">
-              <WelcomeActions
-                shareUrl={shareUrl}
-                tweetText={tweetText}
-                ogImageUrl={ogImage}
-                variant="primary"
-              />
-              
-              <Link
-                href={isBypass ? "/alpha/welcome?bypass=true" : "/alpha/welcome"}
-                className="group flex w-full items-center justify-center gap-2 rounded-lg py-2 font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--text-accent)] transition-colors hover:text-gold-500"
-              >
-                Skip — go to my membership card <ArrowDown className="h-3 w-3 transition-transform group-hover:translate-y-0.5" />
-              </Link>
+              <p className="mb-6 max-w-md text-[14px] leading-relaxed text-[var(--text-accent)]">
+                Post to X to secure early access and unlock your referral earnings.
+                Every friend who joins you earns you 20% of our protocol fees — in USDC, forever.
+              </p>
+
+              {/* Post Preview Card */}
+              <div className="mb-6 rounded-xl border border-[var(--rule)] bg-[var(--surface-strong)]/50 p-4">
+                <div className="flex items-center gap-3 mb-3">
+                  {profile.pfpUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={profile.pfpUrl} alt="" className="h-8 w-8 rounded-full border border-gold-500/30" />
+                  ) : (
+                    <div className="h-8 w-8 rounded-full bg-gold-500/20" />
+                  )}
+                  <span className="font-mono text-[12px] font-bold text-[var(--fg)]">@{profile.xHandle}</span>
+                </div>
+                <p className="text-[13px] leading-relaxed text-[var(--fg)] whitespace-pre-wrap">
+                  {tweetText.split(shareUrl)[0]}
+                  <span className="text-blue-400">{shareUrl}</span>
+                </p>
+              </div>
+
+              <div className="space-y-6">
+                <WelcomeActions 
+                  shareUrl={shareUrl}
+                  tweetText={tweetText}
+                  ogImageUrl={ogImage}
+                  variant="default"
+                />
+                
+                <Link
+                  href={isBypass ? "/alpha/welcome?bypass=true" : "/alpha/welcome"}
+                  className="group flex w-full items-center justify-center gap-2 rounded-lg border border-transparent py-3 font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--muted)] transition-all hover:border-[var(--rule)] hover:bg-[var(--surface-strong)]/30 hover:text-gold-500"
+                >
+                  Enter the Priority Queue <ArrowDown className="h-3 w-3 opacity-40 transition-transform group-hover:translate-y-0.5 group-hover:opacity-100" />
+                </Link>
+              </div>
             </div>
           </div>
 
           {/* Right Side — Card Preview */}
-          <div className="relative flex flex-col items-center justify-center border-l border-[var(--rule)]/30 bg-[var(--surface-strong)]/30 p-8 sm:p-12 backdrop-blur-md">
+          <div className="relative flex flex-col items-center justify-center border-l border-[var(--rule)]/30 bg-[var(--surface-strong)]/30 p-8 sm:p-10 backdrop-blur-md">
             <p className="mb-8 font-mono text-[10px] uppercase tracking-[0.25em] text-[var(--text-accent)]">
               Your membership card
             </p>
@@ -145,7 +145,7 @@ export default async function AlphaRevealPage({
                   No. {profile.waitlistNumber.toString().padStart(3, "0")}
                 </div>
                 <p className="mt-1 font-mono text-[8px] uppercase tracking-[0.3em] text-[var(--text-accent)]">
-                  Foundation Compute Yield
+                  AI Compute Yield
                 </p>
               </div>
 
@@ -170,7 +170,7 @@ export default async function AlphaRevealPage({
                   #{profile.waitlistNumber}
                 </div>
                 <p className="font-mono text-[8px] uppercase tracking-tighter text-[var(--text-accent)]">
-                  on the waitlist<br />Share to move up
+                  Early Access Pass
                 </p>
               </div>
             </div>

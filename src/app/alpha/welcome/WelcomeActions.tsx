@@ -73,7 +73,7 @@ export function WelcomeActions({ shareUrl, tweetText, ogImageUrl, variant = "def
         href={intentUrl}
         target="_blank"
         rel="noopener noreferrer"
-        className={`inline-flex w-full items-center justify-center gap-2 rounded-lg font-mono text-[11px] font-medium uppercase tracking-[0.2em] transition-all ${
+        className={`inline-flex w-full items-center justify-center gap-2 rounded-lg font-mono text-[11px] font-medium uppercase tracking-[0.08em] transition-all ${
           variant === "primary"
             ? "bg-gold-500 px-6 py-4 text-navy-900 hover:bg-gold-400 shadow-lg shadow-gold-500/20"
             : "bg-gold-500 px-4 py-2.5 text-[#0c2340] hover:bg-gold-400"
@@ -87,7 +87,7 @@ export function WelcomeActions({ shareUrl, tweetText, ogImageUrl, variant = "def
         type="button"
         onClick={copyImage}
         disabled={copyState === "copying"}
-        className={`inline-flex w-full items-center justify-center gap-2 rounded-lg border border-[var(--rule)] bg-[var(--surface)] px-4 py-2.5 font-mono text-[11px] uppercase tracking-[0.2em] text-[var(--fg)] transition-all hover:border-gold-500/60 hover:text-gold-500 disabled:cursor-not-allowed disabled:opacity-60 ${
+        className={`inline-flex w-full items-center justify-center gap-2 rounded-lg border border-[var(--rule)] bg-[var(--surface)] px-4 py-2.5 font-mono text-[11px] uppercase tracking-[0.08em] text-[var(--fg)] transition-all hover:border-gold-500/60 hover:text-gold-500 disabled:cursor-not-allowed disabled:opacity-60 ${
           variant === "primary" ? "hidden" : ""
         }`}
       >
