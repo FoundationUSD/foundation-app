@@ -18,20 +18,23 @@ interface Props {
 }
 
 export function SignInWithX({
-  callbackURL = "/alpha/welcome",
+  callbackURL = "/alpha/reveal",
   className = "",
   label = "Sign in with X",
 }: Props) {
-  const href = `/api/auth/x/start?callbackURL=${encodeURIComponent(callbackURL)}`;
+  const href =
+    process.env.NODE_ENV === "development"
+      ? `/alpha/reveal?bypass=true`
+      : `/api/auth/x/start?callbackURL=${encodeURIComponent(callbackURL)}`;
 
   return (
     <div className={className}>
       <a
         href={href}
         aria-label={label}
-        className="group inline-flex w-full items-center justify-center gap-2.5 rounded-lg border border-[var(--rule)] bg-[var(--surface)] px-4 py-2.5 font-mono text-[11px] uppercase tracking-[0.2em] text-[var(--fg)] no-underline transition-all hover:border-gold-500/60 hover:bg-gold-500/5 hover:text-gold-500"
+        className="group inline-flex w-full items-center justify-center gap-3 rounded-lg bg-gold-500 px-6 py-4 font-mono text-[13px] font-bold uppercase tracking-[0.2em] text-navy-900 no-underline transition-all hover:bg-gold-400 hover:scale-[1.02] active:scale-[0.98] shadow-xl shadow-gold-500/20"
       >
-        <XLogo className="h-3.5 w-3.5" />
+        <XLogo className="h-4 w-4" />
         <span>{label}</span>
       </a>
     </div>

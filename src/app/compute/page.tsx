@@ -117,7 +117,12 @@ function Hero({ blendedApy }: { blendedApy: number }) {
             banner + referral link. Earn 20% of our fee on friends&apos; yield
             when FCY launches.
           </p>
-          <SignInWithX callbackURL="/alpha/welcome" />
+          <Link
+            href="/alpha/join"
+            className="group inline-flex w-full items-center justify-center gap-2.5 rounded-lg border border-[var(--rule)] bg-[var(--surface)] px-4 py-2.5 font-mono text-[11px] uppercase tracking-[0.2em] text-[var(--fg)] no-underline transition-all hover:border-gold-500/60 hover:bg-gold-500/5 hover:text-gold-500"
+          >
+            Join the waitlist
+          </Link>
           <div className="mt-3 border-t border-[var(--rule)] pt-3">
             <WaitlistCounter />
           </div>

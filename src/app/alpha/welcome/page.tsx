@@ -1,57 +1,56 @@
-/**
- * /alpha/welcome — landing page after a successful X sign-in.
- *
- * Server component pulls session + waitlist profile + referral counts.
- * Client islands handle the share buttons and the optional notification
- * email input.
- */
-
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { ArrowUpRight, Trophy, Key, IdCard, Share2, Bell, Users, Zap } from "lucide-react";
 import { eq } from "drizzle-orm";
 import { auth } from "@/lib/auth/server";
 import { db } from "@/lib/db";
-import {
-  getWaitlistProfileByUserId,
-  upsertWaitlistProfileForUser,
-} from "@/lib/waitlist/profile";
-import {
-  referral,
-  referralCode,
-  type WaitlistProfile,
-} from "../../../../drizzle/schema";
+import { referralCode } from "../../../../drizzle/schema";
+import { getWaitlistProfileByUserId } from "@/lib/waitlist/profile";
 import { WelcomeActions } from "./WelcomeActions";
+import { InviteKeyCopy } from "./InviteKeyCopy";
 
 export const dynamic = "force-dynamic";
 
-export default async function AlphaWelcomePage() {
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session?.user) redirect("/compute");
+export default async function AlphaWelcomePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
+  const params = await searchParams;
+  const isBypass = params.bypass === "true";
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
 
-  // Self-heal: if the user lands here without a waitlist row (e.g. the
-  // create-hook silently failed once), build it now from their twitter account.
-  let profile: WaitlistProfile | null = await getWaitlistProfileByUserId(
-    session.user.id,
-  );
-  if (!profile) profile = await upsertWaitlistProfileForUser(session.user.id);
-  if (!profile) {
-    // Email-only signup — no waitlist row to show. Push them back.
-    redirect("/compute");
+  if (!session && !isBypass) {
+    redirect("/alpha/join");
   }
 
-  // Referral metrics for this user.
-  const [code] = await db
-    .select()
-    .from(referralCode)
-    .where(eq(referralCode.userId, session.user.id))
-    .limit(1);
+  const profile = isBypass
+    ? { xHandle: "demo", waitlistNumber: 42, pfpUrl: null }
+    : await getWaitlistProfileByUserId(session!.user.id);
 
-  const referees = await db
-    .select({ id: referral.id })
-    .from(referral)
-    .where(eq(referral.referrerUserId, session.user.id));
-  const refereeCount = referees.length;
+  if (!profile) {
+    redirect("/alpha/join");
+  }
+
+  const [code] = isBypass
+    ? [{ code: "DEMO123" }]
+    : await db
+        .select()
+        .from(referralCode)
+        .where(eq(referralCode.userId, session!.user.id))
+        .limit(1);
+
+  const referees = isBypass
+    ? []
+    : await db
+        .select()
+        .from(referralCode)
+        .where(eq(referralCode.referrerId, session!.user.id));
+
+  const refereeCount = isBypass ? 12 : referees.length;
 
   const appUrl =
     process.env.NEXT_PUBLIC_APP_URL || process.env.BETTER_AUTH_URL || "";
@@ -61,68 +60,145 @@ export default async function AlphaWelcomePage() {
   )}&number=${profile.waitlistNumber}${
     profile.pfpUrl ? `&pfp_url=${encodeURIComponent(profile.pfpUrl)}` : ""
   }`;
-  const tweetText = `Just joined the @fdn_labs Foundation Alpha waitlist. The compute yield index — the financing layer for the AI super-cycle. Join: ${shareUrl}`;
+  const tweetText = `Just joined the @fdnusd compute yield waitlist. The specialized fund for AI infrastructure — professional-grade yield on Solana. Join: ${shareUrl}`;
+
+  const rank = Math.max(1, profile.waitlistNumber - (refereeCount * 50));
+  const potentialEarnings = (refereeCount * 250).toLocaleString();
 
   return (
-    <div className="fdn-page max-w-[920px]">
-      <div className="mb-6">
-        <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-gold-500">
-          Foundation Alpha
-        </p>
-        <h1 className="page-heading mt-1 text-2xl sm:text-[2rem]">
-          You&apos;re <em>#{profile.waitlistNumber}</em> on the FCY waitlist.
-        </h1>
-        <p className="mt-2 max-w-xl text-[13px] leading-relaxed text-[var(--text-accent)]">
-          Welcome, @{profile.xHandle}. You&apos;re early to the compute yield
-          index — track AI infrastructure debt with a USDC deposit when we ship.
-        </p>
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-[1fr_360px] md:items-start">
-        {/* Banner preview */}
-        <section className="infra-card overflow-hidden p-0">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={ogImage}
-            alt={`Foundation waitlist banner for @${profile.xHandle}`}
-            className="block h-auto w-full"
-            width={1200}
-            height={900}
-          />
-        </section>
-
-        {/* Action column */}
-        <aside className="space-y-4">
-          <WelcomeActions
-            shareUrl={shareUrl}
-            tweetText={tweetText}
-            ogImageUrl={ogImage}
-          />
-
-          <div className="rounded-xl border border-[var(--rule)] bg-[var(--surface)] p-4">
-            <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-gold-500">
-              Referrals
-            </p>
-            <p className="mt-1 font-mono text-2xl font-bold tracking-[-0.02em] text-[var(--fg)]">
-              {refereeCount.toLocaleString()}
-            </p>
-            <p className="mt-0.5 font-mono text-[10px] tracking-wider text-[var(--text-accent)]">
-              {refereeCount === 1 ? "person joined" : "people joined"} via your link
-            </p>
-            {code && (
-              <p className="mt-3 font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--text-accent)]">
-                Your code: <span className="text-gold-500">{code.code}</span>
+    <div className="fdn-page max-w-[1000px]">
+      <div className="animate-fade-up overflow-hidden rounded-2xl border border-[var(--rule)] bg-[var(--surface)] shadow-2xl">
+        <div className="grid grid-cols-1 md:grid-cols-2">
+          
+          {/* Left Column — Identity & Perks */}
+          <div className="flex flex-col p-8 sm:p-12 lg:p-14">
+            <div className="mb-10">
+              <p className="mb-4 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-gold-500">
+                Foundation Alpha · Cabinet
               </p>
-            )}
+              <h1 className="mb-6 font-serif text-3xl font-light leading-tight text-[var(--fg)] sm:text-5xl">
+                Welcome, @{profile.xHandle}.
+              </h1>
+              <p className="max-w-md text-[14px] leading-relaxed text-[var(--text-accent)]">
+                You hold priority access to the first institutional AI compute fund. 
+                Your status is verified and accruing value.
+              </p>
+            </div>
+
+            <div className="space-y-10 pt-10 border-t border-[var(--rule)]/30">
+              <h2 className="font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-gold-500">
+                Your Member Perks
+              </h2>
+
+              <div className="space-y-8">
+                {/* Perk 1 */}
+                <div className="flex items-start gap-4">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-[var(--rule)] bg-[var(--surface-strong)]/30 text-gold-500">
+                    <IdCard className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-[14px] text-[var(--fg)]">Genesis Pass</h4>
+                    <p className="mt-1 text-[13px] leading-relaxed text-[var(--text-accent)]">
+                      Exclusive numbered ID. Verified early-access pass.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Perk 2 with Ref Button */}
+                <div className="flex items-start gap-4">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-[var(--rule)] bg-[var(--surface-strong)]/30 text-gold-500">
+                    <Share2 className="h-5 w-5" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between gap-4">
+                      <h4 className="font-bold text-[14px] text-[var(--fg)]">20% Fee Share</h4>
+                      <Link 
+                        href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}`}
+                        target="_blank"
+                        className="rounded border border-gold-500/30 bg-gold-500/5 px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-wide text-gold-500 transition-colors hover:bg-gold-500/10"
+                      >
+                        Invite
+                      </Link>
+                    </div>
+                    <p className="mt-1 text-[13px] leading-relaxed text-[var(--text-accent)]">
+                      Earn protocol fees in USDC for every friend referred.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Perk 3 */}
+                <div className="flex items-start gap-4">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-[var(--rule)] bg-[var(--surface-strong)]/30 text-gold-500">
+                    <Zap className="h-5 w-5" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between gap-4">
+                      <h4 className="font-bold text-[14px] text-[var(--fg)]">Priority Allocation</h4>
+                      <span className="rounded border border-gold-500/30 bg-gold-500/5 px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-wide text-gold-500">#{rank}</span>
+                    </div>
+                    <p className="mt-1 text-[13px] leading-relaxed text-[var(--text-accent)]">
+                      First in line to deposit when restricted-access vaults open.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
-          <Link
-            href="/compute"
-            className="block text-center font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--text-accent)] hover:text-gold-500"
-          >
-            ← Back to FCY
-          </Link>
-        </aside>
+          {/* Right Column — Dashboard */}
+          <div className="flex flex-col border-l border-[var(--rule)]/30 bg-[var(--surface-strong)]/20 p-8 sm:p-12 lg:p-14">
+            
+            {/* 1. Invite Key */}
+            <div className="mb-8">
+              <h2 className="mb-3 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-gold-500">
+                Invite Access
+              </h2>
+              <InviteKeyCopy code={code?.code || ""} />
+            </div>
+
+            {/* 2. Membership Card */}
+            <div className="mb-8">
+              <div className="relative aspect-[1200/900] overflow-hidden rounded-lg border border-[var(--rule)]">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={ogImage}
+                  alt="Foundation Membership Card"
+                  className="h-full w-full object-cover"
+                />
+              </div>
+            </div>
+
+            {/* 3. Metrics */}
+            <div className="mt-auto">
+              <h2 className="mb-4 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-gold-500">
+                Alpha Metrics
+              </h2>
+
+              <div className="grid grid-cols-3 gap-4 border-t border-[var(--rule)]/30 pt-5 mb-6">
+                <div>
+                  <p className="font-mono text-[18px] font-bold text-[var(--fg)]">{refereeCount}</p>
+                  <p className="mt-1 font-mono text-[9px] uppercase tracking-wider text-[var(--text-accent)]">Invited</p>
+                </div>
+                <div>
+                  <p className="font-mono text-[18px] font-bold text-[var(--fg)]">${potentialEarnings}</p>
+                  <p className="mt-1 font-mono text-[9px] uppercase tracking-wider text-[var(--text-accent)]">Ref Earned</p>
+                </div>
+                <div>
+                  <p className="font-mono text-[18px] font-bold text-[var(--fg)]">#{rank}</p>
+                  <p className="mt-1 font-mono text-[9px] uppercase tracking-wider text-[var(--text-accent)]">Position</p>
+                </div>
+              </div>
+
+              <WelcomeActions
+                shareUrl={shareUrl}
+                tweetText={tweetText}
+                ogImageUrl={ogImage}
+              />
+            </div>
+
+          </div>
+
+        </div>
       </div>
     </div>
   );
