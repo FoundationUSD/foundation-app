@@ -244,7 +244,7 @@ export default function PortfolioPage() {
             ) : positions.length > 0 ? (
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 {positions.map((p) => (
-                  <Link key={p.vaultId} href="/">
+                  <Link key={p.vaultId} href="/invest">
                     <div className="cursor-pointer rounded-xl border border-[var(--rule)] bg-light-bg p-4 transition-all hover:bg-white">
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex items-center gap-3">
@@ -289,7 +289,7 @@ export default function PortfolioPage() {
             ) : (
               <div className="py-6 text-center">
                 <p className="mb-2 text-sm text-[var(--text-accent)]">No active positions</p>
-                <Link href="/" className="font-mono text-xs text-gold-500 hover:text-gold-400">
+                <Link href="/invest" className="font-mono text-xs text-gold-500 hover:text-gold-400">
                   Deposit USDC to get started →
                 </Link>
               </div>
@@ -301,7 +301,7 @@ export default function PortfolioPage() {
             <h3 className="section-label mb-4">Available Vaults</h3>
             <div className="space-y-3">
               {FOUNDATION_VAULTS.filter((v) => v.status === "live").map((v) => (
-                <Link key={v.id} href="/">
+                <Link key={v.id} href="/invest">
                   <div className="flex items-center justify-between rounded-md border border-[var(--rule)] p-4 transition-all hover:border-[var(--outline-hover)]">
                     <div>
                       <p className="text-sm font-medium text-[var(--fg)]">{v.name}</p>
@@ -373,7 +373,7 @@ export default function PortfolioPage() {
                 {history.length === 0 ? "No transactions yet" : "No records match the current filters"}
               </p>
               {history.length === 0 && (
-                <Link href="/" className="font-mono text-xs text-gold-500 hover:text-gold-400">
+                <Link href="/invest" className="font-mono text-xs text-gold-500 hover:text-gold-400">
                   Make your first deposit →
                 </Link>
               )}

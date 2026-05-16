@@ -117,7 +117,7 @@ export function RiskDashboard() {
     return (
       <div className="rounded-xl border border-[var(--rule)] bg-[var(--surface)] p-12 text-center">
         <p className="mb-2 font-serif text-base font-light text-[var(--muted)]">No positions yet</p>
-        <Link href="/" className="font-mono text-xs text-gold-500 hover:text-gold-400">
+        <Link href="/invest" className="font-mono text-xs text-gold-500 hover:text-gold-400">
           Deposit into a vault →
         </Link>
       </div>

@@ -16,7 +16,7 @@ export function Footer() {
             custodied through Squads multisig with Token-2022 receipt mints.
           </p>
           <div className="flex flex-wrap gap-x-4 gap-y-1 font-mono text-[11px] text-[var(--text-accent)]">
-            <Link href="/" className="hover:text-[var(--fg)]">Invest</Link>
+            <Link href="/invest" className="hover:text-[var(--fg)]">Invest</Link>
             <Link href="/compute" className="hover:text-[var(--fg)]">Compute</Link>
             <Link href="/awy" className="hover:text-[var(--fg)]">AWY</Link>
             <Link href="/portfolio" className="hover:text-[var(--fg)]">Portfolio</Link>

@@ -68,7 +68,7 @@ export function StandingDashboard() {
         <p className="mb-4 text-xs text-[var(--text-accent)]">
           Tenure starts accruing the moment you deposit. $1 held for 1 month = 1 Tenure-Month.
         </p>
-        <Link href="/" className="font-mono text-xs text-gold-500 hover:text-gold-400">
+        <Link href="/invest" className="font-mono text-xs text-gold-500 hover:text-gold-400">
           Make your first deposit →
         </Link>
       </div>

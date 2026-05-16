@@ -32,7 +32,7 @@ export default async function SubscribedPage({
       <h1 className="mb-4 font-serif text-3xl font-light text-[var(--fg)]">{copy.title}</h1>
       <p className="mb-8 max-w-lg text-sm leading-relaxed text-[var(--text-accent)]">{copy.body}</p>
       <Link
-        href="/"
+        href="/invest"
         className="rounded-lg bg-[var(--navy)] px-6 py-2.5 font-mono text-xs uppercase tracking-wider text-white transition-opacity hover:opacity-90"
       >
         Back to Foundation

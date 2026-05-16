@@ -47,7 +47,7 @@ export default function ComputePage() {
               Compute <em>Yield</em>
             </h1>
           </div>
-          <Link href="/" className="fnd-nav-link shrink-0">
+          <Link href="/invest" className="fnd-nav-link shrink-0">
             Invest <ArrowUpRight className="h-3 w-3" />
           </Link>
         </div>

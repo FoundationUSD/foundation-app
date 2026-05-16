@@ -15,11 +15,11 @@ import { NotificationBell } from "@/components/NotificationBell";
 // header to keep top nav focused on the active product surface (Invest +
 // Portfolio + Transparency). Compute tab will land on the merge with ft/compute.
 const NAV_TABS = [
+  { key: "alpha", label: "Waitlist", Icon: Users, path: "/alpha" },
   { key: "portfolio", label: "Portfolio", Icon: IconWalletMoney, path: "/portfolio" },
-  { key: "invest", label: "Invest", Icon: IconCoin, path: "/" },
+  { key: "invest", label: "Invest", Icon: IconCoin, path: "/invest" },
   { key: "compute", label: "Compute", Icon: Cpu, path: "/compute" },
   { key: "transparency", label: "Transparency", Icon: IconSafe, path: "/transparency" },
-  { key: "alpha", label: "Waitlist", Icon: Users, path: "/alpha" },
 ];
 
 export function Navbar() {
@@ -77,11 +77,11 @@ export function Navbar() {
           <nav className="fnd-header__nav flex flex-1 items-center gap-0.5">
             {NAV_TABS.map((tab) => {
               const isActive =
+                (tab.key === "alpha" && (pathname === "/" || pathname.startsWith("/alpha"))) ||
                 (tab.key === "portfolio" && pathname === "/portfolio") ||
-                (tab.key === "invest" && (pathname === "/" || pathname.startsWith("/strategy"))) ||
+                (tab.key === "invest" && (pathname.startsWith("/invest") || pathname.startsWith("/strategy"))) ||
                 (tab.key === "compute" && pathname.startsWith("/compute")) ||
-                (tab.key === "transparency" && pathname === "/transparency") ||
-                (tab.key === "alpha" && pathname.startsWith("/alpha"));
+                (tab.key === "transparency" && pathname === "/transparency");
               return (
                 <Link
                   key={tab.key}
@@ -143,10 +143,11 @@ export function Navbar() {
             <nav className="fdn-mobile-menu__nav">
               {NAV_TABS.map((tab) => {
                 const isActive =
+                  (tab.key === "alpha" && (pathname === "/" || pathname.startsWith("/alpha"))) ||
                   (tab.key === "portfolio" && pathname === "/portfolio") ||
-                  (tab.key === "invest" && (pathname === "/" || pathname.startsWith("/strategy"))) ||
-                  (tab.key === "transparency" && pathname === "/transparency") ||
-                  (tab.key === "alpha" && pathname.startsWith("/alpha"));
+                  (tab.key === "invest" && (pathname.startsWith("/invest") || pathname.startsWith("/strategy"))) ||
+                  (tab.key === "compute" && pathname.startsWith("/compute")) ||
+                  (tab.key === "transparency" && pathname === "/transparency");
                 return (
                   <Link
                     key={tab.key}

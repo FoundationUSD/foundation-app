@@ -161,7 +161,7 @@ export function JoinClient() {
                 
                 <p className="mt-4 text-center font-mono text-[9px] uppercase tracking-widest text-[var(--text-accent)]">
                   {connected 
-                    ? "🔒 Read-only · never posts without permission"
+                    ? "🔒 Read-only"
                     : "First step: Connect your Solana wallet"
                   }
                 </p>

@@ -47,19 +47,17 @@ export function WaitlistProgress({ currentStep }: Props) {
           </div>
         );
 
+        const href =
+          step.n === 1
+            ? "/alpha/join"
+            : step.n === 2
+            ? "/alpha/reveal"
+            : "/alpha/welcome";
+
         return (
           <div key={step.n} className="flex flex-1 items-center justify-center">
-            {process.env.NODE_ENV === "development" ? (
-              <Link
-                href={
-                  step.n === 1
-                    ? "/alpha/join?bypass=true"
-                    : step.n === 2
-                    ? "/alpha/reveal?bypass=true"
-                    : "/alpha/welcome?bypass=true"
-                }
-                className="flex items-center no-underline"
-              >
+            {isCompleted ? (
+              <Link href={href} className="flex items-center no-underline">
                 {StepContent}
               </Link>
             ) : (

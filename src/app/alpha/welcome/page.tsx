@@ -5,52 +5,40 @@ import { ArrowUpRight, Trophy, Key, IdCard, Share2, Bell, Users, Zap } from "luc
 import { eq } from "drizzle-orm";
 import { auth } from "@/lib/auth/server";
 import { db } from "@/lib/db";
-import { referralCode } from "../../../../drizzle/schema";
+import { referral, referralCode } from "../../../../drizzle/schema";
 import { getWaitlistProfileByUserId } from "@/lib/waitlist/profile";
 import { WelcomeActions } from "./WelcomeActions";
 import { InviteKeyCopy } from "./InviteKeyCopy";
 
 export const dynamic = "force-dynamic";
 
-export default async function AlphaWelcomePage({
-  searchParams,
-}: {
-  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
-}) {
-  const params = await searchParams;
-  const isBypass = params.bypass === "true";
+export default async function AlphaWelcomePage() {
   const session = await auth.api.getSession({
     headers: await headers(),
   });
 
-  if (!session && !isBypass) {
+  if (!session) {
     redirect("/alpha/join");
   }
 
-  const profile = isBypass
-    ? { xHandle: "demo", waitlistNumber: 42, pfpUrl: null }
-    : await getWaitlistProfileByUserId(session!.user.id);
+  const profile = await getWaitlistProfileByUserId(session.user.id);
 
   if (!profile) {
     redirect("/alpha/join");
   }
 
-  const [code] = isBypass
-    ? [{ code: "DEMO123" }]
-    : await db
-        .select()
-        .from(referralCode)
-        .where(eq(referralCode.userId, session!.user.id))
-        .limit(1);
+  const [code] = await db
+    .select()
+    .from(referralCode)
+    .where(eq(referralCode.userId, session.user.id))
+    .limit(1);
 
-  const referees = isBypass
-    ? []
-    : await db
-        .select()
-        .from(referralCode)
-        .where(eq(referralCode.referrerId, session!.user.id));
+  const referees = await db
+    .select()
+    .from(referral)
+    .where(eq(referral.referrerUserId, session.user.id));
 
-  const refereeCount = isBypass ? 12 : referees.length;
+  const refereeCount = referees.length;
 
   const appUrl =
     process.env.NEXT_PUBLIC_APP_URL || process.env.BETTER_AUTH_URL || "";
@@ -158,7 +146,7 @@ export default async function AlphaWelcomePage({
 
             {/* 2. Membership Card */}
             <div className="mb-8">
-              <div className="relative aspect-[1200/900] overflow-hidden rounded-lg border border-[var(--rule)]">
+              <div className="relative aspect-[19/12] overflow-hidden rounded-lg border border-[var(--rule)]">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={ogImage}

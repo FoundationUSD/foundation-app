@@ -22,10 +22,7 @@ export function SignInWithX({
   className = "",
   label = "Sign in with X",
 }: Props) {
-  const href =
-    process.env.NODE_ENV === "development"
-      ? `/alpha/reveal?bypass=true`
-      : `/api/auth/x/start?callbackURL=${encodeURIComponent(callbackURL)}`;
+  const href = `/api/auth/x/start?callbackURL=${encodeURIComponent(callbackURL)}`;
 
   return (
     <div className={className}>
