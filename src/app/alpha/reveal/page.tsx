@@ -22,14 +22,13 @@ export default async function AlphaRevealPage() {
     redirect("/alpha/join");
   }
 
-  let profile = await getWaitlistProfileByUserId(session.user.id);
+  // Twitter login completed but profile row missing — self-heal then re-read.
+  // If still missing, the X account isn't linked.
+  const profile =
+    (await getWaitlistProfileByUserId(session.user.id)) ??
+    (await upsertWaitlistProfileForUser(session.user.id));
 
-  if (!profile) {
-    // Twitter login completed but profile row missing — self-heal once,
-    // then re-read. If still missing, the X account isn't linked.
-    profile = await upsertWaitlistProfileForUser(session.user.id);
-    if (!profile) redirect("/alpha/join");
-  }
+  if (!profile) redirect("/alpha/join");
 
   const [code] = await db
     .select()
