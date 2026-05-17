@@ -42,7 +42,7 @@ export default async function AlphaWelcomePage() {
 
   const appUrl =
     process.env.NEXT_PUBLIC_APP_URL || process.env.BETTER_AUTH_URL || "";
-  const shareUrl = `${appUrl}/share/${profile.xHandle}`;
+  const shareUrl = `${appUrl}/share/${encodeURIComponent(profile.xHandle)}`;
   const ogImage = `${appUrl}/api/og/waitlist?handle=${encodeURIComponent(
     profile.xHandle,
   )}&number=${profile.waitlistNumber}${

@@ -48,6 +48,18 @@ function highResPfp(url: string | null | undefined): string | null {
 }
 
 /**
+ * Force a handle into Twitter's allowed shape: [a-z0-9_], max 15 chars.
+ * Used when we fall back to display name (which may contain `|`, `.`, emoji,
+ * etc.). Bad handles break tweet auto-linking — Twitter's URL parser stops
+ * at `|` and truncates the shared link.
+ */
+function sanitizeHandle(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const cleaned = raw.toLowerCase().replace(/[^a-z0-9_]/g, "").slice(0, 15);
+  return cleaned.length > 0 ? cleaned : null;
+}
+
+/**
  * Read the Twitter account row for a user (if any) and write/update the
  * corresponding waitlist_profile. Idempotent — safe to call on retries.
  *
@@ -74,9 +86,9 @@ export async function upsertWaitlistProfileForUser(userId: string) {
     : null;
 
   const xHandle =
-    xProfile?.username ||
-    u.name?.replace(/\s+/g, "").toLowerCase() ||
-    "anon";
+    sanitizeHandle(xProfile?.username) ||
+    sanitizeHandle(u.name) ||
+    `user${userId.slice(0, 8)}`;
   const displayName = xProfile?.name || u.name || null;
   const pfpUrl = highResPfp(xProfile?.profile_image_url) || u.image || null;
   const notificationEmail =

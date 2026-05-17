@@ -44,7 +44,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
       description: "The compute yield index. The financing layer for the AI super-cycle.",
     };
   }
-  const url = `${appUrl()}/share/${profile.xHandle}`;
+  const url = `${appUrl()}/share/${encodeURIComponent(profile.xHandle)}`;
   const ogImage = buildOgImage(profile.xHandle, profile.pfpUrl, profile.waitlistNumber);
   const title = `${profile.displayName || "@" + profile.xHandle} is on the Foundation Alpha waitlist`;
   const description =
