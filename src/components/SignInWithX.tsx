@@ -5,21 +5,19 @@
  * handlers. The button is a real HTML <a> link, so it works without
  * hydration. The actual OAuth dance is initiated server-side at
  * /api/auth/x/start which 302-redirects to the X consent screen.
- *
- * Why no client component: Turbopack + tunnel + Next.js 16 has been
- * dropping hydration of nested client components, leaving event handlers
- * unattached. A plain link sidesteps the whole problem.
  */
 
 interface Props {
   callbackURL?: string;
   className?: string;
+  linkClassName?: string;
   label?: string;
 }
 
 export function SignInWithX({
   callbackURL = "/alpha/reveal",
   className = "",
+  linkClassName = "",
   label = "Sign in with X",
 }: Props) {
   const href = `/api/auth/x/start?callbackURL=${encodeURIComponent(callbackURL)}`;
@@ -29,9 +27,9 @@ export function SignInWithX({
       <a
         href={href}
         aria-label={label}
-        className="group inline-flex w-full items-center justify-center gap-3 rounded-lg bg-gold-500 px-6 py-4 font-mono text-[13px] font-bold uppercase tracking-[0.2em] text-navy-900 no-underline transition-all hover:bg-gold-400 hover:scale-[1.02] active:scale-[0.98] shadow-xl shadow-gold-500/20"
+        className={linkClassName || "group inline-flex w-full items-center justify-center gap-3 rounded-lg bg-gold-500 px-6 py-4 font-mono text-[13px] font-bold uppercase tracking-[0.2em] text-navy-900 no-underline transition-all hover:bg-gold-400 hover:scale-[1.02] active:scale-[0.98] shadow-xl shadow-gold-500/20"}
       >
-        <XLogo className="h-4 w-4" />
+        <XLogo className="h-4 w-4 shrink-0" />
         <span>{label}</span>
       </a>
     </div>

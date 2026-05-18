@@ -1,16 +1,5 @@
 "use client";
 
-/**
- * WelcomeActions — client island under /alpha/welcome.
- *
- *   - "Share on X" → opens the Twitter intent compose
- *   - "Copy image" → copies the rendered banner PNG to clipboard so the user
- *     can paste it directly into any X compose dialog / DM / Slack / etc.
- *
- * Email is fetched from X automatically via the users.email scope, so no
- * email input is shown here.
- */
-
 import { useState } from "react";
 import { Check, Copy, ImageDown } from "lucide-react";
 
@@ -35,15 +24,11 @@ export function WelcomeActions({ shareUrl, tweetText, ogImageUrl, variant = "def
     setCopyState("copying");
     setErrorMsg(null);
     try {
-      // Fetch the rendered banner. Clipboard API requires the blob to be a
-      // PNG (or one of a tiny allow-list of MIME types) and the operation
-      // to happen inside a user gesture — this click handler qualifies.
       const res = await fetch(ogImageUrl, { cache: "no-store" });
       if (!res.ok) throw new Error(`Image fetch ${res.status}`);
       const blob = await res.blob();
       if (!blob.type.startsWith("image/")) throw new Error("Not an image");
 
-      // ClipboardItem isn't on the global type in some lib versions.
       const ClipboardItemCtor = (
         window as unknown as { ClipboardItem?: typeof ClipboardItem }
       ).ClipboardItem;
@@ -69,45 +54,46 @@ export function WelcomeActions({ shareUrl, tweetText, ogImageUrl, variant = "def
 
   return (
     <div className="space-y-3">
+      {/* Post to X - Branded Gold & Navy button */}
       <a
         href={intentUrl}
         target="_blank"
         rel="noopener noreferrer"
-        className={`inline-flex w-full items-center justify-center gap-2 rounded-lg font-mono text-[11px] font-medium uppercase tracking-[0.08em] transition-all ${
-          variant === "primary"
-            ? "bg-gold-500 px-6 py-4 text-navy-900 hover:bg-gold-400 shadow-lg shadow-gold-500/20"
-            : "bg-gold-500 px-4 py-2.5 text-[#0c2340] hover:bg-gold-400"
-        }`}
+        className="group flex w-full items-center justify-center gap-3 rounded-lg bg-gold-500 px-6 py-4 font-mono text-[12px] font-bold uppercase tracking-[0.2em] text-navy-900 no-underline shadow-xl shadow-gold-500/10 transition-all hover:bg-gold-400 hover:scale-[1.01] active:scale-[0.99]"
       >
-        <XLogo className="h-3.5 w-3.5" />
-        Post to X
+        <XLogo className="h-4 w-4 shrink-0" />
+        <span>Post to X</span>
       </a>
 
+      {/* Copy Image - Understated Dark Glass Button */}
       <button
         type="button"
         onClick={copyImage}
         disabled={copyState === "copying"}
-        className={`inline-flex w-full items-center justify-center gap-2 rounded-lg border border-[var(--rule)] bg-[var(--surface)] px-4 py-2.5 font-mono text-[11px] uppercase tracking-[0.08em] text-[var(--fg)] transition-all hover:border-gold-500/60 hover:text-gold-500 disabled:cursor-not-allowed disabled:opacity-60 ${
+        className={`group flex w-full items-center justify-center gap-3 rounded-lg border border-[var(--rule)]/60 bg-[var(--surface-strong)]/20 px-6 py-4 font-mono text-[12px] font-bold uppercase tracking-[0.2em] text-[var(--fg)] transition-all hover:bg-[var(--surface-strong)]/40 hover:border-[var(--rule)] disabled:cursor-not-allowed disabled:opacity-60 ${
           variant === "primary" ? "hidden" : ""
         }`}
       >
         {copyState === "copying" ? (
           <>
-            <Copy className="h-3.5 w-3.5 animate-pulse" /> Copying…
+            <Copy className="h-4 w-4 animate-pulse shrink-0 text-gold-500" />
+            <span>Copying…</span>
           </>
         ) : copyState === "done" ? (
           <>
-            <Check className="h-3.5 w-3.5" /> Image copied
+            <Check className="h-4 w-4 text-emerald-500 shrink-0" />
+            <span>Image copied</span>
           </>
         ) : (
           <>
-            <ImageDown className="h-3.5 w-3.5" /> Copy image
+            <ImageDown className="h-4 w-4 shrink-0 text-[var(--text-accent)] group-hover:text-gold-500 transition-colors" />
+            <span>Copy image</span>
           </>
         )}
       </button>
 
       {copyState === "error" && errorMsg && (
-        <p className="font-mono text-[10px] text-[color:var(--color-error)]">
+        <p className="font-mono text-[10px] text-red-500 text-center mt-1">
           {errorMsg}
         </p>
       )}

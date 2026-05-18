@@ -1,9 +1,16 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { SubscribeForm } from "@/components/SubscribeForm";
 
 export function Footer() {
+  const pathname = usePathname();
+
+  if (pathname.startsWith("/alpha")) {
+    return null;
+  }
+
   return (
     <footer className="relative z-10 mt-16 border-t border-[var(--rule)] bg-[var(--surface)]">
       <div className="mx-auto grid max-w-[1320px] gap-8 px-6 py-10 md:grid-cols-[1fr_360px]">

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Bell, IdCard, Share2, Wallet } from "lucide-react";
+import { Bell, IdCard, Share2, Wallet } from "lucide-react";
 import { SignInWithX } from "@/components/SignInWithX";
 import { WaitlistProgress } from "@/components/WaitlistProgress";
 import { useWallet } from "@solana/wallet-adapter-react";
@@ -13,165 +13,146 @@ export function JoinClient() {
   const [modalOpen, setModalOpen] = useState(false);
 
   return (
-    <div className="fdn-page max-w-[1000px]">
+    <div className="fdn-page max-w-[680px] mx-auto px-4 sm:px-0">
       <div className="animate-fade-up overflow-hidden rounded-2xl border border-[var(--rule)] bg-[var(--surface)] shadow-2xl">
+        
         {/* Top Progress Tabs — Integrated into Card */}
         <div className="border-b border-[var(--rule)]/30 bg-[var(--surface-strong)]/20">
           <WaitlistProgress currentStep={1} />
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2">
-          {/* Left Side — Branding & Stats */}
-          <div className="relative flex flex-col justify-between p-8 sm:p-10">
-            {/* Logo/Back link — Fixed height header */}
-            <div className="h-8 flex items-center">
-              <div className="flex items-center gap-2">
-                <span className="font-mono text-[13px] font-bold tracking-[0.2em] text-[var(--fg)]">
-                  FOUNDATION<span className="text-gold-500">.</span>
-                </span>
+        {/* Combined Single-Section Content */}
+        <div className="p-8 sm:p-10 flex flex-col gap-8 justify-between">
+          
+          {/* Header & High-Impact Allowlist Pitch */}
+          <div className="text-center">
+            
+            {/* Clear Allowlist Headline */}
+            <h1 className="font-serif text-3xl font-light leading-tight text-[var(--fg)] sm:text-[40px] mb-4">
+              Join the Genesis Allowlist.
+            </h1>
+
+            {/* Standout Description Highlighting 20% Fee Sharing & Passes */}
+            <p className="text-[15px] sm:text-[16px] leading-relaxed text-[var(--text-accent)] font-light max-w-xl mx-auto">
+              Secure early access to FCYUSD, Solana's premier compute-backed asset. Claim your Genesis Pass and activate perpetual 20% USDC fee sharing.
+            </p>
+          </div>
+
+          {/* Joiner Perks Horizontal Row Layout — High-Value, Clean Icons */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {/* Perk 1 */}
+            <div className="flex flex-col items-center text-center p-4 rounded-xl border border-[var(--rule)]/40 bg-[var(--surface-strong)]/10 shadow-sm transition-all hover:border-[var(--rule)]/70 hover:bg-[var(--surface-strong)]/25">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-[var(--rule)]/60 bg-[var(--surface)] text-gold-500 mb-3 shadow-inner">
+                <IdCard className="h-5 w-5" />
               </div>
+              <h4 className="font-bold text-[12px] text-[var(--fg)] tracking-wide uppercase font-mono mb-1">
+                Genesis Pass
+              </h4>
+              <p className="text-[11px] text-[var(--text-accent)] font-light">
+                Numbered member pass
+              </p>
             </div>
 
-            {/* Main Headline — Align with right side top */}
-            <div className="mt-8 sm:mt-10">
-              <p className="mb-4 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-gold-500">
-                Foundation Alpha · Connect
-              </p>
-              <h1 className="mb-6 font-serif text-3xl font-light leading-tight text-[var(--fg)] sm:text-5xl">
-                The institutional standard for <br />
-                AI compute yield.
-              </h1>
-              <p className="max-w-md text-[14px] leading-relaxed text-[var(--text-accent)]">
-                A specialized fund allocating capital to top-tier compute lending
-                partners. Access professional-grade yield from the build-out of 
-                global AI infrastructure.
+            {/* Perk 2 */}
+            <div className="flex flex-col items-center text-center p-4 rounded-xl border border-[var(--rule)]/40 bg-[var(--surface-strong)]/10 shadow-sm transition-all hover:border-[var(--rule)]/70 hover:bg-[var(--surface-strong)]/25">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-[var(--rule)]/60 bg-[var(--surface)] text-gold-500 mb-3 shadow-inner">
+                <Share2 className="h-5 w-5" />
+              </div>
+              <h4 className="font-bold text-[12px] text-[var(--fg)] tracking-wide uppercase font-mono mb-1">
+                20% USDC Share
+              </h4>
+              <p className="text-[11px] text-[var(--text-accent)] font-light">
+                Perpetual fee sharing
               </p>
             </div>
 
-            {/* Bottom Stats — Pushed to bottom */}
-            <div className="mt-12 pt-8 border-t border-[var(--rule)]/30">
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <p className="font-mono text-[20px] font-bold text-gold-500">15.0%</p>
-                  <p className="font-mono text-[9px] uppercase tracking-wider text-[var(--text-accent)]">
-                    Target APY
-                  </p>
-                </div>
-                <div>
-                  <p className="font-mono text-[20px] font-bold text-[var(--fg)]">$1T+</p>
-                  <p className="font-mono text-[9px] uppercase tracking-wider text-[var(--text-accent)]">
-                    AI Capex Cycle
-                  </p>
-                </div>
-                <div>
-                  <p className="font-mono text-[20px] font-bold text-gold-500">20%</p>
-                  <p className="font-mono text-[9px] uppercase tracking-wider text-[var(--text-accent)]">
-                    You earn on referrals
-                  </p>
-                </div>
+            {/* Perk 3 */}
+            <div className="flex flex-col items-center text-center p-4 rounded-xl border border-[var(--rule)]/40 bg-[var(--surface-strong)]/10 shadow-sm transition-all hover:border-[var(--rule)]/70 hover:bg-[var(--surface-strong)]/25">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-[var(--rule)]/60 bg-[var(--surface)] text-gold-500 mb-3 shadow-inner">
+                <Bell className="h-5 w-5" />
               </div>
+              <h4 className="font-bold text-[12px] text-[var(--fg)] tracking-wide uppercase font-mono mb-1">
+                Early Access
+              </h4>
+              <p className="text-[11px] text-[var(--text-accent)] font-light">
+                First queue allocation
+              </p>
             </div>
           </div>
 
-          {/* Right Side — Features & Join */}
-          <div className="flex flex-col justify-start border-l border-[var(--rule)]/30 bg-[var(--surface-strong)]/30 p-8 sm:p-10 backdrop-blur-md">
-            {/* Spacer to match left-side logo height */}
-            <div className="h-8" />
-
-            <div className="mt-8 sm:mt-10">
-              <h2 className="mb-4 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-gold-500">
-                What you get when you join
-              </h2>
-
-              <div className="space-y-8">
-                <div className="flex items-start gap-4">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-[var(--rule)] bg-[var(--surface)] text-gold-500 shadow-sm">
-                    <IdCard className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <h4 className="font-bold text-[14px] text-[var(--fg)]">
-                      Genesis Member Pass
-                    </h4>
-                    <p className="mt-1 text-[14px] leading-relaxed text-[var(--text-accent)]">
-                      Exclusive numbered ID. Verified early-access to the first AI
-                      compute yield index on Solana.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-4">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-[var(--rule)] bg-[var(--surface)] text-gold-500 shadow-sm">
-                    <Share2 className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <h4 className="font-bold text-[14px] text-[var(--fg)]">
-                      20% Fee Share
-                    </h4>
-                    <p className="mt-1 text-[14px] leading-relaxed text-[var(--text-accent)]">
-                      Earn 20% of protocol fees in USDC for every friend you
-                      refer.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-4">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-[var(--rule)] bg-[var(--surface)] text-gold-500 shadow-sm">
-                    <Bell className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <h4 className="font-bold text-[14px] text-[var(--fg)]">
-                      Priority Allocation
-                    </h4>
-                    <p className="mt-1 text-[14px] leading-relaxed text-[var(--text-accent)]">
-                      Be first in line to deposit. Secure your spot in restricted
-                      early-access vaults.
-                    </p>
-                  </div>
+          {/* Wallet / X Connection Action Area */}
+          <div className="border-t border-[var(--rule)]/30 pt-6 max-w-md w-full mx-auto">
+            {!connected ? (
+              <div className="flex flex-col gap-3">
+                <button
+                  onClick={() => setModalOpen(true)}
+                  className="group flex w-full items-center justify-center gap-3 rounded-lg bg-gold-500 px-6 py-4 font-mono text-[13px] font-bold uppercase tracking-[0.2em] text-navy-900 shadow-xl shadow-gold-500/10 transition-all hover:bg-gold-400 hover:scale-[1.01] active:scale-[0.99]"
+                >
+                  <Wallet className="h-4 w-4" />
+                  <span>Join the Allowlist</span>
+                </button>
+                
+                {/* Developer Fast Pass Bypass */}
+                <div className="text-center">
+                  <Link
+                    href="/alpha/reveal?bypass=true"
+                    className="font-mono text-[10px] uppercase tracking-[0.15em] text-gold-500/80 hover:text-gold-400 no-underline transition-colors border-b border-gold-500/20 pb-0.5"
+                  >
+                    ⚡ Fast Pass (Demo Bypass)
+                  </Link>
                 </div>
               </div>
-            </div>
-
-            <div className="mt-auto pt-12">
-              <div className="pt-8 border-t border-[var(--rule)]/30">
-                {!connected && (
-                  <p className="mb-6 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-gold-500 text-center">
-                    Step 1 of 2 · Access the Alpha
-                  </p>
-                )}
-                {!connected ? (
-                  <button
-                    onClick={() => setModalOpen(true)}
-                    className="group flex w-full items-center justify-center gap-3 rounded-lg bg-gold-500 px-6 py-4 font-mono text-[13px] font-bold uppercase tracking-[0.2em] text-navy-900 shadow-xl shadow-gold-500/30 transition-all hover:bg-gold-400 hover:scale-[1.02] active:scale-[0.98]"
-                  >
-                    <Wallet className="h-5 w-5" />
-                    <span>Join the Alpha</span>
-                  </button>
-                ) : (
-                  <div className="animate-fade-up">
-                    <p className="mb-6 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-gold-500 text-center">
-                      Step 2 of 2 · Finalize Identity
-                    </p>
-                    <SignInWithX
-                      callbackURL="/alpha/reveal"
-                      label="Connect X to join"
-                      className="w-full"
-                    />
-                  </div>
-                )}
-                
-                <p className="mt-4 text-center font-mono text-[9px] uppercase tracking-widest text-[var(--text-accent)]">
-                  {connected 
-                    ? "🔒 Read-only"
-                    : "First step: Connect your Solana wallet"
-                  }
+            ) : (
+              <div className="animate-fade-up flex flex-col gap-3">
+                <SignInWithX
+                  callbackURL="/alpha/reveal"
+                  label="Verify Identity with X"
+                  className="w-full"
+                  linkClassName="group flex w-full items-center justify-center gap-3 rounded-lg bg-gold-500 px-6 py-4 font-mono text-[13px] font-bold uppercase tracking-[0.2em] text-navy-900 no-underline shadow-xl shadow-gold-500/10 transition-all hover:bg-gold-400 hover:scale-[1.01] active:scale-[0.99]"
+                />
+                <p className="text-center font-mono text-[10px] uppercase tracking-widest text-[var(--text-accent)] opacity-60">
+                  🔒 Read-only permission
                 </p>
 
-                <WalletModal open={modalOpen} onClose={() => setModalOpen(false)} />
+                {/* Developer Fast Pass Bypass */}
+                <div className="text-center">
+                  <Link
+                    href="/alpha/reveal?bypass=true"
+                    className="font-mono text-[10px] uppercase tracking-[0.15em] text-gold-500/80 hover:text-gold-400 no-underline transition-colors border-b border-gold-500/20 pb-0.5"
+                  >
+                    ⚡ Fast Pass (Demo Bypass)
+                  </Link>
+                </div>
               </div>
+            )}
+          </div>
+
+          {/* Bottom Stats Row — Centered horizontal footer block */}
+          <div className="grid grid-cols-3 gap-4 border-t border-[var(--rule)]/30 pt-6 text-center">
+            <div>
+              <p className="font-mono text-[20px] font-bold text-gold-500 sm:text-[24px]">12–18%</p>
+              <p className="mt-1 font-sans text-[11px] font-semibold uppercase tracking-wider text-[var(--text-accent)] leading-snug">
+                Target Yield
+              </p>
+            </div>
+            <div>
+              <p className="font-mono text-[20px] font-bold text-[var(--fg)] sm:text-[24px]">$1T+</p>
+              <p className="mt-1 font-sans text-[11px] font-semibold uppercase tracking-wider text-[var(--text-accent)] leading-snug">
+                AI Capex Cycle
+              </p>
+            </div>
+            <div>
+              <p className="font-mono text-[20px] font-bold text-gold-500 sm:text-[24px]">20%</p>
+              <p className="mt-1 font-sans text-[11px] font-semibold uppercase tracking-wider text-[var(--text-accent)] leading-snug">
+                USDC Fee Share
+              </p>
             </div>
           </div>
+
         </div>
       </div>
+      
+      <WalletModal open={modalOpen} onClose={() => setModalOpen(false)} />
     </div>
   );
 }

@@ -12,39 +12,101 @@ import { InviteKeyCopy } from "./InviteKeyCopy";
 
 export const dynamic = "force-dynamic";
 
-export default async function AlphaWelcomePage() {
-  const session = await auth.api.getSession({
+interface PageProps {
+  searchParams: Promise<{ bypass?: string }>;
+}
+
+export default async function AlphaWelcomePage({ searchParams }: PageProps) {
+  const resolvedSearchParams = await searchParams;
+  const isBypass = resolvedSearchParams.bypass === "true";
+
+  let session = await auth.api.getSession({
     headers: await headers(),
   });
 
+  if (!session && !isBypass) {
+    redirect("/alpha/join");
+  }
+
+  // If in bypass mode, generate a mock session
+  if (isBypass && !session) {
+    session = {
+      user: {
+        id: "mock-dev-id",
+        email: "dev@foundation.com",
+        emailVerified: true,
+        name: "Developer Admin",
+        image: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+      session: {
+        id: "mock-session-id",
+        userId: "mock-dev-id",
+        expiresAt: new Date(Date.now() + 86400 * 1000),
+        token: "mock-token",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        ipAddress: null,
+        userAgent: null,
+      }
+    };
+  }
+
+  // If session is still null (fail-safe), redirect
   if (!session) {
     redirect("/alpha/join");
   }
 
-  const profile = await getWaitlistProfileByUserId(session.user.id);
+  // Get waitlist profile (or mock if bypassing)
+  let profile;
+  if (isBypass) {
+    profile = {
+      id: "mock-profile-id",
+      userId: "mock-dev-id",
+      xHandle: "foundation_dev",
+      waitlistNumber: 420,
+      pfpUrl: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+  } else {
+    profile = await getWaitlistProfileByUserId(session.user.id);
+  }
 
   if (!profile) {
     redirect("/alpha/join");
   }
 
-  const [code] = await db
-    .select()
-    .from(referralCode)
-    .where(eq(referralCode.userId, session.user.id))
-    .limit(1);
+  // Get database code (or mock if bypassing)
+  let code = { code: "DEV-BYPASS-KEY-X12" };
+  if (!isBypass) {
+    const [dbCode] = await db
+      .select()
+      .from(referralCode)
+      .where(eq(referralCode.userId, session.user.id))
+      .limit(1);
+    if (dbCode) {
+      code = dbCode;
+    }
+  }
 
-  const referees = await db
-    .select()
-    .from(referral)
-    .where(eq(referral.referrerUserId, session.user.id));
+  // Get referee count (or mock if bypassing)
+  let refereeCount = 0;
+  if (!isBypass) {
+    const referees = await db
+      .select()
+      .from(referral)
+      .where(eq(referral.referrerUserId, session.user.id));
+    refereeCount = referees.length;
+  } else {
+    refereeCount = 3; // Mock 3 referrers to demonstrate rank calculation!
+  }
 
-  const refereeCount = referees.length;
-
-  const appUrl =
-    process.env.NEXT_PUBLIC_APP_URL || process.env.BETTER_AUTH_URL || "";
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.BETTER_AUTH_URL || "";
   const shareUrl = `${appUrl}/share/${encodeURIComponent(profile.xHandle)}`;
   const ogImage = `${appUrl}/api/og/waitlist?handle=${encodeURIComponent(
-    profile.xHandle,
+    profile.xHandle
   )}&number=${profile.waitlistNumber}${
     profile.pfpUrl ? `&pfp_url=${encodeURIComponent(profile.pfpUrl)}` : ""
   }`;
@@ -54,7 +116,7 @@ export default async function AlphaWelcomePage() {
   const potentialEarnings = (refereeCount * 250).toLocaleString();
 
   return (
-    <div className="fdn-page max-w-[1000px]">
+    <div className="fdn-page max-w-[1000px] mx-auto px-4 sm:px-0">
       <div className="animate-fade-up overflow-hidden rounded-2xl border border-[var(--rule)] bg-[var(--surface)] shadow-2xl">
         <div className="grid grid-cols-1 md:grid-cols-2">
           
@@ -65,11 +127,11 @@ export default async function AlphaWelcomePage() {
                 Foundation Alpha · Cabinet
               </p>
               <h1 className="mb-6 font-serif text-3xl font-light leading-tight text-[var(--fg)] sm:text-5xl">
-                Welcome, @{profile.xHandle}.
+                Welcome to the Cabinet, @{profile.xHandle}.
               </h1>
               <p className="max-w-md text-[14px] leading-relaxed text-[var(--text-accent)]">
-                You hold priority access to the first institutional AI compute fund. 
-                Your status is verified and accruing value.
+                You hold active priority allocation rights in the premier institutional compute fund. 
+                Your status is fully verified and accruing protocol value.
               </p>
             </div>
 
@@ -99,17 +161,17 @@ export default async function AlphaWelcomePage() {
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center justify-between gap-4">
-                      <h4 className="font-bold text-[14px] text-[var(--fg)]">20% Fee Share</h4>
+                      <h4 className="font-bold text-[14px] text-[var(--fg)]">USDC Fee Share</h4>
                       <Link 
                         href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}`}
                         target="_blank"
-                        className="rounded border border-gold-500/30 bg-gold-500/5 px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-wide text-gold-500 transition-colors hover:bg-gold-500/10"
+                        className="rounded border border-gold-500/30 bg-gold-500/5 px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-wide text-gold-500 transition-colors hover:bg-gold-500/10 no-underline"
                       >
                         Invite
                       </Link>
                     </div>
                     <p className="mt-1 text-[13px] leading-relaxed text-[var(--text-accent)]">
-                      Earn protocol fees in USDC for every friend referred.
+                      Earn 20% of protocol fees in USDC for all referred capital allocators.
                     </p>
                   </div>
                 </div>
@@ -121,11 +183,11 @@ export default async function AlphaWelcomePage() {
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center justify-between gap-4">
-                      <h4 className="font-bold text-[14px] text-[var(--fg)]">Priority Allocation</h4>
+                      <h4 className="font-bold text-[14px] text-[var(--fg)]">Priority Access</h4>
                       <span className="rounded border border-gold-500/30 bg-gold-500/5 px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-wide text-gold-500">#{rank}</span>
                     </div>
                     <p className="mt-1 text-[13px] leading-relaxed text-[var(--text-accent)]">
-                      First in line to deposit when restricted-access vaults open.
+                      First in line to secure priority access to FCYUSD, the yield-bearing compute-backed asset.
                     </p>
                   </div>
                 </div>
@@ -146,7 +208,7 @@ export default async function AlphaWelcomePage() {
 
             {/* 2. Membership Card */}
             <div className="mb-8">
-              <div className="relative aspect-[19/12] overflow-hidden rounded-lg border border-[var(--rule)]">
+              <div className="relative aspect-[19/12] overflow-hidden rounded-lg border border-[var(--rule)] shadow-xl bg-[var(--surface)]">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={ogImage}
@@ -159,29 +221,46 @@ export default async function AlphaWelcomePage() {
             {/* 3. Metrics */}
             <div className="mt-auto">
               <h2 className="mb-4 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-gold-500">
-                Alpha Metrics
+                Performance Dashboard
               </h2>
 
-              <div className="grid grid-cols-3 gap-4 border-t border-[var(--rule)]/30 pt-5 mb-6">
-                <div>
-                  <p className="font-mono text-[18px] font-bold text-[var(--fg)]">{refereeCount}</p>
-                  <p className="mt-1 font-mono text-[9px] uppercase tracking-wider text-[var(--text-accent)]">Invited</p>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="rounded-lg border border-[var(--rule)] bg-[var(--surface)] p-4 text-center">
+                  <p className="font-mono text-[10px] uppercase tracking-wider text-[var(--text-accent)]">
+                    Rank
+                  </p>
+                  <p className="mt-2 font-mono text-[18px] font-bold tracking-tight text-[var(--fg)] sm:text-[22px]">
+                    #{rank}
+                  </p>
                 </div>
-                <div>
-                  <p className="font-mono text-[18px] font-bold text-[var(--fg)]">${potentialEarnings}</p>
-                  <p className="mt-1 font-mono text-[9px] uppercase tracking-wider text-[var(--text-accent)]">Ref Earned</p>
+
+                <div className="rounded-lg border border-[var(--rule)] bg-[var(--surface)] p-4 text-center">
+                  <p className="font-mono text-[10px] uppercase tracking-wider text-[var(--text-accent)]">
+                    Referred
+                  </p>
+                  <p className="mt-2 font-mono text-[18px] font-bold tracking-tight text-gold-500 sm:text-[22px]">
+                    {refereeCount}
+                  </p>
                 </div>
-                <div>
-                  <p className="font-mono text-[18px] font-bold text-[var(--fg)]">#{rank}</p>
-                  <p className="mt-1 font-mono text-[9px] uppercase tracking-wider text-[var(--text-accent)]">Position</p>
+
+                <div className="rounded-lg border border-[var(--rule)] bg-[var(--surface)] p-4 text-center">
+                  <p className="font-mono text-[10px] uppercase tracking-wider text-[var(--text-accent)]">
+                    Fee Earnings
+                  </p>
+                  <div className="mt-2 flex items-baseline justify-center gap-0.5">
+                    <span className="font-mono text-[18px] font-bold tracking-tight text-[var(--fg)] sm:text-[22px]">
+                      ${potentialEarnings}
+                    </span>
+                    <span className="font-mono text-[9px] font-semibold text-[var(--text-accent)] uppercase">
+                      USDC
+                    </span>
+                  </div>
                 </div>
               </div>
-
-              <WelcomeActions
-                shareUrl={shareUrl}
-                tweetText={tweetText}
-                ogImageUrl={ogImage}
-              />
+              
+              <p className="mt-4 font-mono text-[9px] leading-relaxed text-[var(--text-accent)] text-center">
+                Fee earnings represent accrued revenue awaiting final network distribution sync.
+              </p>
             </div>
 
           </div>

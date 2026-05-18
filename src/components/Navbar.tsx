@@ -74,28 +74,32 @@ export function Navbar() {
           </Link>
 
           {/* Desktop Nav */}
-          <nav className="fnd-header__nav flex flex-1 items-center gap-0.5">
-            {NAV_TABS.map((tab) => {
-              const isActive =
-                (tab.key === "alpha" && (pathname === "/" || pathname.startsWith("/alpha"))) ||
-                (tab.key === "portfolio" && pathname === "/portfolio") ||
-                (tab.key === "invest" && (pathname.startsWith("/invest") || pathname.startsWith("/strategy"))) ||
-                (tab.key === "compute" && pathname.startsWith("/compute")) ||
-                (tab.key === "transparency" && pathname === "/transparency");
-              return (
-                <Link
-                  key={tab.key}
-                  href={tab.path}
-                  className={`fdn-header__nav-link flex items-center gap-2 text-[13px] font-medium ${
-                    isActive ? "fdn-header__nav-link--active" : ""
-                  }`}
-                >
-                  <tab.Icon className="fdn-header__nav-icon" />
-                  <span>{tab.label}</span>
-                </Link>
-              );
-            })}
-          </nav>
+          {pathname.startsWith("/alpha") ? (
+            <div className="flex-1" />
+          ) : (
+            <nav className="fnd-header__nav flex flex-1 items-center gap-0.5">
+              {NAV_TABS.map((tab) => {
+                const isActive =
+                  (tab.key === "alpha" && (pathname === "/" || pathname.startsWith("/alpha"))) ||
+                  (tab.key === "portfolio" && pathname === "/portfolio") ||
+                  (tab.key === "invest" && (pathname.startsWith("/invest") || pathname.startsWith("/strategy"))) ||
+                  (tab.key === "compute" && pathname.startsWith("/compute")) ||
+                  (tab.key === "transparency" && pathname === "/transparency");
+                return (
+                  <Link
+                    key={tab.key}
+                    href={tab.path}
+                    className={`fdn-header__nav-link flex items-center gap-2 text-[13px] font-medium ${
+                      isActive ? "fdn-header__nav-link--active" : ""
+                    }`}
+                  >
+                    <tab.Icon className="fdn-header__nav-icon" />
+                    <span>{tab.label}</span>
+                  </Link>
+                );
+              })}
+            </nav>
+          )}
 
           {/* Right Actions */}
           <div className="fnd-header__actions flex items-center gap-2 shrink-0">
@@ -111,15 +115,17 @@ export function Navbar() {
             )}
 
             {/* Hamburger */}
-            <button
-              className="fdn-header__hamburger shrink-0"
-              onClick={() => setMobileOpen((v) => !v)}
-              aria-label="Toggle menu"
-            >
-              <span className={`block h-0.5 w-4 bg-[var(--hamburger)] transition-all duration-300 ${mobileOpen ? "translate-y-2 rotate-45" : ""}`} />
-              <span className={`block h-0.5 w-4 bg-[var(--hamburger)] transition-all duration-300 ${mobileOpen ? "opacity-0" : ""}`} />
-              <span className={`block h-0.5 w-4 bg-[var(--hamburger)] transition-all duration-300 ${mobileOpen ? "-translate-y-2 -rotate-45" : ""}`} />
-            </button>
+            {!pathname.startsWith("/alpha") && (
+              <button
+                className="fdn-header__hamburger shrink-0"
+                onClick={() => setMobileOpen((v) => !v)}
+                aria-label="Toggle menu"
+              >
+                <span className={`block h-0.5 w-4 bg-[var(--hamburger)] transition-all duration-300 ${mobileOpen ? "translate-y-2 rotate-45" : ""}`} />
+                <span className={`block h-0.5 w-4 bg-[var(--hamburger)] transition-all duration-300 ${mobileOpen ? "opacity-0" : ""}`} />
+                <span className={`block h-0.5 w-4 bg-[var(--hamburger)] transition-all duration-300 ${mobileOpen ? "-translate-y-2 -rotate-45" : ""}`} />
+              </button>
+            )}
           </div>
         </div>
       </header>
