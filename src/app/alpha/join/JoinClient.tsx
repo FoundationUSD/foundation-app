@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { Bell, IdCard, Share2, Wallet } from "lucide-react";
 import { SignInWithX } from "@/components/SignInWithX";
 import { WaitlistProgress } from "@/components/WaitlistProgress";
@@ -91,16 +90,6 @@ export function JoinClient() {
                   <Wallet className="h-4 w-4" />
                   <span>Join the Allowlist</span>
                 </button>
-                
-                {/* Developer Fast Pass Bypass */}
-                <div className="text-center">
-                  <Link
-                    href="/alpha/reveal?bypass=true"
-                    className="font-mono text-[10px] uppercase tracking-[0.15em] text-gold-500/80 hover:text-gold-400 no-underline transition-colors border-b border-gold-500/20 pb-0.5"
-                  >
-                    ⚡ Fast Pass (Demo Bypass)
-                  </Link>
-                </div>
               </div>
             ) : (
               <div className="animate-fade-up flex flex-col gap-3">
@@ -113,16 +102,6 @@ export function JoinClient() {
                 <p className="text-center font-mono text-[10px] uppercase tracking-widest text-[var(--text-accent)] opacity-60">
                   🔒 Read-only permission
                 </p>
-
-                {/* Developer Fast Pass Bypass */}
-                <div className="text-center">
-                  <Link
-                    href="/alpha/reveal?bypass=true"
-                    className="font-mono text-[10px] uppercase tracking-[0.15em] text-gold-500/80 hover:text-gold-400 no-underline transition-colors border-b border-gold-500/20 pb-0.5"
-                  >
-                    ⚡ Fast Pass (Demo Bypass)
-                  </Link>
-                </div>
               </div>
             )}
           </div>
