@@ -17,6 +17,13 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const callbackURL = url.searchParams.get("callbackURL") || "/alpha/welcome";
+  // Referral capture: visitors of /share/<handle> get the referrer's code in
+  // ?ref=. We stash it in an httpOnly cookie so it survives the X OAuth round
+  // trip, then read it in databaseHooks.user.create.after to link the new user.
+  const rawRef = url.searchParams.get("ref") ?? "";
+  const refCookie = /^[A-Z0-9]{6,12}$/.test(rawRef.toUpperCase())
+    ? rawRef.toUpperCase()
+    : null;
 
   try {
     const response = await auth.api.signInSocial({
@@ -56,6 +63,12 @@ export async function GET(request: Request) {
       // full split list — guards against runtimes that join them with comma.
       out.headers.delete("set-cookie");
       for (const c of multi) out.headers.append("set-cookie", c);
+    }
+    if (refCookie) {
+      out.headers.append(
+        "set-cookie",
+        `fdn_ref=${refCookie}; Path=/; Max-Age=${60 * 60 * 24 * 30}; HttpOnly; Secure; SameSite=Lax`,
+      );
     }
     return out;
   } catch (e) {

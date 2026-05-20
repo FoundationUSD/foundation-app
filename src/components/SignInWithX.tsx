@@ -15,14 +15,20 @@ interface Props {
   callbackURL?: string;
   className?: string;
   label?: string;
+  /** Referrer's referral code, forwarded to the start endpoint so it can drop
+   *  a `fdn_ref` cookie that survives the X OAuth round-trip. */
+  referralCode?: string | null;
 }
 
 export function SignInWithX({
   callbackURL = "/alpha/reveal",
   className = "",
   label = "Sign in with X",
+  referralCode,
 }: Props) {
-  const href = `/api/auth/x/start?callbackURL=${encodeURIComponent(callbackURL)}`;
+  const params = new URLSearchParams({ callbackURL });
+  if (referralCode) params.set("ref", referralCode);
+  const href = `/api/auth/x/start?${params.toString()}`;
 
   return (
     <div className={className}>

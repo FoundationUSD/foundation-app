@@ -4,13 +4,17 @@
  * Sets the OG meta tags so a tweet linking here renders the user's banner
  * as a large image card.
  *
- * Referral attribution: deferred. Next.js disallows cookies().set() inside
- * server components, so the previous in-page cookie write would 500. When
- * we wire linkReferral(), do it via middleware or a Route Handler instead.
+ * Referral attribution: the page resolves the handle's referral code and
+ * forwards it to SignInWithX, which appends `?ref=` to /api/auth/x/start.
+ * That endpoint sets an httpOnly `fdn_ref` cookie that survives the X
+ * OAuth round-trip and is consumed in databaseHooks.user.create.after.
  */
 
 import type { Metadata } from "next";
 import Link from "next/link";
+import { eq } from "drizzle-orm";
+import { db } from "@/lib/db";
+import { referralCode } from "../../../../drizzle/schema";
 import { getWaitlistProfileByHandle } from "@/lib/waitlist/profile";
 import { SignInWithX } from "@/components/SignInWithX";
 
@@ -75,6 +79,18 @@ export default async function SharePage({ params }: Params) {
     ? buildOgImage(profile.xHandle, profile.pfpUrl, profile.waitlistNumber)
     : null;
 
+  // Referrer's code — empty if the handle has no waitlist profile or hasn't
+  // been issued a code yet (every signup gets one via user.create.after).
+  const referrerCode = profile
+    ? (
+        await db
+          .select({ code: referralCode.code })
+          .from(referralCode)
+          .where(eq(referralCode.userId, profile.userId))
+          .limit(1)
+      )[0]?.code ?? null
+    : null;
+
   return (
     <div className="fdn-page max-w-[920px]">
       <div className="mb-4">
@@ -126,7 +142,11 @@ export default async function SharePage({ params }: Params) {
               FCY opens.
             </p>
             <div className="mt-3">
-              <SignInWithX callbackURL="/alpha/welcome" label="Sign in with X" />
+              <SignInWithX
+                callbackURL="/alpha/welcome"
+                label="Sign in with X"
+                referralCode={referrerCode}
+              />
             </div>
           </div>
 

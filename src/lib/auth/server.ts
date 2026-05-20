@@ -19,7 +19,8 @@ import { emailOTP } from "better-auth/plugins";
 import { Resend } from "resend";
 import { db } from "@/lib/db";
 import * as schema from "../../../drizzle/schema";
-import { generateReferralCode } from "@/lib/referrals";
+import { cookies as nextCookies, headers as nextRequestHeaders } from "next/headers";
+import { generateReferralCode, linkReferral } from "@/lib/referrals";
 import { upsertWaitlistProfileForUser } from "@/lib/waitlist/profile";
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
@@ -219,6 +220,28 @@ export const auth = betterAuth({
             await upsertWaitlistProfileForUser(createdUser.id);
           } catch (e) {
             console.error("[auth] waitlist profile upsert failed for", createdUser.id, e);
+          }
+          // Attribute the referral if they arrived from /share/<handle>. The
+          // `fdn_ref` cookie was dropped by /api/auth/x/start and survives the
+          // X OAuth round-trip via SameSite=Lax. linkReferral is idempotent
+          // and silently no-ops on self/already-linked.
+          try {
+            const cookieStore = await nextCookies();
+            const ref = cookieStore.get("fdn_ref")?.value;
+            if (ref) {
+              const reqHeaders = await nextRequestHeaders();
+              await linkReferral({
+                refereeUserId: createdUser.id,
+                code: ref,
+                ip:
+                  reqHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+                  reqHeaders.get("x-real-ip") ??
+                  null,
+                userAgent: reqHeaders.get("user-agent"),
+              });
+            }
+          } catch (e) {
+            console.error("[auth] linkReferral failed for", createdUser.id, e);
           }
         },
       },
