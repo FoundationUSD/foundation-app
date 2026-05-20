@@ -149,6 +149,7 @@ export default function SecurityPage() {
           </div>
           <p className="text-[12px] text-[var(--muted)]">
             Scope: <code className="font-mono">fdnusd.com</code>,{" "}
+            <code className="font-mono">beta.fdnusd.com</code>,{" "}
             <code className="font-mono">demo.fdnusd.com</code>,{" "}
             <code className="font-mono">app.fdnusd.com</code>, and Foundation&apos;s on-chain
             programs on Solana mainnet.
