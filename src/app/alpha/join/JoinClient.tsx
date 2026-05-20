@@ -35,7 +35,7 @@ export function JoinClient() {
             {/* Main Headline — Align with right side top */}
             <div className="mt-8 sm:mt-10">
               <p className="mb-4 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-gold-500">
-                Foundation Alpha · Connect
+                Foundation · Waitlist Access
               </p>
               <h1 className="mb-6 font-serif text-3xl font-light leading-tight text-[var(--fg)] sm:text-5xl">
                 The institutional standard for <br />
@@ -135,7 +135,7 @@ export function JoinClient() {
               <div className="pt-8 border-t border-[var(--rule)]/30">
                 {!connected && (
                   <p className="mb-6 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-gold-500 text-center">
-                    Step 1 of 2 · Access the Alpha
+                    Step 1 of 2 · Join the Waitlist
                   </p>
                 )}
                 {!connected ? (
@@ -144,7 +144,7 @@ export function JoinClient() {
                     className="group flex w-full items-center justify-center gap-3 rounded-lg bg-gold-500 px-6 py-4 font-mono text-[13px] font-bold uppercase tracking-[0.2em] text-navy-900 shadow-xl shadow-gold-500/30 transition-all hover:bg-gold-400 hover:scale-[1.02] active:scale-[0.98]"
                   >
                     <Wallet className="h-5 w-5" />
-                    <span>Join the Alpha</span>
+                    <span>Join the Waitlist</span>
                   </button>
                 ) : (
                   <div className="animate-fade-up">

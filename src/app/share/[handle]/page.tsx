@@ -44,13 +44,13 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const profile = await getWaitlistProfileByHandle(handle);
   if (!profile) {
     return {
-      title: "Foundation Alpha",
+      title: "Foundation",
       description: "The compute yield index. The financing layer for the AI super-cycle.",
     };
   }
   const url = `${appUrl()}/share/${encodeURIComponent(profile.xHandle)}`;
   const ogImage = buildOgImage(profile.xHandle, profile.pfpUrl, profile.waitlistNumber);
-  const title = `${profile.displayName || "@" + profile.xHandle} is on the Foundation Alpha waitlist`;
+  const title = `${profile.displayName || "@" + profile.xHandle} is on the Foundation waitlist`;
   const description =
     "The compute yield index. The financing layer for the AI super-cycle.";
   return {
@@ -95,7 +95,7 @@ export default async function SharePage({ params }: Params) {
     <div className="fdn-page max-w-[920px]">
       <div className="mb-4">
         <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-gold-500">
-          Foundation Alpha · Waitlist
+          Foundation · Waitlist
         </p>
         <h1 className="page-heading mt-1 text-2xl sm:text-[2rem]">
           {profile ? (
