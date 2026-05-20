@@ -11,8 +11,8 @@
  * email input is shown here.
  */
 
-import { useState } from "react";
-import { Check, Copy, ImageDown } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ArrowUpRight, Check, Copy, ImageDown, MessageCircle } from "lucide-react";
 
 interface Props {
   shareUrl: string;
@@ -22,9 +22,31 @@ interface Props {
   variant?: "default" | "primary";
 }
 
+const LAUNCH_POST_URL = "https://x.com/fdn_labs/status/2056302426391470470";
+const LAUNCH_REPLY_INTENT =
+  "https://twitter.com/intent/tweet?in_reply_to=2056302426391470470";
+const SHARED_KEY = "fdn:alpha:shared-to-x";
+
 export function WelcomeActions({ shareUrl, tweetText, ogImageUrl, variant = "default" }: Props) {
   const [copyState, setCopyState] = useState<"idle" | "copying" | "done" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [hasShared, setHasShared] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      if (window.localStorage.getItem(SHARED_KEY) === "1") {
+        setHasShared(true);
+      }
+    } catch {}
+  }, []);
+
+  function markShared() {
+    setHasShared(true);
+    try {
+      window.localStorage.setItem(SHARED_KEY, "1");
+    } catch {}
+  }
 
   const intentUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(
     tweetText,
@@ -73,6 +95,7 @@ export function WelcomeActions({ shareUrl, tweetText, ogImageUrl, variant = "def
         href={intentUrl}
         target="_blank"
         rel="noopener noreferrer"
+        onClick={markShared}
         className={`inline-flex w-full items-center justify-center gap-2 rounded-lg font-mono text-[11px] font-medium uppercase tracking-[0.08em] transition-all ${
           variant === "primary"
             ? "bg-gold-500 px-6 py-4 text-navy-900 hover:bg-gold-400 shadow-lg shadow-gold-500/20"
@@ -80,7 +103,7 @@ export function WelcomeActions({ shareUrl, tweetText, ogImageUrl, variant = "def
         }`}
       >
         <XLogo className="h-3.5 w-3.5" />
-        Post to X
+        {hasShared ? "Post again" : "Post to X"}
       </a>
 
       <button
@@ -110,6 +133,43 @@ export function WelcomeActions({ shareUrl, tweetText, ogImageUrl, variant = "def
         <p className="font-mono text-[10px] text-[color:var(--color-error)]">
           {errorMsg}
         </p>
+      )}
+
+      {hasShared && (
+        <div className="animate-fade-up mt-4 rounded-lg border border-gold-500/25 bg-gold-500/[0.04] p-4">
+          <div className="mb-2 flex items-center gap-2">
+            <span className="rounded border border-gold-500/30 bg-gold-500/10 px-1.5 py-0.5 font-mono text-[8px] font-bold uppercase tracking-wider text-gold-500">
+              +1 boost
+            </span>
+            <p className="font-mono text-[10px] uppercase tracking-[0.08em] text-gold-500">
+              One more, 10 seconds
+            </p>
+          </div>
+          <p className="mb-3 text-[12px] leading-relaxed text-[var(--text-accent)]">
+            Reply to our launch post — we move repliers up the queue when
+            allocations open.
+          </p>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <a
+              href={LAUNCH_REPLY_INTENT}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex flex-1 items-center justify-center gap-2 rounded-md border border-gold-500/40 bg-gold-500/10 px-3 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.08em] text-gold-500 transition-colors hover:bg-gold-500/15"
+            >
+              <MessageCircle className="h-3 w-3" />
+              Reply to launch
+            </a>
+            <a
+              href={LAUNCH_POST_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center gap-1 rounded-md border border-[var(--rule)] px-3 py-2 font-mono text-[10px] uppercase tracking-[0.08em] text-[var(--text-accent)] transition-colors hover:text-[var(--fg)]"
+            >
+              View post
+              <ArrowUpRight className="h-3 w-3" />
+            </a>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -48,7 +48,7 @@ export default async function AlphaWelcomePage() {
   )}&number=${profile.waitlistNumber}${
     profile.pfpUrl ? `&pfp_url=${encodeURIComponent(profile.pfpUrl)}` : ""
   }`;
-  const tweetText = `Just joined the @fdnusd compute yield waitlist. The specialized fund for AI infrastructure — professional-grade yield on Solana. Join: ${shareUrl}`;
+  const tweetText = `Just joined the @fdn_labs compute yield waitlist. The specialized fund for AI infrastructure with professional-grade yield on Solana. Join: ${shareUrl}`;
 
   const rank = Math.max(1, profile.waitlistNumber - (refereeCount * 50));
   const potentialEarnings = (refereeCount * 250).toLocaleString();

@@ -80,6 +80,7 @@ programs/target/idl/
 programs/target/types/
 # fly
 fly.toml
+fly.*.toml
 
 #todo
 TODO.md
