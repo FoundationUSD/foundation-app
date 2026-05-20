@@ -147,7 +147,14 @@ export const auth = betterAuth({
               }
 
               const username = profile.username ?? profile.id;
-              const name = profile.name ?? username;
+              // Store the @handle (NOT display name) as user.name. waitlist
+              // profile derives xHandle from xProfile.username, but on the
+              // retry path (post-signup self-heal) falls back to u.name when
+              // X's /2/users/me is flaky — so u.name needs to be the handle,
+              // not the display name. Otherwise users like @vita_fi (display
+              // "Vita") get assigned xHandle="vita". Display name lives in
+              // waitlist_profile.display_name, sourced from xProfile.name.
+              const name = username;
               const image = (profile.profile_image_url ?? "").replace(
                 /_normal(?=\.\w+$)/,
                 "",
