@@ -1,7 +1,7 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { ArrowUpRight, Trophy, Key, IdCard, Share2, Bell, Users, Zap } from "lucide-react";
+import { Trophy, Key, IdCard, Share2, Bell, Users, Zap } from "lucide-react";
 import { eq } from "drizzle-orm";
 import { auth } from "@/lib/auth/server";
 import { db } from "@/lib/db";
@@ -142,37 +142,37 @@ export default async function AlphaWelcomePage() {
                     </p>
                   </div>
                 </div>
+
+                {/* Perk 4 — Beta channel. Sits as a peer to the other perks
+                    so it inherits the same alignment / icon-box rhythm. */}
+                <div className="flex items-start gap-4">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-[var(--rule)] bg-[var(--surface-strong)]/30 text-gold-500">
+                    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor" aria-hidden="true">
+                      <path d="M9.78 18.65l.28-4.23 7.68-6.92c.34-.31-.07-.46-.52-.19L7.74 13.3 3.64 12c-.88-.25-.89-.86.2-1.3l15.97-6.16c.73-.33 1.43.18 1.15 1.3l-2.72 12.81c-.19.91-.74 1.13-1.5.71L12.6 16.3l-1.99 1.93c-.23.23-.42.42-.83.42z" />
+                    </svg>
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between gap-4">
+                      <h4 className="font-bold text-[14px] text-[var(--fg)]">Beta Channel</h4>
+                      <Link
+                        href="https://t.me/fdnusd"
+                        target="_blank"
+                        className="rounded border border-gold-500/30 bg-gold-500/5 px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-wide text-gold-500 transition-colors hover:bg-gold-500/10"
+                      >
+                        Join
+                      </Link>
+                    </div>
+                    <p className="mt-1 text-[13px] leading-relaxed text-[var(--text-accent)]">
+                      Beta invites and allocation windows drop in Telegram first.
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
 
           {/* Right Column — Dashboard */}
           <div className="flex flex-col border-l border-[var(--rule)]/30 bg-[var(--surface-strong)]/20 p-8 sm:p-12 lg:p-14">
-
-            {/* 0. Beta channel — pinned to the very top so post-signup users
-                see it before anything else. Beta drops, invite codes, and
-                allocation windows are announced in Telegram first. */}
-            <a
-              href="https://t.me/fdnusd"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="group mb-8 flex items-center gap-3 rounded-lg border border-[var(--rule)] bg-[var(--surface-strong)]/40 p-3 transition-colors hover:border-[var(--rule)]/80 hover:bg-[var(--surface-strong)]/70"
-            >
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-[var(--surface)] text-[var(--text-accent)]">
-                <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden="true">
-                  <path d="M9.78 18.65l.28-4.23 7.68-6.92c.34-.31-.07-.46-.52-.19L7.74 13.3 3.64 12c-.88-.25-.89-.86.2-1.3l15.97-6.16c.73-.33 1.43.18 1.15 1.3l-2.72 12.81c-.19.91-.74 1.13-1.5.71L12.6 16.3l-1.99 1.93c-.23.23-.42.42-.83.42z" />
-                </svg>
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--text-accent)]">
-                  Beta channel
-                </p>
-                <p className="mt-0.5 text-[13px] leading-snug text-[var(--fg)]">
-                  Beta invites drop in Telegram first.
-                </p>
-              </div>
-              <ArrowUpRight className="h-4 w-4 shrink-0 text-[var(--text-accent)]" />
-            </a>
 
             {/* 1. Invite Key */}
             <div className="mb-8">
