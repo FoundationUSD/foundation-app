@@ -156,30 +156,22 @@ export default async function AlphaWelcomePage() {
               href="https://t.me/fdnusd"
               target="_blank"
               rel="noopener noreferrer"
-              className="group mb-8 block overflow-hidden rounded-lg border border-[#2AABEE]/40 bg-gradient-to-br from-[#2AABEE]/[0.08] to-[#229ED9]/[0.02] p-4 transition-colors hover:border-[#2AABEE]/70 hover:from-[#2AABEE]/[0.12]"
+              className="group mb-8 flex items-center gap-3 rounded-lg border border-[var(--rule)] bg-[var(--surface-strong)]/40 p-3 transition-colors hover:border-[var(--rule)]/80 hover:bg-[var(--surface-strong)]/70"
             >
-              <div className="flex items-center gap-3">
-                <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#2AABEE]/15 text-[#2AABEE]">
-                  <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor" aria-hidden="true">
-                    <path d="M9.78 18.65l.28-4.23 7.68-6.92c.34-.31-.07-.46-.52-.19L7.74 13.3 3.64 12c-.88-.25-.89-.86.2-1.3l15.97-6.16c.73-.33 1.43.18 1.15 1.3l-2.72 12.81c-.19.91-.74 1.13-1.5.71L12.6 16.3l-1.99 1.93c-.23.23-.42.42-.83.42z" />
-                  </svg>
-                  <span className="absolute -right-0.5 -top-0.5 flex h-2.5 w-2.5">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#2AABEE] opacity-75" />
-                    <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-[#2AABEE]" />
-                  </span>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <p className="font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-[#2AABEE]">
-                      Beta channel · Live
-                    </p>
-                  </div>
-                  <p className="mt-0.5 text-[13px] font-medium leading-snug text-[var(--fg)]">
-                    Beta invites drop here first. Join the Telegram.
-                  </p>
-                </div>
-                <ArrowUpRight className="h-4 w-4 shrink-0 text-[#2AABEE] transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-[var(--surface)] text-[var(--text-accent)]">
+                <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden="true">
+                  <path d="M9.78 18.65l.28-4.23 7.68-6.92c.34-.31-.07-.46-.52-.19L7.74 13.3 3.64 12c-.88-.25-.89-.86.2-1.3l15.97-6.16c.73-.33 1.43.18 1.15 1.3l-2.72 12.81c-.19.91-.74 1.13-1.5.71L12.6 16.3l-1.99 1.93c-.23.23-.42.42-.83.42z" />
+                </svg>
               </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--text-accent)]">
+                  Beta channel
+                </p>
+                <p className="mt-0.5 text-[13px] leading-snug text-[var(--fg)]">
+                  Beta invites drop in Telegram first.
+                </p>
+              </div>
+              <ArrowUpRight className="h-4 w-4 shrink-0 text-[var(--text-accent)]" />
             </a>
 
             {/* 1. Invite Key */}
