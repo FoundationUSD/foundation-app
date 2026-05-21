@@ -1,7 +1,7 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Trophy, Key, IdCard, Share2, Bell, Users, Zap } from "lucide-react";
+import { ArrowUpRight, Trophy, Key, IdCard, Share2, Bell, Users, Zap } from "lucide-react";
 import { eq } from "drizzle-orm";
 import { auth } from "@/lib/auth/server";
 import { db } from "@/lib/db";
@@ -143,10 +143,14 @@ export default async function AlphaWelcomePage() {
                   </div>
                 </div>
 
-                {/* Perk 4 — Beta channel. Sits as a peer to the other perks
-                    so it inherits the same alignment / icon-box rhythm. */}
-                <div className="flex items-start gap-4">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-[var(--rule)] bg-[var(--surface-strong)]/30 text-gold-500">
+                {/* Perk 4 — Beta channel. Entire row is the click target so
+                    users don't have to aim at a small pill. */}
+                <Link
+                  href="https://t.me/fdnusd"
+                  target="_blank"
+                  className="group -mx-3 -my-2 flex items-start gap-4 rounded-lg px-3 py-2 transition-colors hover:bg-[var(--surface-strong)]/40"
+                >
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-[var(--rule)] bg-[var(--surface-strong)]/30 text-gold-500 transition-colors group-hover:border-gold-500/40">
                     <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor" aria-hidden="true">
                       <path d="M9.78 18.65l.28-4.23 7.68-6.92c.34-.31-.07-.46-.52-.19L7.74 13.3 3.64 12c-.88-.25-.89-.86.2-1.3l15.97-6.16c.73-.33 1.43.18 1.15 1.3l-2.72 12.81c-.19.91-.74 1.13-1.5.71L12.6 16.3l-1.99 1.93c-.23.23-.42.42-.83.42z" />
                     </svg>
@@ -154,19 +158,16 @@ export default async function AlphaWelcomePage() {
                   <div className="flex-1">
                     <div className="flex items-center justify-between gap-4">
                       <h4 className="font-bold text-[14px] text-[var(--fg)]">Beta Channel</h4>
-                      <Link
-                        href="https://t.me/fdnusd"
-                        target="_blank"
-                        className="rounded border border-gold-500/30 bg-gold-500/5 px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-wide text-gold-500 transition-colors hover:bg-gold-500/10"
-                      >
-                        Join
-                      </Link>
+                      <span className="inline-flex items-center gap-1 rounded border border-gold-500/30 bg-gold-500/5 px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-wide text-gold-500 transition-colors group-hover:bg-gold-500/15">
+                        Join Telegram
+                        <ArrowUpRight className="h-3 w-3" />
+                      </span>
                     </div>
                     <p className="mt-1 text-[13px] leading-relaxed text-[var(--text-accent)]">
                       Beta invites and allocation windows drop in Telegram first.
                     </p>
                   </div>
-                </div>
+                </Link>
               </div>
             </div>
           </div>
