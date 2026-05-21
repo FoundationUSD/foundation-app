@@ -5,10 +5,11 @@ import { ArrowUpRight, Trophy, Key, IdCard, Share2, Bell, Users, Zap } from "luc
 import { eq } from "drizzle-orm";
 import { auth } from "@/lib/auth/server";
 import { db } from "@/lib/db";
-import { referral, referralCode } from "../../../../drizzle/schema";
+import { referral, referralCode, waitlistProfile } from "../../../../drizzle/schema";
 import { getWaitlistProfileByUserId } from "@/lib/waitlist/profile";
 import { WelcomeActions } from "./WelcomeActions";
 import { InviteKeyCopy } from "./InviteKeyCopy";
+import { ReferralCodeInput } from "@/components/ReferralCodeInput";
 
 export const dynamic = "force-dynamic";
 
@@ -39,6 +40,18 @@ export default async function AlphaWelcomePage() {
     .where(eq(referral.referrerUserId, session.user.id));
 
   const refereeCount = referees.length;
+
+  // Who referred this user, if anyone? Drives the "Invited by" badge vs.
+  // the "Got a referral code?" input on the welcome page.
+  const [incomingReferral] = await db
+    .select({
+      referrerHandle: waitlistProfile.xHandle,
+      codeUsed: referral.codeUsed,
+    })
+    .from(referral)
+    .leftJoin(waitlistProfile, eq(waitlistProfile.userId, referral.referrerUserId))
+    .where(eq(referral.refereeUserId, session.user.id))
+    .limit(1);
 
   const appUrl =
     process.env.NEXT_PUBLIC_APP_URL || process.env.BETTER_AUTH_URL || "";
@@ -142,6 +155,22 @@ export default async function AlphaWelcomePage() {
                 Invite Access
               </h2>
               <InviteKeyCopy code={code?.code || ""} />
+
+              {/* Inbound referral state: badge if linked, input if not. */}
+              <div className="mt-3">
+                {incomingReferral ? (
+                  <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-[var(--text-accent)]">
+                    Invited by{" "}
+                    <span className="text-gold-500">
+                      @{incomingReferral.referrerHandle ?? "—"}
+                    </span>
+                    {" · "}
+                    <span className="text-[var(--fg)]">{incomingReferral.codeUsed}</span>
+                  </p>
+                ) : (
+                  <ReferralCodeInput variant="link" />
+                )}
+              </div>
             </div>
 
             {/* 2. Membership Card */}

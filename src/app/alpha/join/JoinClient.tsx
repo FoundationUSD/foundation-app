@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowLeft, Bell, IdCard, Share2, Wallet } from "lucide-react";
 import { SignInWithX } from "@/components/SignInWithX";
 import { WaitlistProgress } from "@/components/WaitlistProgress";
+import { ReferralCodeInput } from "@/components/ReferralCodeInput";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { WalletModal } from "@/components/WalletModal";
 
@@ -160,11 +161,15 @@ export function JoinClient() {
                 )}
                 
                 <p className="mt-4 text-center font-mono text-[9px] uppercase tracking-widest text-[var(--text-accent)]">
-                  {connected 
+                  {connected
                     ? "🔒 Read-only"
                     : "First step: Connect your Solana wallet"
                   }
                 </p>
+
+                <div className="mt-5 flex justify-center">
+                  <ReferralCodeInput variant="capture" />
+                </div>
 
                 <WalletModal open={modalOpen} onClose={() => setModalOpen(false)} />
               </div>

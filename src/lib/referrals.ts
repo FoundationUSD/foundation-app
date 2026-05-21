@@ -12,7 +12,7 @@
  */
 
 import crypto from "crypto";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { referral, referralCode, user } from "../../drizzle/schema";
 
@@ -115,6 +115,13 @@ export async function linkReferral(params: {
     signupIp: params.ip ?? null,
     signupUserAgent: params.userAgent ?? null,
   });
+
+  // Bump the public-facing counter so dashboards don't have to COUNT(*) the
+  // referral table on every render. Race-safe via SQL increment.
+  await db
+    .update(referralCode)
+    .set({ uses: sql`${referralCode.uses} + 1` })
+    .where(eq(referralCode.code, code));
 
   return { ok: true, referrerUserId };
 }

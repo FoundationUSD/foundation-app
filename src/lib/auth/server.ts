@@ -246,6 +246,10 @@ export const auth = betterAuth({
                   null,
                 userAgent: reqHeaders.get("user-agent"),
               });
+              // Burn the cookie regardless of outcome — keeping it around risks
+              // mis-attributing a later signup on the same browser to whoever
+              // dropped the original /share/<handle> visit.
+              cookieStore.delete("fdn_ref");
             }
           } catch (e) {
             console.error("[auth] linkReferral failed for", createdUser.id, e);
