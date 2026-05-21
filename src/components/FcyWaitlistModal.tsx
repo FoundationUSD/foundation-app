@@ -391,6 +391,34 @@ export function FcyWaitlistModal({ open, onClose, initialReferralCode }: Props) 
               </button>
             </div>
 
+            {/* Telegram is the primary action post-signup — beta invites and
+                allocation windows are announced there first. Pinned above
+                Share/AWY so it's the obvious next click. */}
+            <a
+              href="https://t.me/fdnusd"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group mb-2 flex items-center gap-3 rounded-md border border-[#2AABEE]/40 bg-gradient-to-br from-[#2AABEE]/[0.10] to-[#229ED9]/[0.02] px-3 py-2.5 transition-colors hover:border-[#2AABEE]/70 hover:from-[#2AABEE]/[0.15]"
+            >
+              <div className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-[#2AABEE]/15 text-[#2AABEE]">
+                <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden="true">
+                  <path d="M9.78 18.65l.28-4.23 7.68-6.92c.34-.31-.07-.46-.52-.19L7.74 13.3 3.64 12c-.88-.25-.89-.86.2-1.3l15.97-6.16c.73-.33 1.43.18 1.15 1.3l-2.72 12.81c-.19.91-.74 1.13-1.5.71L12.6 16.3l-1.99 1.93c-.23.23-.42.42-.83.42z" />
+                </svg>
+                <span className="absolute -right-0.5 -top-0.5 flex h-2 w-2">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#2AABEE] opacity-75" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-[#2AABEE]" />
+                </span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-mono text-[9px] font-bold uppercase tracking-[0.15em] text-[#2AABEE]">
+                  Next step
+                </p>
+                <p className="text-[12px] font-medium leading-tight text-[var(--fg)]">
+                  Join Telegram — beta invites land here first
+                </p>
+              </div>
+            </a>
+
             <div className="flex gap-2">
               <a
                 href={twitterUrl}
