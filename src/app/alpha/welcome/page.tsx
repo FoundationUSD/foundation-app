@@ -143,32 +143,30 @@ export default async function AlphaWelcomePage() {
                   </div>
                 </div>
 
-                {/* Perk 4 — Beta channel. Entire row is the click target so
-                    users don't have to aim at a small pill. */}
-                <Link
-                  href="https://t.me/fdnusd"
-                  target="_blank"
-                  className="group -mx-3 -my-2 flex items-start gap-4 rounded-lg px-3 py-2 transition-colors hover:bg-[var(--surface-strong)]/40"
-                >
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-[var(--rule)] bg-[var(--surface-strong)]/30 text-gold-500 transition-colors group-hover:border-gold-500/40">
-                    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor" aria-hidden="true">
-                      <path d="M9.78 18.65l.28-4.23 7.68-6.92c.34-.31-.07-.46-.52-.19L7.74 13.3 3.64 12c-.88-.25-.89-.86.2-1.3l15.97-6.16c.73-.33 1.43.18 1.15 1.3l-2.72 12.81c-.19.91-.74 1.13-1.5.71L12.6 16.3l-1.99 1.93c-.23.23-.42.42-.83.42z" />
-                    </svg>
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between gap-4">
-                      <h4 className="font-bold text-[14px] text-[var(--fg)]">Beta Channel</h4>
-                      <span className="inline-flex items-center gap-1 rounded border border-gold-500/30 bg-gold-500/5 px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-wide text-gold-500 transition-colors group-hover:bg-gold-500/15">
-                        Join Telegram
-                        <ArrowUpRight className="h-3 w-3" />
-                      </span>
-                    </div>
-                    <p className="mt-1 text-[13px] leading-relaxed text-[var(--text-accent)]">
-                      Beta invites and allocation windows drop in Telegram first.
-                    </p>
-                  </div>
-                </Link>
               </div>
+            </div>
+
+            {/* Beta channel CTA — anchored to the bottom of the left column so
+                it mirrors the "Post to X" button on the right. mt-auto pushes
+                it down so it lands at the same baseline regardless of perk
+                content. Gold ghost button (border, not fill) so it doesn't
+                compete with the gold-filled "Post to X" — peer CTAs, one per
+                column. */}
+            <div className="mt-auto pt-10">
+              <p className="mb-3 font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--text-accent)]">
+                Beta access drops in Telegram first
+              </p>
+              <Link
+                href="https://t.me/fdnusd"
+                target="_blank"
+                className="group inline-flex w-full items-center justify-center gap-2 rounded-lg border border-gold-500/40 bg-gold-500/5 px-4 py-3 font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-gold-500 transition-colors hover:border-gold-500/70 hover:bg-gold-500/10"
+              >
+                <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="currentColor" aria-hidden="true">
+                  <path d="M9.78 18.65l.28-4.23 7.68-6.92c.34-.31-.07-.46-.52-.19L7.74 13.3 3.64 12c-.88-.25-.89-.86.2-1.3l15.97-6.16c.73-.33 1.43.18 1.15 1.3l-2.72 12.81c-.19.91-.74 1.13-1.5.71L12.6 16.3l-1.99 1.93c-.23.23-.42.42-.83.42z" />
+                </svg>
+                Join Beta Channel
+                <ArrowUpRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+              </Link>
             </div>
           </div>
 
